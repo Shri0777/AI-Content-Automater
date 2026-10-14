@@ -1,0 +1,36 @@
+{% extends 'content/base.html' %}
+
+{% block title %}My Content - AI Content Automater{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2>My Content</h2>
+
+        {% if contents %}
+            <ul class="content-list">
+                {% for content in contents %}
+                    <li class="content-item">
+                        <h3><a href="{% url 'content:detail' content.pk %}">{{ content.title }}</a></h3>
+                        <div class="content-meta">
+                            <span class="badge badge-{{ content.lifecycle_state }}">{{ content.get_lifecycle_state_display }}</span>
+                            {% if content.topic %}
+                                | Topic: {{ content.topic }}
+                            {% endif %}
+                            | Created: {{ content.created_at|date:"M d, Y" }}
+                            | Updated: {{ content.updated_at|date:"M d, Y" }}
+                        </div>
+                        {% if content.description %}
+                            <p style="color: #666; font-size: 14px;">{{ content.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <div style="margin-top: 10px;">
+                            <a href="{% url 'content:detail' content.pk %}" class="btn" style="font-size: 12px; padding: 6px 12px;">View</a>
+                            <a href="{% url 'content:edit' content.pk %}" class="btn-secondary btn" style="font-size: 12px; padding: 6px 12px;">Edit</a>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color: #666;">You haven't created any content yet. <a href="{% url 'content:create' %}">Create your first content</a>.</p>
+        {% endif %}
+    </div>
+{% endblock %}

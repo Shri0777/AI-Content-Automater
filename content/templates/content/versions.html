@@ -1,0 +1,44 @@
+{% extends "content/base.html" %}
+
+{% block title %}Version History - {{ content.title }}{% endblock %}
+
+{% block content %}
+<h1>Version History</h1>
+<h2>{{ content.title }}</h2>
+
+<div class="content-info">
+    <p><strong>Owner:</strong> {{ content.owner.email }}</p>
+    <p><strong>Current State:</strong> {{ content.get_lifecycle_state_display }}</p>
+    <p><strong>Current Version:</strong> v{{ content.current_version.version_number }}</p>
+</div>
+
+<div class="versions-list">
+    <h3>All Versions</h3>
+    {% if versions %}
+        <ul>
+        {% for version in versions %}
+            <li>
+                <strong>Version {{ version.version_number }}</strong>
+                {% if version == content.current_version %}(Current){% endif %}
+                <br>
+                <em>Created by {{ version.created_by.email }} on {{ version.created_at|date:"Y-m-d H:i" }}</em>
+                {% if version.change_summary %}
+                    <br>
+                    <span class="change-summary">{{ version.change_summary }}</span>
+                {% endif %}
+                {% if version.is_approved %}
+                    <span class="badge">Approved</span>
+                {% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No versions found.</p>
+    {% endif %}
+</div>
+
+<div class="actions">
+    <a href="{% url 'content:detail' content.pk %}">Back to Content</a>
+    <a href="{% url 'content:list' %}">Back to List</a>
+</div>
+{% endblock %}

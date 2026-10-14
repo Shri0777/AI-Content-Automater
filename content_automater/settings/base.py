@@ -1,0 +1,146 @@
+"""Base Django settings for the AI Content Automater project."""
+
+import os
+from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+if not os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".production"):
+    load_dotenv(BASE_DIR / ".env")
+
+
+def get_env(name: str, default: str | None = None, *, required: bool = False) -> str:
+    """Read an environment value and fail clearly when a required value is empty."""
+    value = os.environ.get(name, default)
+    if required and not value:
+        raise ImproperlyConfigured(f"Missing required environment variable: {name}")
+    return value or ""
+
+
+def get_bool_env(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def get_list_env(name: str, default: str = "") -> list[str]:
+    raw_value = os.environ.get(name, default)
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
+SECRET_KEY = get_env("SECRET_KEY", required=True)
+DEBUG = get_bool_env("DEBUG", default=False)
+ALLOWED_HOSTS = get_list_env("ALLOWED_HOSTS")
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    # Project apps
+    "users",
+    "content",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "content_automater.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "content_automater.wsgi.application"
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": get_env("DB_NAME", "ai_content_automater_dev"),
+        "USER": get_env("DB_USER", "postgres"),
+        "PASSWORD": get_env("DB_PASSWORD", ""),
+        "HOST": get_env("DB_HOST", "localhost"),
+        "PORT": get_env("DB_PORT", "5432"),
+    }
+}
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = "static/"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Authentication settings
+LOGIN_URL = "/auth/login/"
+LOGIN_REDIRECT_URL = "/"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

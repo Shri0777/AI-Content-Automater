@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Django
+*.log
+db.sqlite3
+staticfiles/
+/static/
+/media/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Tooling and local files
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~

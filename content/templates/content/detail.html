@@ -1,0 +1,47 @@
+{% extends "content/base.html" %}
+
+{% block title %}{{ content.title }}{% endblock %}
+
+{% block content %}
+<h1>{{ content.title }}</h1>
+
+<div class="content-metadata">
+    <p><strong>Owner:</strong> {{ content.owner.email }}</p>
+    <p><strong>Topic:</strong> {{ content.topic|default:"Not specified" }}</p>
+    <p><strong>Lifecycle State:</strong> {{ content.get_lifecycle_state_display }}</p>
+    <p><strong>Created:</strong> {{ content.created_at|date:"Y-m-d H:i" }}</p>
+    <p><strong>Last Updated:</strong> {{ content.updated_at|date:"Y-m-d H:i" }}</p>
+</div>
+
+{% if content.description %}
+<div class="content-description">
+    <h3>Description</h3>
+    <p>{{ content.description }}</p>
+</div>
+{% endif %}
+
+{% if current_version %}
+<div class="current-version">
+    <h3>Current Version (v{{ current_version.version_number }})</h3>
+    <p><em>Created by {{ current_version.created_by.email }} on {{ current_version.created_at|date:"Y-m-d H:i" }}</em></p>
+    {% if current_version.change_summary %}
+        <p><strong>Change Summary:</strong> {{ current_version.change_summary }}</p>
+    {% endif %}
+    {% if current_version.content_text %}
+        <div class="content-text">
+            {{ current_version.content_text|linebreaks }}
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="actions">
+    <a href="{% url 'content:edit' content.pk %}">Edit</a>
+    <a href="{% url 'content:versions' content.pk %}">View Version History</a>
+    <form method="post" action="{% url 'content:delete' content.pk %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" onclick="return confirm('Are you sure you want to delete this content?');">Delete</button>
+    </form>
+    <a href="{% url 'content:list' %}">Back to List</a>
+</div>
+{% endblock %}

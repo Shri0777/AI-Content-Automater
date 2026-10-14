@@ -1,0 +1,40 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Log In - AI Content Automater{% endblock %}
+
+{% block content %}
+    <h2>Log In</h2>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email"
+                   id="email"
+                   name="email"
+                   class="form-control"
+                   placeholder="Email address"
+                   value="{{ request.POST.email|default:'' }}"
+                   required
+                   autofocus>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password"
+                   id="password"
+                   name="password"
+                   class="form-control"
+                   placeholder="Password"
+                   required>
+        </div>
+
+        <button type="submit" class="btn btn-block">Log In</button>
+    </form>
+
+    <div class="link-group">
+        <a href="{% url 'users:password_reset' %}">Forgot password?</a><br>
+        Don't have an account? <a href="{% url 'users:register' %}">Register</a>
+    </div>
+{% endblock %}

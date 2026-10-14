@@ -1,0 +1,37 @@
+{% extends "content/base.html" %}
+
+{% block title %}Edit - {{ content.title }}{% endblock %}
+
+{% block content %}
+<h1>Edit Content</h1>
+
+<form method="post">
+    {% csrf_token %}
+
+    <h2>Content Metadata</h2>
+    {{ content_form.as_p }}
+
+    <h2>Create New Version (Optional)</h2>
+    <p>
+        <label>
+            <input type="checkbox" name="create_version" value="true" id="create-version-toggle">
+            Create a new version with changes
+        </label>
+    </p>
+
+    <div id="version-fields" style="display: none;">
+        {{ version_form.as_p }}
+    </div>
+
+    <div class="form-actions">
+        <button type="submit">Save Changes</button>
+        <a href="{% url 'content:detail' content.pk %}">Cancel</a>
+    </div>
+</form>
+
+<script>
+document.getElementById('create-version-toggle').addEventListener('change', function() {
+    document.getElementById('version-fields').style.display = this.checked ? 'block' : 'none';
+});
+</script>
+{% endblock %}
