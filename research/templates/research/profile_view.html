@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Research Profile{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header-actions">
+        <h1>Your Research Profile</h1>
+        <a href="{% url 'research:profile_edit' %}" class="btn btn-primary">Edit Profile</a>
+    </div>
+
+    <div class="profile-info">
+        <div class="info-section">
+            <h2>Research Topics</h2>
+            <p>{{ topics_display }}</p>
+        </div>
+
+        <div class="info-section">
+            <h2>Target Audience</h2>
+            <p>{{ profile.audience }}</p>
+        </div>
+
+        <div class="info-section">
+            <h2>Content Goal</h2>
+            <p>{{ profile.content_goal }}</p>
+        </div>
+
+        <div class="info-section">
+            <h2>Freshness Preference</h2>
+            <p>
+                Prefer content from last {{ profile.freshness_days }} days
+                {% if profile.allow_older_sources %}
+                <br><small>(Older sources allowed for context)</small>
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="info-section">
+            <h2>Language</h2>
+            <p>{{ profile.language|upper }}</p>
+        </div>
+
+        <div class="info-section">
+            <h2>Source Categories</h2>
+            <p>{{ source_categories_display }}</p>
+        </div>
+
+        <div class="info-section">
+            <p class="help-text">
+                These are your saved defaults. You can override any setting when creating a specific research request.
+            </p>
+        </div>
+    </div>
+
+    <div class="actions">
+        <a href="{% url 'research:request_new' %}" class="btn btn-success">Create Research Request</a>
+        <a href="{% url 'research:request_list' %}" class="btn btn-secondary">View Past Requests</a>
+    </div>
+</div>
+
+<style>
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+.header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 15px;
+}
+
+.profile-info {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+}
+
+.info-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.info-section:last-child {
+    border-bottom: none;
+}
+
+.info-section h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.info-section p {
+    font-size: 16px;
+    color: #333;
+    margin: 0;
+}
+
+.help-text {
+    font-size: 14px;
+    color: #666;
+    font-style: italic;
+}
+
+.actions {
+    display: flex;
+    gap: 15px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,27 @@
+<div class="card-actions" id="actions-{{ research.pk }}">
+    <form method="post" action="{% url 'research:research_select' research.pk %}" 
+          hx-post="{% url 'research:research_select' research.pk %}" 
+          hx-target="#actions-{{ research.pk }}" 
+          hx-swap="outerHTML">
+        {% csrf_token %}
+        {% if research.is_selected %}
+        <button type="submit" name="action" value="toggle" class="btn btn-sm btn-selected">
+            ✓ Selected
+        </button>
+        {% elif research.is_excluded %}
+        <button type="submit" name="action" value="toggle" class="btn btn-sm btn-excluded">
+            ✗ Excluded
+        </button>
+        {% else %}
+        <button type="submit" name="action" value="select" class="btn btn-sm btn-secondary">
+            Select
+        </button>
+        {% endif %}
+        
+        {% if not research.is_excluded %}
+        <button type="submit" name="action" value="exclude" class="btn btn-sm btn-exclude">
+            Exclude
+        </button>
+        {% endif %}
+    </form>
+</div>

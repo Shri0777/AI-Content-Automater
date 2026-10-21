@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Research Profile{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Edit Research Profile</h1>
+    <p class="subtitle">These are your saved defaults for all future research requests.</p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="topics">Research Topics *</label>
+            <input type="text" id="topics" name="topics" value="{{ topics_str }}" required>
+            <small>Comma-separated keywords (e.g., AI, software development, cloud, DevOps)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="audience">Target Audience *</label>
+            <input type="text" id="audience" name="audience" value="{{ profile.audience }}" required>
+            <small>Who is this content for?</small>
+        </div>
+
+        <div class="form-group">
+            <label for="content_goal">Content Goal *</label>
+            <input type="text" id="content_goal" name="content_goal" value="{{ profile.content_goal }}" required>
+            <small>Purpose of generated content (e.g., educational and informative)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="freshness_days">Freshness Window (Days) *</label>
+            <input type="number" id="freshness_days" name="freshness_days" value="{{ profile.freshness_days }}" min="1" required>
+            <small>Prefer content from the last N days</small>
+        </div>
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="allow_older_sources" {% if profile.allow_older_sources %}checked{% endif %}>
+                Allow older sources for context and background
+            </label>
+        </div>
+
+        <div class="form-group">
+            <label for="language">Language</label>
+            <select id="language" name="language">
+                <option value="en" {% if profile.language == 'en' %}selected{% endif %}>English</option>
+                <option value="es" {% if profile.language == 'es' %}selected{% endif %}>Spanish</option>
+                <option value="fr" {% if profile.language == 'fr' %}selected{% endif %}>French</option>
+                <option value="de" {% if profile.language == 'de' %}selected{% endif %}>German</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Source Categories</label>
+            <div class="checkbox-group">
+                {% for value, label in available_categories %}
+                <label>
+                    <input type="checkbox" name="source_categories" value="{{ value }}"
+                           {% if value in profile.source_categories %}checked{% endif %}>
+                    {{ label }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Profile</button>
+            <a href="{% url 'research:profile_view' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.container {
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+h1 {
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+    font-size: 13px;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.btn {
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: 500;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+}
+</style>
+{% endblock %}

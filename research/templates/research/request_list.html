@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Research Requests{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>Research Requests</h1>
+        <a href="{% url 'research:request_new' %}" class="btn btn-primary">New Request</a>
+    </div>
+
+    {% if requests %}
+    <div class="requests-list">
+        {% for req in requests %}
+        <div class="request-card">
+            <div class="card-header">
+                <h3>
+                    <a href="{% url 'research:request_detail' req.pk %}">
+                        Request #{{ req.pk }}
+                    </a>
+                </h3>
+                <span class="status-badge status-{{ req.status }}">{{ req.get_status_display }}</span>
+            </div>
+            <div class="card-body">
+                <div class="request-info">
+                    <div class="info-item">
+                        <strong>Topics:</strong> {{ req.topics|join:", " }}
+                    </div>
+                    {% if req.specific_query %}
+                    <div class="info-item">
+                        <strong>Query:</strong> "{{ req.specific_query }}"
+                    </div>
+                    {% endif %}
+                    <div class="info-item">
+                        <strong>Created:</strong> {{ req.created_at|date:"M d, Y H:i" }}
+                    </div>
+                    {% if req.completed_at %}
+                    <div class="info-item">
+                        <strong>Completed:</strong> {{ req.completed_at|date:"M d, Y H:i" }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No research requests yet.</p>
+        <a href="{% url 'research:request_new' %}" class="btn btn-primary">Create Your First Request</a>
+    </div>
+    {% endif %}
+
+    <div class="footer-actions">
+        <a href="{% url 'research:profile_view' %}" class="btn btn-secondary">View Profile</a>
+    </div>
+</div>
+
+<style>
+.container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 15px;
+}
+
+.requests-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.request-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.card-header h3 a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.card-header h3 a:hover {
+    text-decoration: underline;
+}
+
+.status-badge {
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.status-configuring { background: #ffc107; color: #000; }
+.status-researching { background: #17a2b8; color: white; }
+.status-completed { background: #28a745; color: white; }
+.status-failed { background: #dc3545; color: white; }
+
+.request-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.info-item {
+    font-size: 14px;
+    color: #333;
+}
+
+.info-item strong {
+    color: #666;
+}
+
+.empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+
+.empty-state p {
+    margin-bottom: 20px;
+    color: #666;
+}
+
+.footer-actions {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.btn {
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: 500;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-block;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+}
+</style>
+{% endblock %}

@@ -21,3 +21,18 @@ DATABASES["default"].update(  # noqa: F405
         "PORT": get_env("DB_PORT", required=True),
     }
 )
+
+
+# Provider credentials must remain decryptable across process restarts.
+CREDENTIAL_ENCRYPTION_KEY = get_env('CREDENTIAL_ENCRYPTION_KEY') or get_env('FIELD_ENCRYPTION_KEY')
+if not CREDENTIAL_ENCRYPTION_KEY:
+    raise ImproperlyConfigured(
+        'CREDENTIAL_ENCRYPTION_KEY (or FIELD_ENCRYPTION_KEY) must be set in production.'
+    )
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'same-origin'
+SECURE_SSL_REDIRECT = get_env('SECURE_SSL_REDIRECT', 'true').lower() in {'1', 'true', 'yes', 'on'}

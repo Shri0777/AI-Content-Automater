@@ -28,4 +28,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('auth/', include('users.urls')),
     path('content/', include('content.urls')),
+    path('research/', include('research.urls')),
+    path('ai/', include('ai_providers.urls')),
 ]

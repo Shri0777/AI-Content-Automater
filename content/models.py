@@ -13,6 +13,7 @@ class Content(models.Model):
         ('in_progress', 'In Progress'),
         ('pending_review', 'Pending Review'),
         ('approved', 'Approved'),
+        ('ready_to_publish', 'Ready to Publish'),
         ('published', 'Published'),
         ('archived', 'Archived'),
     ]
@@ -65,8 +66,9 @@ class Content(models.Model):
         valid_transitions = {
             'draft': ['in_progress'],
             'in_progress': ['pending_review', 'draft'],
-            'pending_review': ['approved', 'draft'],
-            'approved': ['published'],
+            'pending_review': ['approved', 'draft', 'in_progress'],
+            'approved': ['ready_to_publish', 'published', 'in_progress', 'draft'],
+            'ready_to_publish': ['published', 'approved', 'in_progress'],
             'published': ['archived'],
             'archived': [],  # Terminal state
         }
@@ -83,6 +85,46 @@ class Content(models.Model):
             )
         self.lifecycle_state = new_state
         self.save(update_fields=['lifecycle_state', 'updated_at'])
+
+    def get_status_info(self):
+        """
+        Return comprehensive status information for API responses and UI.
+
+        TASK-048: Enhanced status information including:
+        - Current lifecycle state
+        - Version counts
+        - Available transitions
+        - Timestamps
+        """
+        versions = self.versions.all()
+
+        return {
+            'lifecycle_state': self.lifecycle_state,
+            'lifecycle_state_display': self.get_lifecycle_state_display(),
+            'current_version_number': self.current_version.version_number if self.current_version else None,
+            'version_count': versions.count(),
+            'last_state_change_at': self.updated_at,
+            'available_transitions': self._get_available_transitions(),
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+        }
+
+    def _get_available_transitions(self):
+        """
+        Return list of valid next states from current state.
+
+        Used by get_status_info() to show available transitions in UI.
+        """
+        valid_transitions = {
+            'draft': ['in_progress'],
+            'in_progress': ['pending_review', 'draft'],
+            'pending_review': ['approved', 'draft', 'in_progress'],
+            'approved': ['ready_to_publish', 'published', 'in_progress', 'draft'],
+            'ready_to_publish': ['published', 'approved', 'in_progress'],
+            'published': ['archived'],
+            'archived': [],  # Terminal state
+        }
+        return valid_transitions.get(self.lifecycle_state, [])
 
 
 class ContentVersion(models.Model):
@@ -125,7 +167,7 @@ class ContentVersion(models.Model):
         return f"{self.content.title} v{self.version_number}"
 
     @classmethod
-    def create_initial_version(cls, content, created_by, content_text=''):
+    def create_initial_version(cls, content, created_by, content_text='', change_summary=''):
         """
         Create the first version for a new content item.
         """
@@ -133,7 +175,8 @@ class ContentVersion(models.Model):
             content=content,
             version_number=1,
             content_text=content_text,
-            created_by=created_by
+            created_by=created_by,
+            change_summary=change_summary
         )
 
     @classmethod
@@ -151,3 +194,280 @@ class ContentVersion(models.Model):
             created_by=created_by,
             change_summary=change_summary
         )
+
+
+class ContentReview(models.Model):
+    """
+    Automated AI Quality Review record for a specific ContentVersion.
+
+    Implements mandatory two-stage review (FR-007, FR-009, BR-002) and tracks
+    relevance, evidence traceability, factual consistency, clarity, and actionable findings.
+    """
+    STAGE_CHOICES = [
+        (1, 'Stage 1: Initial Quality Review'),
+        (2, 'Stage 2: Post-Correction Review'),
+    ]
+    STATUS_CHOICES = [
+        ('passed', 'Passed'),
+        ('needs_revision', 'Needs Revision'),
+        ('failed', 'Failed'),
+    ]
+
+    content_version = models.ForeignKey(
+        ContentVersion,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+        db_index=True
+    )
+    stage = models.PositiveSmallIntegerField(
+        choices=STAGE_CHOICES,
+        default=1,
+        help_text='Review stage (1=initial, 2=post-correction)'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='needs_revision',
+        db_index=True
+    )
+    score = models.FloatField(
+        default=0.0,
+        help_text='Overall quality score (0.0 to 1.0)'
+    )
+
+    # Rating dimensions
+    relevance_rating = models.CharField(max_length=50, default='Medium')
+    evidence_support_rating = models.CharField(max_length=50, default='Medium')
+    factual_consistency_rating = models.CharField(max_length=50, default='Medium')
+    clarity_rating = models.CharField(max_length=50, default='Medium')
+
+    # Structured findings
+    findings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of actionable review findings'
+    )
+    unsupported_claims = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of assertions lacking source evidence'
+    )
+    summary = models.TextField(
+        help_text='Executive summary of the review findings'
+    )
+
+    # Provider metadata
+    reviewed_by_provider = models.CharField(max_length=100, default='ai')
+    model_name = models.CharField(max_length=200, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'content_review'
+        ordering = ['content_version', 'stage', '-created_at']
+        indexes = [
+            models.Index(fields=['content_version', 'stage']),
+        ]
+
+    def __str__(self):
+        return f"{self.content_version} - Stage {self.stage} ({self.status})"
+
+
+class PublishingPreparation(models.Model):
+    """
+    Prepares approved and validated content versions for publication to target platforms (Phase 5).
+    Enforces final validation gates, platform character constraints, and attribution formatting.
+    """
+    STATUS_CHOICES = [
+        ('prepared', 'Prepared'),
+        ('invalidated', 'Invalidated'),
+        ('failed', 'Validation Failed'),
+    ]
+
+    content = models.ForeignKey(
+        Content,
+        on_delete=models.CASCADE,
+        related_name='publishing_preparations',
+        db_index=True
+    )
+    content_version = models.ForeignKey(
+        ContentVersion,
+        on_delete=models.CASCADE,
+        related_name='publishing_preparations',
+        db_index=True
+    )
+    prepared_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='prepared_publications'
+    )
+    prepared_at = models.DateTimeField(auto_now_add=True)
+    target_platforms = models.JSONField(
+        default=list,
+        help_text="Target platform identifiers (e.g. ['twitter', 'linkedin', 'generic'])"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='prepared',
+        db_index=True
+    )
+    prepared_payload = models.JSONField(
+        default=dict,
+        help_text="Platform-specific formatted text, metadata, and character counts"
+    )
+    validation_results = models.JSONField(
+        default=dict,
+        help_text="Results of final validation checks"
+    )
+    invalidation_reason = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Reason why this preparation was invalidated"
+    )
+
+    class Meta:
+        db_table = 'content_publishing_preparation'
+        ordering = ['-prepared_at']
+        verbose_name = 'Publishing Preparation'
+        verbose_name_plural = 'Publishing Preparations'
+
+    def __str__(self):
+        return f"Preparation for {self.content.title} v{self.content_version.version_number} ({self.status})"
+
+
+class WorkflowAuditLog(models.Model):
+    """
+    Immutable audit trail of security-sensitive and workflow-significant events (FR-021).
+    Tracks transitions, actor, timestamps, and actionable failure/success details.
+    """
+    content = models.ForeignKey(
+        Content,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        db_index=True
+    )
+    content_version = models.ForeignKey(
+        ContentVersion,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='workflow_actions'
+    )
+    event_type = models.CharField(
+        max_length=50,
+        db_index=True,
+        help_text="Event classification (e.g. state_transition, approval, validation_failed, publishing_prepared)"
+    )
+    from_state = models.CharField(max_length=50, null=True, blank=True)
+    to_state = models.CharField(max_length=50, null=True, blank=True)
+    message = models.TextField(help_text="Descriptive summary of the event")
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'workflow_audit_log'
+        ordering = ['-created_at']
+        verbose_name = 'Workflow Audit Log'
+        verbose_name_plural = 'Workflow Audit Logs'
+
+    def __str__(self):
+        actor = self.user.email if self.user else 'System'
+        return f"[{self.created_at:%Y-%m-%d %H:%M}] {self.event_type} by {actor}"
+
+
+class ContentPublication(models.Model):
+    """
+    Durable record of scheduling and publishing operations through Buffer (Phase 6).
+    Enforces idempotency, gate validation, explicit statuses, and auditability.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('publishing', 'Publishing'),
+        ('scheduled', 'Scheduled'),
+        ('published', 'Published'),
+        ('failed', 'Failed'),
+        ('ambiguous', 'Outcome Unknown / Reconciliation Required'),
+        ('cancelled', 'Cancelled'),
+    ]
+    MODE_CHOICES = [
+        ('immediate', 'Immediate Publication'),
+        ('scheduled', 'Scheduled Publication'),
+    ]
+
+    content = models.ForeignKey(
+        Content,
+        on_delete=models.CASCADE,
+        related_name='publications',
+        db_index=True
+    )
+    content_version = models.ForeignKey(
+        ContentVersion,
+        on_delete=models.CASCADE,
+        related_name='publications',
+        db_index=True
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='publications'
+    )
+    provider = models.CharField(max_length=50, default='buffer')
+    profile_id = models.CharField(max_length=100, db_index=True, help_text="Buffer social channel / profile ID")
+    profile_service = models.CharField(max_length=50, null=True, blank=True, help_text="Social service (e.g. twitter, linkedin)")
+    profile_name = models.CharField(max_length=150, null=True, blank=True, help_text="Formatted username / handle")
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default='pending',
+        db_index=True
+    )
+    mode = models.CharField(
+        max_length=20,
+        choices=MODE_CHOICES,
+        default='immediate'
+    )
+    scheduled_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    idempotency_key = models.CharField(
+        max_length=128,
+        db_index=True,
+        unique=True,
+        help_text="Idempotency token preventing duplicate submissions"
+    )
+    external_post_id = models.CharField(
+        max_length=150,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="External Buffer update ID"
+    )
+    payload_text = models.TextField(help_text="Exact text submitted to Buffer")
+    error_message = models.TextField(null=True, blank=True)
+    error_type = models.CharField(max_length=50, null=True, blank=True)
+    retry_count = models.PositiveSmallIntegerField(default=0)
+    response_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'content_publication'
+        ordering = ['-created_at']
+        verbose_name = 'Content Publication'
+        verbose_name_plural = 'Content Publications'
+        indexes = [
+            models.Index(fields=['content', 'status']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        target = f"{self.profile_service or 'social'} ({self.profile_name or self.profile_id})"
+        return f"Publication of {self.content.title} v{self.content_version.version_number} to {target} [{self.status}]"

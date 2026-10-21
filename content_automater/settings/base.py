@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     # Project apps
     "users",
     "content",
+    "research",
+    "ai_providers",
 ]
 
 MIDDLEWARE = [
@@ -116,6 +118,19 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Authentication settings
 LOGIN_URL = "/auth/login/"
 LOGIN_REDIRECT_URL = "/"
+
+# AI Services Canonical Configuration (Phase 3)
+TEXT_API_KEY = os.getenv("TEXT_API_KEY", "")
+TEXT_PROVIDER = os.getenv("TEXT_PROVIDER", "auto")
+IMAGE_API_KEY = os.getenv("IMAGE_API_KEY", "")
+IMAGE_PROVIDER = os.getenv("IMAGE_PROVIDER", "auto")
+CREDENTIAL_ENCRYPTION_KEY = os.getenv("CREDENTIAL_ENCRYPTION_KEY", None)
+FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY", CREDENTIAL_ENCRYPTION_KEY)
+
+# Buffer Publishing Configuration (Phase 6 - Official GraphQL API)
+BUFFER_ACCESS_TOKEN = os.getenv("BUFFER_ACCESS_TOKEN", "")
+BUFFER_API_URL = os.getenv("BUFFER_API_URL", "https://api.buffer.com")
+BUFFER_API_BASE_URL = os.getenv("BUFFER_API_BASE_URL", BUFFER_API_URL)
 
 LOGGING = {
     "version": 1,

@@ -367,3 +367,329 @@ class ContentVersionModelTest(TestCase):
         self.assertEqual(v1.version_number, 1)
         self.assertEqual(v2.version_number, 2)
         self.assertEqual(v3.version_number, 3)
+
+
+class ContentStatusInfoTests(TestCase):
+    """Tests for Content.get_status_info() method (TASK-048)."""
+
+    def setUp(self):
+        """Create test user and content."""
+        self.user = User.objects.create_user(
+            username='test@example.com',
+            email='test@example.com',
+            password='pass123'
+        )
+        UserProfile.objects.create(user=self.user)
+
+        self.content = Content.objects.create(
+            owner=self.user,
+            title='Test Content',
+            topic='Testing'
+        )
+
+    def test_get_status_info_returns_dict(self):
+        """Test that get_status_info returns a dictionary."""
+        info = self.content.get_status_info()
+        self.assertIsInstance(info, dict)
+
+    def test_status_info_contains_required_fields(self):
+        """Test that status info contains all required fields."""
+        info = self.content.get_status_info()
+
+        required_fields = [
+            'lifecycle_state',
+            'lifecycle_state_display',
+            'current_version_number',
+            'version_count',
+            'last_state_change_at',
+            'available_transitions',
+            'created_at',
+            'updated_at'
+        ]
+
+        for field in required_fields:
+            self.assertIn(field, info, f"Missing field: {field}")
+
+    def test_status_info_lifecycle_state(self):
+        """Test lifecycle state in status info."""
+        self.content.lifecycle_state = 'in_progress'
+        self.content.save()
+
+        info = self.content.get_status_info()
+
+        self.assertEqual(info['lifecycle_state'], 'in_progress')
+        self.assertEqual(info['lifecycle_state_display'], 'In Progress')
+
+    def test_status_info_version_count_no_versions(self):
+        """Test version count when no versions exist."""
+        info = self.content.get_status_info()
+        self.assertEqual(info['version_count'], 0)
+        self.assertIsNone(info['current_version_number'])
+
+    def test_status_info_version_count_with_versions(self):
+        """Test version count with multiple versions."""
+        v1 = ContentVersion.create_initial_version(
+            self.content, self.user, 'V1'
+        )
+        self.content.current_version = v1
+        self.content.save()
+
+        ContentVersion.create_next_version(
+            self.content, self.user, 'V2'
+        )
+        ContentVersion.create_next_version(
+            self.content, self.user, 'V3'
+        )
+
+        info = self.content.get_status_info()
+        self.assertEqual(info['version_count'], 3)
+        self.assertEqual(info['current_version_number'], 1)
+
+    def test_status_info_available_transitions_from_draft(self):
+        """Test available transitions from draft state."""
+        self.content.lifecycle_state = 'draft'
+        self.content.save()
+
+        info = self.content.get_status_info()
+        self.assertEqual(info['available_transitions'], ['in_progress'])
+
+    def test_status_info_available_transitions_from_in_progress(self):
+        """Test available transitions from in_progress state."""
+        self.content.lifecycle_state = 'in_progress'
+        self.content.save()
+
+        info = self.content.get_status_info()
+        self.assertIn('pending_review', info['available_transitions'])
+        self.assertIn('draft', info['available_transitions'])
+
+    def test_status_info_available_transitions_from_pending_review(self):
+        """Test available transitions from pending_review state."""
+        self.content.lifecycle_state = 'pending_review'
+        self.content.save()
+
+        info = self.content.get_status_info()
+        self.assertIn('approved', info['available_transitions'])
+        self.assertIn('draft', info['available_transitions'])
+
+    def test_status_info_available_transitions_from_archived(self):
+        """Test that archived state has no available transitions."""
+        self.content.lifecycle_state = 'archived'
+        self.content.save()
+
+        info = self.content.get_status_info()
+        self.assertEqual(info['available_transitions'], [])
+
+    def test_status_info_timestamps(self):
+        """Test that timestamps are included and valid."""
+        info = self.content.get_status_info()
+
+        self.assertIsNotNone(info['created_at'])
+        self.assertIsNotNone(info['updated_at'])
+        self.assertIsNotNone(info['last_state_change_at'])
+
+        # last_state_change_at should match updated_at
+        self.assertEqual(info['last_state_change_at'], info['updated_at'])
+
+
+class ContentVersionImmutabilityTests(TestCase):
+    """
+    Tests for ContentVersion immutability enforcement (TASK-052).
+
+    Verifies that the PostgreSQL trigger prevents updates to snapshot
+    fields while allowing legitimate approval metadata updates.
+    """
+
+    def setUp(self):
+        """Create test user, content, and version."""
+        self.user = User.objects.create_user(
+            username='test@example.com',
+            email='test@example.com',
+            password='pass123'
+        )
+        UserProfile.objects.create(user=self.user)
+
+        self.content = Content.objects.create(
+            owner=self.user,
+            title='Test Content',
+            topic='Testing'
+        )
+
+        self.version = ContentVersion.create_initial_version(
+            content=self.content,
+            created_by=self.user,
+            content_text='Original content text'
+        )
+
+    def test_version_content_text_cannot_be_updated_via_orm(self):
+        """Test that content_text cannot be modified via ORM update()."""
+        from django.db import IntegrityError, DatabaseError
+
+        with self.assertRaises((IntegrityError, DatabaseError)) as ctx:
+            ContentVersion.objects.filter(pk=self.version.pk).update(
+                content_text='Modified text'
+            )
+
+        self.assertIn('immutable', str(ctx.exception).lower())
+
+    def test_version_content_text_cannot_be_modified_via_save(self):
+        """Test that content_text cannot be modified via instance save()."""
+        from django.db import IntegrityError, DatabaseError
+
+        self.version.content_text = 'Changed text'
+
+        with self.assertRaises((IntegrityError, DatabaseError)) as ctx:
+            self.version.save()
+
+        self.assertIn('immutable', str(ctx.exception).lower())
+
+    def test_version_number_cannot_be_changed(self):
+        """Test that version_number is immutable."""
+        from django.db import IntegrityError, DatabaseError
+
+        with self.assertRaises((IntegrityError, DatabaseError)) as ctx:
+            ContentVersion.objects.filter(pk=self.version.pk).update(
+                version_number=999
+            )
+
+        self.assertIn('immutable', str(ctx.exception).lower())
+
+    def test_created_at_cannot_be_changed(self):
+        """Test that created_at timestamp is immutable."""
+        from django.db import IntegrityError, DatabaseError
+        from django.utils import timezone
+
+        new_time = timezone.now() + timezone.timedelta(days=1)
+
+        with self.assertRaises((IntegrityError, DatabaseError)) as ctx:
+            ContentVersion.objects.filter(pk=self.version.pk).update(
+                created_at=new_time
+            )
+
+        self.assertIn('immutable', str(ctx.exception).lower())
+
+    def test_created_by_cannot_be_changed(self):
+        """Test that created_by user is immutable."""
+        from django.db import IntegrityError, DatabaseError
+
+        other_user = User.objects.create_user(
+            username='other@example.com',
+            email='other@example.com',
+            password='pass123'
+        )
+        UserProfile.objects.create(user=other_user)
+
+        with self.assertRaises((IntegrityError, DatabaseError)) as ctx:
+            ContentVersion.objects.filter(pk=self.version.pk).update(
+                created_by=other_user
+            )
+
+        self.assertIn('immutable', str(ctx.exception).lower())
+
+    def test_change_summary_cannot_be_modified(self):
+        """Test that change_summary is immutable."""
+        from django.db import IntegrityError, DatabaseError
+
+        with self.assertRaises((IntegrityError, DatabaseError)) as ctx:
+            ContentVersion.objects.filter(pk=self.version.pk).update(
+                change_summary='Modified summary'
+            )
+
+        self.assertIn('immutable', str(ctx.exception).lower())
+
+    def test_is_approved_CAN_be_updated(self):
+        """Test that is_approved CAN be modified (approval workflow)."""
+        # This should NOT raise an exception
+        self.assertFalse(self.version.is_approved)
+
+        # Update via ORM
+        ContentVersion.objects.filter(pk=self.version.pk).update(
+            is_approved=True
+        )
+
+        # Verify update succeeded
+        self.version.refresh_from_db()
+        self.assertTrue(self.version.is_approved)
+
+        # Can also update back to False
+        ContentVersion.objects.filter(pk=self.version.pk).update(
+            is_approved=False
+        )
+
+        self.version.refresh_from_db()
+        self.assertFalse(self.version.is_approved)
+
+    def test_is_approved_can_be_updated_via_save(self):
+        """Test that is_approved can be updated via instance save()."""
+        self.assertFalse(self.version.is_approved)
+
+        # Update via save()
+        self.version.is_approved = True
+        self.version.save(update_fields=['is_approved'])
+
+        # Verify update succeeded
+        self.version.refresh_from_db()
+        self.assertTrue(self.version.is_approved)
+
+    def test_new_versions_can_be_created(self):
+        """Test that creating new versions still works."""
+        v2 = ContentVersion.create_next_version(
+            content=self.content,
+            created_by=self.user,
+            content_text='Version 2 text',
+            change_summary='Second version'
+        )
+
+        self.assertEqual(v2.version_number, 2)
+        self.assertEqual(v2.content_text, 'Version 2 text')
+
+    def test_versions_can_be_retrieved(self):
+        """Test that reading versions is not affected."""
+        retrieved = ContentVersion.objects.get(pk=self.version.pk)
+
+        self.assertEqual(retrieved.content_text, 'Original content text')
+        self.assertEqual(retrieved.version_number, 1)
+
+    def test_multiple_versions_all_immutable(self):
+        """Test that all versions remain immutable."""
+        from django.db import IntegrityError, DatabaseError
+
+        v2 = ContentVersion.create_next_version(
+            self.content, self.user, 'Text 2'
+        )
+        v3 = ContentVersion.create_next_version(
+            self.content, self.user, 'Text 3'
+        )
+
+        # None can have their content modified
+        with self.assertRaises((IntegrityError, DatabaseError)):
+            ContentVersion.objects.filter(pk=v2.pk).update(
+                content_text='Changed'
+            )
+
+        with self.assertRaises((IntegrityError, DatabaseError)):
+            ContentVersion.objects.filter(pk=v3.pk).update(
+                content_text='Changed'
+            )
+
+    def test_combined_update_with_immutable_field_fails(self):
+        """Test that updating both mutable and immutable fields fails."""
+        from django.db import IntegrityError, DatabaseError, transaction
+
+        original_text = self.version.content_text
+        original_approved = self.version.is_approved
+
+        try:
+            with transaction.atomic():
+                ContentVersion.objects.filter(pk=self.version.pk).update(
+                    is_approved=True,
+                    content_text='Sneaky change'
+                )
+            # If we get here, the test should fail
+            self.fail("Expected an exception when updating immutable field")
+        except (IntegrityError, DatabaseError) as e:
+            self.assertIn('immutable', str(e).lower())
+
+        # Verify nothing was updated (need fresh query outside failed transaction)
+        self.version = ContentVersion.objects.get(pk=self.version.pk)
+        self.assertEqual(self.version.is_approved, original_approved)
+        self.assertEqual(self.version.content_text, original_text)

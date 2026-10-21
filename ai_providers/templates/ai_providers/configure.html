@@ -1,0 +1,85 @@
+{% extends "content/base.html" %}
+
+{% block title %}Configure AI Provider | AI Content Automater{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card" style="max-width: 650px; margin: 30px auto;">
+        <h2>{% if existing_config %}Update{% else %}Configure{% endif %} AI Provider</h2>
+        <p style="color: #586069; margin-bottom: 20px;">
+            Configure your AI text or image generation credentials. Secrets are encrypted at application level and never returned to the browser or stored in plaintext.
+        </p>
+
+        <form method="post" action="{% url 'ai_providers:configure' %}">
+            {% csrf_token %}
+            {% if existing_config %}
+                <input type="hidden" name="config_id" value="{{ existing_config.pk }}">
+            {% endif %}
+
+            <div class="form-group">
+                <label for="capability">Capability</label>
+                <select name="capability" id="capability" class="form-control">
+                    <option value="text" {% if capability == 'text' %}selected{% endif %}>Text Generation (Core Workflow)</option>
+                    <option value="image" {% if capability == 'image' %}selected{% endif %}>Image Generation (Optional)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="provider">Provider</label>
+                <select name="provider" id="provider" class="form-control">
+                    <option value="auto" {% if selected_provider == 'auto' or not selected_provider %}selected{% endif %}>Automatic Identification (Evidence-based)</option>
+                    {% for p in available_providers %}
+                        <option value="{{ p.provider_name }}" {% if selected_provider == p.provider_name %}selected{% endif %}>
+                            {{ p.display_name }} ({{ p.provider_name }})
+                        </option>
+                    {% endfor %}
+                </select>
+                <small style="color: #6a737d;">If automatic identification is inconclusive, select your provider explicitly.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="credential">
+                    API Key / Secret
+                    {% if existing_config %}
+                        <span style="font-weight: normal; color: #586069;">(Leave blank to keep existing encrypted credential)</span>
+                    {% endif %}
+                </label>
+                <input type="password"
+                       name="credential"
+                       id="credential"
+                       class="form-control"
+                       placeholder="{% if existing_config %}•••••••• (Existing secret preserved if left empty){% else %}Enter provider API key{% endif %}"
+                       {% if not existing_config %}required{% endif %}
+                       autocomplete="new-password">
+                <small style="color: #6a737d;">Key is encrypted immediately using Fernet authenticated encryption.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="model_name">Model Identifier (Optional)</label>
+                <input type="text"
+                       name="model_name"
+                       id="model_name"
+                       class="form-control"
+                       value="{{ selected_model }}"
+                       placeholder="e.g. gpt-4o-mini, claude-3-5-sonnet-20241022 (leave blank for provider default)">
+            </div>
+
+            <div class="form-group">
+                <label for="endpoint_url">Custom Endpoint Base URL (Optional)</label>
+                <input type="url"
+                       name="endpoint_url"
+                       id="endpoint_url"
+                       class="form-control"
+                       value="{{ selected_endpoint }}"
+                       placeholder="https://api.openai.com/v1 (must be HTTPS; local and private networks blocked)">
+                <small style="color: #6a737d;">Subject to strict SSRF validation. Localhost and private subnets are rejected.</small>
+            </div>
+
+            <div style="margin-top: 25px; display: flex; gap: 10px;">
+                <button type="submit" class="btn">Save & Validate Provider</button>
+                <a href="{% url 'ai_providers:dashboard' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
