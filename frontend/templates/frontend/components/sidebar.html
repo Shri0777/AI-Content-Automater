@@ -1,0 +1,23 @@
+<aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
+    <div class="sidebar-header">
+        <a class="brand" href="{% url 'frontend:dashboard' %}" aria-label="AI Content Automater dashboard">
+            <span class="brand-mark" aria-hidden="true">A</span>
+            <span class="brand-name">AI Content<br>Automater</span>
+        </a>
+        <button class="icon-button sidebar-close" type="button" data-sidebar-close aria-label="Close navigation">
+            <span aria-hidden="true">×</span>
+        </button>
+    </div>
+    <nav class="sidebar-nav">
+        <a class="nav-link{% if request.resolver_match.namespace == 'frontend' and request.resolver_match.url_name == 'dashboard' %} is-active{% endif %}" href="{% url 'frontend:dashboard' %}"><span aria-hidden="true">⌂</span> Dashboard</a>
+        <a class="nav-link{% if request.resolver_match.namespace == 'content' %} is-active{% endif %}" href="{% url 'content:list' %}"><span aria-hidden="true">□</span> Content Studio</a>
+        <a class="nav-link{% if request.resolver_match.namespace == 'research' %} is-active{% endif %}" href="{% url 'research:request_list' %}"><span aria-hidden="true">⌕</span> Research</a>
+        <a class="nav-link{% if request.resolver_match.namespace == 'ai_providers' %} is-active{% endif %}" href="{% url 'ai_providers:dashboard' %}"><span aria-hidden="true">◇</span> AI Providers</a>
+        <a class="nav-link{% if request.resolver_match.namespace == 'frontend' and request.resolver_match.url_name == 'publishing' %} is-active{% endif %}" href="{% url 'frontend:publishing' %}"><span aria-hidden="true">↗</span> Publishing</a>
+        <div class="nav-divider" role="presentation"></div>
+        <a class="nav-link{% if request.resolver_match.namespace == 'research' and request.resolver_match.url_name == 'profile_view' %} is-active{% endif %}" href="{% url 'research:profile_view' %}"><span aria-hidden="true">⚙</span> Settings</a>
+        <a class="nav-link{% if request.resolver_match.namespace == 'frontend' and request.resolver_match.url_name == 'help' %} is-active{% endif %}" href="{% url 'frontend:help' %}"><span aria-hidden="true">?</span> Help</a>
+    </nav>
+    <div class="sidebar-footer">Your workflow, with the guardrails visible.</div>
+</aside>
+<div class="sidebar-scrim" data-sidebar-close aria-hidden="true"></div>

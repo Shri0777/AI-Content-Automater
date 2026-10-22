@@ -1,8 +1,6 @@
 # AI Content Automater V2
 
-Django foundation for the AI Content Automater V2 project.
-
-This repository is currently at Iteration 0: project infrastructure only. It does not yet include authentication, content models, AI integrations, publishing, scheduling, Celery, Redis, Docker, or business APIs.
+A Django application for researching, drafting, reviewing, and preparing content for Buffer publishing. The project uses Django templates, server-side workflows, PostgreSQL, and a shared responsive frontend module.
 
 ## Prerequisites
 
@@ -40,19 +38,21 @@ Run migrations:
 python manage.py migrate
 ```
 
-## Verification
+## Run The Application
 
 ```bash
 python manage.py check
-python manage.py showmigrations
 python manage.py runserver 127.0.0.1:8000
-curl -i http://127.0.0.1:8000/
 ```
 
-Expected root response:
+Open `http://127.0.0.1:8000/` and sign in. The root route is the authenticated dashboard. The shared `frontend` app supplies the shell, responsive navigation, dashboard, publishing overview, design tokens, CSS, and small progressive-enhancement JavaScript; content, research, providers, and publishing business rules remain in their existing Django apps.
 
-```text
-AI Content Automater foundation is running.
+Run the full verification suite with:
+
+```bash
+python manage.py makemigrations --check --dry-run
+python -m compileall -q frontend content research ai_providers users content_automater
+python manage.py test --keepdb --verbosity 1
 ```
 
 ## Configuration
@@ -79,24 +79,16 @@ Production settings do not load the local `.env` file and require explicit envir
 - `DEBUG` is forced on only in development settings and forced off in production settings.
 - No real secrets are stored in source files.
 
-## Current Scope
+## Current Capabilities
 
-Implemented:
+- Session-based registration, login, logout, and password reset.
+- Owner-scoped content, versions, review, approval, and publishing preparation workflows.
+- Research profiles, request snapshots, supported research collection, provenance, and result selection.
+- Provider configuration with encrypted credentials, masking, validation, and existing HTMX status refreshes.
+- Buffer-only publication and scheduling safeguards, including destination verification and ambiguity reconciliation.
+- A responsive, accessible shared application interface for the implemented workflows.
 
-- Django project package: `content_automater`
-- Split settings: `base`, `development`, `production`
-- PostgreSQL configuration
-- Django default migrations
-- Minimal root status endpoint
-- Dependency manifests
-- Environment template
-- Local setup documentation
+## Deliberate Limitations
 
-Deferred:
-
-- Custom user model and authentication workflows
-- Content and workflow domain models
-- AI, research, publishing, scheduling, and campaign features
-- Celery/Redis
-- Docker and CI/CD
-- Production deployment hardening
+- Image generation, scheduling workers, Redis/Celery, deployment automation, and social providers beyond Buffer are outside the current application scope.
+- Do not run provider validation, research collection, or publishing against real external accounts without appropriate credentials and authorization.

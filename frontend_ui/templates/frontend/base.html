@@ -1,0 +1,52 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}AI Content Automater{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'frontend/css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header class="topbar">
+        <div class="logo"><a href="{% url 'frontend:dashboard' %}">AI Automater</a></div>
+        <nav class="topnav">
+            <ul>
+                <li><a href="{% url 'frontend:dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'content:list' %}">Content</a></li>
+                <li><a href="{% url 'research:list' %}">Research</a></li>
+                <li><a href="{% url 'ai_providers:list' %}">AI Providers</a></li>
+                <li><a href="{% url 'publishing:overview' %}">Publishing</a></li>
+                <li><a href="{% url 'users:settings' %}">Settings</a></li>
+            </ul>
+        </nav>
+        <div class="user-info">
+            {% if user.is_authenticated %}
+                <span>Welcome, {{ user.username }}</span>
+                <a href="{% url 'users:logout' %}">Logout</a>
+            {% else %}
+                <a href="{% url 'users:login' %}">Login</a>
+            {% endif %}
+        </div>
+    </header>
+    <div class="container">
+        <aside class="sidebar">
+            <nav>
+                <ul>
+                    <li><a href="{% url 'frontend:dashboard' %}">Dashboard</a></li>
+                    <li><a href="{% url 'content:list' %}">Content Studio</a></li>
+                    <li><a href="{% url 'research:list' %}">Research Hub</a></li>
+                    <li><a href="{% url 'ai_providers:list' %}">AI Providers</a></li>
+                    <li><a href="{% url 'publishing:overview' %}">Publishing Queue</a></li>
+                    <li><a href="{% url 'users:settings' %}">Settings</a></li>
+                </ul>
+            </nav>
+        </aside>
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script src="{% static 'frontend/js/main.js' %}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

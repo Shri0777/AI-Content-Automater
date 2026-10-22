@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "content",
     "research",
     "ai_providers",
+    "frontend",
 ]
 
 MIDDLEWARE = [

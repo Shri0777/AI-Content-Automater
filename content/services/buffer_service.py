@@ -55,8 +55,19 @@ class BufferPublishingService:
         return f"{clean[:4]}...{clean[-4:]}"
 
     def is_configured(self) -> bool:
-        """Return True if a non-empty Buffer access token is configured."""
-        return bool(self.access_token and self.access_token.strip())
+        """Return True only for a non-empty, non-placeholder Buffer access token."""
+        token = (self.access_token or "").strip()
+        if not token:
+            return False
+
+        # Example .env files commonly retain angle-bracket placeholders. Treat
+        # those as missing credentials so the UI cannot claim Buffer is configured.
+        if token.startswith("<") and token.endswith(">"):
+            return False
+
+        normalized = token.lower().replace("-", "_").replace(" ", "_")
+        placeholder_markers = ("your_buffer", "your_api", "replace_me", "replace_with", "paste_your")
+        return not any(marker in normalized for marker in placeholder_markers)
 
     def get_masked_token(self) -> Optional[str]:
         """Return masked token string or None if unconfigured."""

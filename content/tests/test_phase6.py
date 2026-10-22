@@ -61,6 +61,10 @@ class BufferPublishingServiceTests(TestCase):
         self.assertFalse(service_unconfigured.is_configured())
         self.assertIsNone(service_unconfigured.get_masked_token())
 
+        service_placeholder = BufferPublishingService(access_token="<your-buffer-api-token>")
+        self.assertFalse(service_placeholder.is_configured())
+        self.assertIsNone(service_placeholder.get_masked_token())
+
         status = service_unconfigured.get_connection_status()
         self.assertFalse(status['configured'])
         self.assertFalse(status['connected'])

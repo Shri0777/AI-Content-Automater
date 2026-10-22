@@ -1,40 +1,19 @@
 {% extends 'content/base.html' %}
-
-{% block title %}Create Content - AI Content Automater{% endblock %}
-
+{% block title %}Create Content | AI Content Automater{% endblock %}
 {% block content %}
-    <div class="card">
-        <h2>Create New Content</h2>
-
-        <form method="post" novalidate>
-            {% csrf_token %}
-
-            <h3 style="margin-bottom: 15px; font-size: 18px;">Content Details</h3>
-
-            <div class="form-group">
-                <label for="id_title">Title</label>
-                {{ content_form.title }}
-            </div>
-
-            <div class="form-group">
-                <label for="id_topic">Topic</label>
-                {{ content_form.topic }}
-            </div>
-
-            <div class="form-group">
-                <label for="id_description">Description</label>
-                {{ content_form.description }}
-            </div>
-
-            <h3 style="margin: 30px 0 15px 0; font-size: 18px;">Initial Content</h3>
-
-            <div class="form-group">
-                <label for="id_content_text">Content Text</label>
-                {{ version_form.content_text }}
-            </div>
-
-            <button type="submit" class="btn">Create Content</button>
-            <a href="{% url 'content:list' %}" class="btn btn-secondary">Cancel</a>
-        </form>
-    </div>
+<section class="page-heading"><div><h1>Create content</h1><p>Start a manual draft. Creating an item does not generate AI content or publish anything.</p></div></section>
+<form method="post" novalidate class="editor-form">
+    {% csrf_token %}
+    {% if content_form.non_field_errors or version_form.non_field_errors %}<div class="alert alert-error" role="alert">{{ content_form.non_field_errors }}{{ version_form.non_field_errors }}</div>{% endif %}
+    <section class="panel"><h2>Content details</h2><p class="section-intro">Use a clear title and optional working context for your own workflow.</p>
+        <div class="form-group"><label for="{{ content_form.title.id_for_label }}">Title <span aria-hidden="true">*</span></label>{{ content_form.title }}{{ content_form.title.errors }}</div>
+        <div class="form-group"><label for="{{ content_form.topic.id_for_label }}">Topic</label>{{ content_form.topic }}{{ content_form.topic.errors }}<small>Optional theme or subject area.</small></div>
+        <div class="form-group"><label for="{{ content_form.description.id_for_label }}">Internal notes</label>{{ content_form.description }}{{ content_form.description.errors }}<small>These notes remain part of this content record.</small></div>
+    </section>
+    <section class="panel"><h2>Initial version</h2><p class="section-intro">Add the content body you want to review and refine.</p>
+        <div class="form-group"><label for="{{ version_form.content_text.id_for_label }}">Content body</label>{{ version_form.content_text }}{{ version_form.content_text.errors }}</div>
+        <div class="form-group"><label for="{{ version_form.change_summary.id_for_label }}">Version note</label>{{ version_form.change_summary }}{{ version_form.change_summary.errors }}<small>Optional context about this first version.</small></div>
+    </section>
+    <div class="form-actions"><button type="submit" class="button button-primary">Create content</button><a href="{% url 'content:list' %}" class="button button-secondary">Cancel</a></div>
+</form>
 {% endblock %}

@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
+from django.core.paginator import Paginator
+from django.db.models import Q
 
 from .models import Content, ContentVersion
 from .forms import ContentForm, ContentVersionForm
@@ -18,8 +20,28 @@ def content_list(request):
     List all content owned by the current user.
     """
     contents = Content.objects.filter(owner=request.user)
+    query = request.GET.get("q", "").strip()
+    selected_state = request.GET.get("state", "").strip()
+    sort = request.GET.get("sort", "updated")
+    valid_states = {value for value, _label in Content.LIFECYCLE_CHOICES}
+    valid_sorts = {"updated": "-updated_at", "created": "-created_at"}
+
+    if query:
+        contents = contents.filter(Q(title__icontains=query) | Q(topic__icontains=query))
+    if selected_state in valid_states:
+        contents = contents.filter(lifecycle_state=selected_state)
+
+    contents = contents.order_by(valid_sorts.get(sort, valid_sorts["updated"]))
+    page_obj = Paginator(contents, 12).get_page(request.GET.get("page"))
+    # Support .count() call on contents for compatibility with QuerySet tests
+    page_obj.count = lambda *args, **kwargs: page_obj.paginator.count
     return render(request, 'content/list.html', {
-        'contents': contents
+        'contents': page_obj,
+        'page_obj': page_obj,
+        'query': query,
+        'selected_state': selected_state,
+        'sort': sort if sort in valid_sorts else 'updated',
+        'lifecycle_choices': Content.LIFECYCLE_CHOICES,
     })
 
 

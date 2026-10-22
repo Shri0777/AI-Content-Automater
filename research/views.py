@@ -17,6 +17,29 @@ from content.models import Content
 
 logger = logging.getLogger(__name__)
 
+RESEARCH_CATEGORIES = [
+    ('documentation', 'Official Documentation & Blogs'),
+    ('news', 'News/RSS'),
+    ('blogs', 'Developer Blogs'),
+    ('research_papers', 'Research Papers'),
+    ('videos', 'Videos & Creators'),
+    ('social', 'Social Discussions'),
+    ('government', 'Government & Primary Data'),
+]
+
+
+def _request_form_context(profile, values=None):
+    """Build a render context that preserves a failed request submission."""
+    values = values or {}
+    selected_categories = values.getlist('source_categories') if values else profile.source_categories
+    return {
+        'profile': profile,
+        'topics_str': values.get('topics', ', '.join(profile.topics)) if values else ', '.join(profile.topics),
+        'submitted_values': values,
+        'selected_categories': selected_categories,
+        'available_categories': RESEARCH_CATEGORIES,
+    }
+
 
 @login_required
 def profile_view(request):
@@ -133,10 +156,7 @@ def request_new(request):
         # Validate
         if not topics:
             messages.error(request, 'At least one topic is required.')
-            return render(request, 'research/request_new.html', {
-                'profile': profile,
-                'topics_str': topics_str,
-            })
+            return render(request, 'research/request_new.html', _request_form_context(profile, request.POST))
         
         # Create request with overrides
         overrides = {
@@ -159,19 +179,7 @@ def request_new(request):
         return redirect('research:request_detail', pk=creation_request.pk)
     
     # GET - display form pre-populated from profile
-    context = {
-        'profile': profile,
-        'topics_str': ', '.join(profile.topics) if profile.topics else '',
-        'available_categories': [
-            ('documentation', 'Official Documentation & Blogs'),
-            ('news', 'News/RSS'),
-            ('blogs', 'Developer Blogs'),
-            ('research_papers', 'Research Papers'),
-            ('videos', 'Videos & Creators'),
-            ('social', 'Social Discussions'),
-            ('government', 'Government & Primary Data'),
-        ]
-    }
+    context = _request_form_context(profile)
     
     return render(request, 'research/request_new.html', context)
 

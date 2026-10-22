@@ -1,0 +1,35 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}AI Content Automater{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'frontend/css/tokens.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/css/layout.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/css/components.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/css/forms.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/css/dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/css/detail.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/css/responsive.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="app-shell">
+        {% include "frontend/components/sidebar.html" %}
+        <div class="app-workspace">
+            {% include "frontend/components/topbar.html" %}
+            <main id="main-content" class="app-main" tabindex="-1">
+                {% include "frontend/components/toast_container.html" %}
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    <script src="{% static 'frontend/js/app.js' %}" defer></script>
+    <script src="{% static 'frontend/js/interactions.js' %}" defer></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

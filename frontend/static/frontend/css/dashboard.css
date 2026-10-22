@@ -1,0 +1,22 @@
+.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6); }
+.metric-grid-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 680px; }
+.metric-card { display: flex; flex-direction: column; min-height: 136px; padding: var(--space-5); border: 1px solid var(--color-border); border-top: 3px solid #94a3b8; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-sm); }
+.metric-card strong { margin: var(--space-2) 0; color: var(--color-ink); font-size: 2rem; line-height: 1; }
+.metric-label { color: var(--color-muted); font-size: var(--text-sm); font-weight: 700; }
+.metric-detail { margin-top: auto; color: var(--color-muted); font-size: var(--text-xs); }
+.metric-warning { border-top-color: var(--color-warning); }
+.metric-success { border-top-color: var(--color-success); }
+.metric-info { border-top-color: var(--color-info); }
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.75fr); gap: var(--space-5); align-items: start; margin-bottom: var(--space-5); }
+.dashboard-grid .panel { margin-bottom: 0; }
+.activity-list { margin: 0; padding: 0; list-style: none; }
+.activity-list li { border-bottom: 1px solid #edf0f3; }
+.activity-list li:last-child { border-bottom: 0; }
+.activity-list a { display: grid; gap: var(--space-2); padding: var(--space-4) 0; color: var(--color-text); text-decoration: none; }
+.activity-list strong { overflow: hidden; color: var(--color-ink); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.activity-list span { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); color: var(--color-muted); font-size: var(--text-xs); }
+.integration-panel { margin-bottom: 0; }
+.integration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-4); }
+.integration-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.integration-row h3 { margin-bottom: var(--space-1); }
+.integration-row p { max-width: 430px; margin: 0; color: var(--color-muted); font-size: var(--text-sm); }

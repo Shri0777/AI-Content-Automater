@@ -2,208 +2,6 @@
 
 {% block title %}{{ content.title }}{% endblock %}
 
-{% block extra_css %}
-<style>
-    /* TASK-049: Status dashboard styling */
-    .status-dashboard {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 24px;
-    }
-
-    .status-badge {
-        display: inline-block;
-        padding: 8px 16px;
-        border-radius: 4px;
-        font-weight: bold;
-        font-size: 14px;
-        margin-bottom: 16px;
-    }
-
-    .status-draft { background: #f0f0f0; color: #666; }
-    .status-in_progress { background: #fff3cd; color: #856404; }
-    .status-pending_review { background: #cce5ff; color: #004085; }
-    .status-approved { background: #d4edda; color: #155724; }
-    .status-published { background: #d1ecf1; color: #0c5460; }
-    .status-archived { background: #e2e3e5; color: #383d41; }
-
-    .status-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
-        margin-top: 16px;
-    }
-
-    .status-item {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .status-item .label {
-        font-size: 12px;
-        color: #6c757d;
-        margin-bottom: 4px;
-    }
-
-    .status-item .value {
-        font-size: 16px;
-        font-weight: 500;
-        color: #212529;
-    }
-
-    /* TASK-047: Lifecycle transition styling */
-    .lifecycle-transitions {
-        background: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 24px;
-    }
-
-    .lifecycle-transitions h3 {
-        margin-top: 0;
-        margin-bottom: 16px;
-        font-size: 18px;
-    }
-
-    .transition-buttons {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-
-    .btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        text-decoration: none;
-        display: inline-block;
-    }
-
-    .btn-primary { background: #0d6efd; color: white; }
-    .btn-primary:hover { background: #0b5ed7; }
-
-    .btn-success { background: #198754; color: white; }
-    .btn-success:hover { background: #157347; }
-
-    .btn-secondary { background: #6c757d; color: white; }
-    .btn-secondary:hover { background: #5c636a; }
-
-    .btn-warning { background: #ffc107; color: #000; }
-    .btn-warning:hover { background: #ffca2c; }
-
-    /* Phase 4: Evidence provenance, Review, Correction styling */
-    .section-card {
-        background: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 24px;
-    }
-    .section-card h3 {
-        margin-top: 0;
-        margin-bottom: 16px;
-        font-size: 18px;
-        color: #2c3e50;
-    }
-    .approval-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        border-radius: 6px;
-        margin-bottom: 16px;
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-    }
-    .approval-bar.approved {
-        background: #e6f7ec;
-        border-color: #a3e6b5;
-    }
-    .approval-bar.not-approved {
-        background: #fff8e6;
-        border-color: #ffd591;
-    }
-    .evidence-item {
-        border-bottom: 1px solid #f0f0f0;
-        padding: 12px 0;
-    }
-    .evidence-item:last-child {
-        border-bottom: none;
-    }
-    .citation-badge {
-        display: inline-block;
-        background: #0d6efd;
-        color: white;
-        font-weight: 700;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        margin-right: 8px;
-    }
-    .review-card {
-        background: #fcfdfe;
-        border: 1px solid #e1e4e8;
-        border-radius: 6px;
-        padding: 16px;
-        margin-bottom: 16px;
-    }
-    .review-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-    .rubric-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-        gap: 8px;
-        margin-bottom: 14px;
-    }
-    .rubric-box {
-        background: #fff;
-        border: 1px solid #dee2e6;
-        padding: 8px;
-        border-radius: 4px;
-        text-align: center;
-    }
-    .rubric-label {
-        font-size: 11px;
-        color: #6c757d;
-        text-transform: uppercase;
-        font-weight: 600;
-    }
-    .rubric-val {
-        font-size: 14px;
-        font-weight: 700;
-        margin-top: 2px;
-        color: #212529;
-    }
-    .badge-passed { background: #d4edda; color: #155724; padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 12px; }
-    .badge-needs_revision { background: #fff3cd; color: #856404; padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 12px; }
-    .badge-failed { background: #f8d7da; color: #721c24; padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 12px; }
-    .findings-list {
-        margin: 10px 0 10px 20px;
-        color: #495057;
-    }
-    .unsupported-alert {
-        background: #fff2f0;
-        border: 1px solid #ffccc7;
-        padding: 10px 14px;
-        border-radius: 4px;
-        color: #a8071a;
-        margin-top: 10px;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <h1>{{ content.title }}</h1>
 
@@ -234,15 +32,16 @@
 </div>
 
 {# Phase 5: Observable Workflow Pipeline Stepper #}
-<div class="section-card" style="padding: 16px 20px;">
-    <h3 style="margin-bottom: 14px;">End-to-End Workflow Pipeline</h3>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+<div class="section-card">
+    <h3>End-to-End Workflow Pipeline</h3>
+    <div class="pipeline-stages">
         {% for stage in pipeline_stages %}
-        <div style="flex: 1; min-width: 140px; padding: 10px 14px; border-radius: 6px; border: 1px solid {% if stage.status == 'completed' %}#a3e6b5; background: #f0fff4;{% elif stage.status == 'needs_revision' %}#ffeeba; background: #fffdf5;{% else %}#e9ecef; background: #f8f9fa;{% endif %}">
-            <div style="font-size: 13px; font-weight: 700; color: {% if stage.status == 'completed' %}#155724;{% elif stage.status == 'needs_revision' %}#856404;{% else %}#6c757d;{% endif %}">
-                {% if stage.status == 'completed' %}✓{% elif stage.status == 'needs_revision' %}⚠{% else %}○{% endif %} {{ stage.label }}
+        <div class="pipeline-stage stage-{{ stage.status }}">
+            <div class="pipeline-stage-label">
+                {% if stage.status == 'completed' %}✓{% elif stage.status == 'needs_revision' %}⚠{% else %}○{% endif %}
+                {{ stage.label }}
             </div>
-            <div style="font-size: 12px; color: #495057; margin-top: 4px;">{{ stage.details }}</div>
+            <div class="pipeline-stage-details">{{ stage.details }}</div>
         </div>
         {% endfor %}
     </div>
@@ -257,27 +56,27 @@
         <div class="transition-buttons">
             {% for state in status_info.available_transitions %}
                 {% if state == 'in_progress' %}
-                    <button type="submit" name="new_state" value="{{ state }}" class="btn btn-primary">
+                    <button type="submit" name="new_state" value="{{ state }}" class="button">
                         Start Progress
                     </button>
                 {% elif state == 'pending_review' %}
-                    <button type="submit" name="new_state" value="{{ state }}" class="btn btn-primary">
+                    <button type="submit" name="new_state" value="{{ state }}" class="button">
                         Submit for Review
                     </button>
                 {% elif state == 'approved' %}
-                    <button type="submit" name="new_state" value="{{ state }}" class="btn btn-success">
+                    <button type="submit" name="new_state" value="{{ state }}" class="button btn-success">
                         Approve
                     </button>
                 {% elif state == 'published' %}
-                    <button type="submit" name="new_state" value="{{ state }}" class="btn btn-success" data-confirm="true">
+                    <button type="submit" name="new_state" value="{{ state }}" class="button btn-success" data-confirm="true">
                         Publish
                     </button>
                 {% elif state == 'archived' %}
-                    <button type="submit" name="new_state" value="{{ state }}" class="btn btn-warning" data-confirm="true">
+                    <button type="submit" name="new_state" value="{{ state }}" class="button btn-warning" data-confirm="true">
                         Archive
                     </button>
                 {% elif state == 'draft' %}
-                    <button type="submit" name="new_state" value="{{ state }}" class="btn btn-secondary">
+                    <button type="submit" name="new_state" value="{{ state }}" class="button button-secondary">
                         Return to Draft
                     </button>
                 {% endif %}
@@ -293,21 +92,21 @@
 </div>
 
 {% if content.description %}
-<div class="content-description">
+<div class="section-card">
     <h3>Description</h3>
     <p>{{ content.description }}</p>
 </div>
 {% endif %}
 
 {% if current_version %}
-<div class="current-version section-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+<div class="section-card">
+    <div class="section-card-header">
         <h3>Current Version (v{{ current_version.version_number }})</h3>
         <div>
             {% if current_version.is_approved %}
-                <span class="badge-passed" style="font-size: 13px;">✓ Approved Version</span>
+                <span class="badge-passed">✓ Approved Version</span>
             {% else %}
-                <span class="badge-needs_revision" style="font-size: 13px;">⚠ Approval Pending</span>
+                <span class="badge-needs_revision">⚠ Approval Pending</span>
             {% endif %}
         </div>
     </div>
@@ -325,21 +124,21 @@
         <form method="post" action="{% url 'content:approve_version' content.pk %}" style="display: inline; margin: 0;">
             {% csrf_token %}
             <input type="hidden" name="version_number" value="{{ current_version.version_number }}">
-            <button type="submit" class="btn btn-success" style="padding: 6px 14px; font-size: 13px;">
+            <button type="submit" class="button btn-success button-small">
                 Approve Version v{{ current_version.version_number }}
             </button>
         </form>
         {% endif %}
     </div>
 
-    <p style="color: #6c757d; font-size: 13px;">
+    <p style="color: var(--color-muted); font-size: var(--text-sm);">
         <em>Created by {{ current_version.created_by.email }} on {{ current_version.created_at|date:"Y-m-d H:i" }}</em>
     </p>
     {% if current_version.change_summary %}
-        <p style="margin: 8px 0;"><strong>Change Summary:</strong> {{ current_version.change_summary }}</p>
+        <p><strong>Change Summary:</strong> {{ current_version.change_summary }}</p>
     {% endif %}
     {% if current_version.content_text %}
-        <div class="content-text" style="background: #fdfdfd; border: 1px solid #e9ecef; border-radius: 4px; padding: 15px; margin-top: 15px; font-size: 15px; line-height: 1.7;">
+        <div class="content-text">
             {{ current_version.content_text|linebreaks }}
         </div>
     {% endif %}
@@ -347,9 +146,9 @@
 
 {# Evidence Traceability & Source Provenance #}
 <div class="section-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <div class="section-card-header">
         <h3>Research Evidence &amp; Grounding</h3>
-        <span style="font-size: 13px; color: #6c757d;">{{ evidence_associations|length }} Sources Linked</span>
+        <span style="font-size: var(--text-sm); color: var(--color-muted);">{{ evidence_associations|length }} Sources Linked</span>
     </div>
 
     {% if evidence_associations %}
@@ -360,43 +159,43 @@
                     <span class="citation-badge">[{{ assoc.citation_index }}]</span>
                     <strong style="color: #004085;">{{ assoc.research.title }}</strong>
                     {% if assoc.research.source_name %}
-                        <span style="color: #6c757d; font-size: 13px;">&mdash; {{ assoc.research.source_name }}</span>
+                        <span style="color: var(--color-muted); font-size: var(--text-sm);">&mdash; {{ assoc.research.source_name }}</span>
                     {% endif %}
                     {% if assoc.research.published_date %}
-                        <span style="color: #6c757d; font-size: 12px;">({{ assoc.research.published_date|date:"M d, Y" }})</span>
+                        <span style="color: var(--color-muted); font-size: var(--text-xs);">({{ assoc.research.published_date|date:"M d, Y" }})</span>
                     {% endif %}
                 </div>
                 {% if assoc.research.summary %}
-                <p style="font-size: 13px; color: #495057; margin: 4px 0 6px 32px;">
+                <p style="font-size: var(--text-sm); color: var(--color-muted); margin: var(--space-1) 0 var(--space-2) 2rem;">
                     {{ assoc.research.summary|truncatechars:220 }}
                 </p>
                 {% endif %}
-                <div style="margin-left: 32px; font-size: 12px;">
+                <div style="margin-left: 2rem; font-size: var(--text-xs);">
                     {% if assoc.research.url %}
-                    <a href="{{ assoc.research.url }}" target="_blank" rel="noopener noreferrer" style="color: #0d6efd; text-decoration: none;">
+                    <a href="{{ assoc.research.url }}" target="_blank" rel="noopener noreferrer">
                         🔗 Canonical Source Link
                     </a>
                     {% endif %}
                     {% if assoc.relevance_note %}
-                    <span style="color: #6c757d; margin-left: 10px;"><em>{{ assoc.relevance_note }}</em></span>
+                    <span style="color: var(--color-muted); margin-left: var(--space-2);"><em>{{ assoc.relevance_note }}</em></span>
                     {% endif %}
                 </div>
             </div>
             {% endfor %}
         </div>
     {% else %}
-        <p style="color: #6c757d; font-style: italic;">No research evidence records currently associated with this content.</p>
+        <p style="color: var(--color-muted); font-style: italic;">No research evidence records currently associated with this content.</p>
     {% endif %}
 </div>
 
 {# AI Quality Review (FR-007, FR-009, BR-002) #}
 <div class="section-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-        <h3 style="margin: 0;">AI Quality Review</h3>
+    <div class="section-card-header">
+        <h3>AI Quality Review</h3>
         {% if content.owner == request.user and current_version %}
         <form method="post" action="{% url 'content:trigger_review' content.pk %}" style="margin: 0;">
             {% csrf_token %}
-            <button type="submit" class="btn btn-secondary" style="padding: 6px 14px; font-size: 13px;">
+            <button type="submit" class="button button-secondary button-small">
                 🔄 Run AI Quality Review
             </button>
         </form>
@@ -409,13 +208,13 @@
             <div class="review-header">
                 <div>
                     <strong>{{ review.get_stage_display }}</strong>
-                    <span style="color: #6c757d; font-size: 12px; margin-left: 8px;">
+                    <span style="color: var(--color-muted); font-size: var(--text-xs); margin-left: var(--space-2);">
                         via {{ review.reviewed_by_provider }} ({{ review.created_at|date:"M d, H:i" }})
                     </span>
                 </div>
                 <div>
                     <span class="badge-{{ review.status }}">{{ review.get_status_display }}</span>
-                    <strong style="margin-left: 8px; font-size: 14px;">Score: {{ review.score|floatformat:2 }}</strong>
+                    <strong style="margin-left: var(--space-2); font-size: var(--text-sm);">Score: {{ review.score|floatformat:2 }}</strong>
                 </div>
             </div>
 
@@ -439,14 +238,14 @@
             </div>
 
             {% if review.summary %}
-            <p style="font-size: 14px; color: #212529; margin-bottom: 8px;">
+            <p style="font-size: var(--text-sm); color: var(--color-text); margin-bottom: var(--space-2);">
                 <strong>Summary:</strong> {{ review.summary }}
             </p>
             {% endif %}
 
             {% if review.findings %}
-            <div style="margin-top: 8px;">
-                <strong style="font-size: 13px; color: #495057;">Key Findings:</strong>
+            <div style="margin-top: var(--space-2);">
+                <strong style="font-size: var(--text-sm); color: var(--color-muted);">Key Findings:</strong>
                 <ul class="findings-list">
                     {% for finding in review.findings %}
                     <li>{{ finding }}</li>
@@ -458,7 +257,7 @@
             {% if review.unsupported_claims %}
             <div class="unsupported-alert">
                 <strong>Flagged Unsupported / Hallucinated Claims:</strong>
-                <ul style="margin: 6px 0 0 20px;">
+                <ul style="margin: var(--space-2) 0 0 var(--space-5);">
                     {% for claim in review.unsupported_claims %}
                     <li>{{ claim }}</li>
                     {% endfor %}
@@ -468,21 +267,21 @@
         </div>
         {% endfor %}
     {% else %}
-        <p style="color: #6c757d; font-style: italic;">No automated reviews have been run on this version yet.</p>
+        <p style="color: var(--color-muted); font-style: italic;">No automated reviews have been run on this version yet.</p>
     {% endif %}
 </div>
 
 {# Bounded AI Automated Correction (FR-008, FR-010) #}
 {% if content.owner == request.user and current_version %}
-<div class="section-card" style="border-left: 4px solid #0d6efd;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+<div class="section-card" style="border-left: 4px solid var(--color-primary);">
+    <div class="section-card-header">
         <h3>Bounded AI Correction</h3>
-        <span style="font-size: 13px; font-weight: 600; color: {% if ai_revisions_count >= 2 %}#dc3545{% else %}#0d6efd{% endif %};">
+        <span style="font-size: var(--text-sm); font-weight: 700; color: {% if ai_revisions_count >= 2 %}var(--color-danger){% else %}var(--color-primary){% endif %};">
             Revisions Used: {{ ai_revisions_count }} / 2 (FR-010 limit)
         </span>
     </div>
 
-    <p style="font-size: 13px; color: #495057; margin-bottom: 14px;">
+    <p style="font-size: var(--text-sm); color: var(--color-muted); margin-bottom: var(--space-4);">
         Automatically refines the draft to address quality review findings and align with cited evidence.
         Strictly capped at 2 automated revisions to ensure bounded execution.
     </p>
@@ -490,19 +289,16 @@
     {% if can_auto_correct %}
         <form method="post" action="{% url 'content:apply_correction' content.pk %}">
             {% csrf_token %}
-            <div style="margin-bottom: 12px;">
-                <label for="user_notes" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">
-                    Optional Guidance for Revision:
-                </label>
-                <input type="text" name="user_notes" id="user_notes" placeholder="e.g. Ensure tone remains concise and technical"
-                       style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;">
+            <div class="form-group">
+                <label for="user_notes">Optional Guidance for Revision</label>
+                <input type="text" name="user_notes" id="user_notes" placeholder="e.g. Ensure tone remains concise and technical">
             </div>
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="button">
                 ⚡ Apply Automated AI Revision ({{ ai_revisions_count }}/2 used)
             </button>
         </form>
     {% else %}
-        <div style="background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 12px; border-radius: 4px; font-size: 14px;">
+        <div class="correction-limit-notice">
             <strong>Automated revision limit reached (2/2).</strong>
             Per business rule FR-010, further refinements must be made manually via the Edit option below to ensure human oversight.
         </div>
@@ -512,65 +308,63 @@
 {% endif %}
 
 {# Phase 5: Publishing Preparation & Final Validation Gate (FR-011, BR-004, BR-005) #}
-<div class="section-card" style="border-left: 4px solid #198754;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
-        <h3 style="margin: 0;">Publishing Preparation &amp; Multi-Platform Payloads</h3>
+<div class="section-card" style="border-left: 4px solid var(--color-success);">
+    <div class="section-card-header">
+        <h3>Publishing Preparation &amp; Multi-Platform Payloads</h3>
         <div>
             {% if active_prep %}
-                <span class="badge-passed" style="font-size: 13px;">✓ Ready to Publish</span>
+                <span class="badge-passed">✓ Ready to Publish</span>
             {% elif can_prepare %}
-                <span class="badge-needs_revision" style="font-size: 13px;">Eligible for Preparation</span>
+                <span class="badge-needs_revision">Eligible for Preparation</span>
             {% else %}
-                <span style="font-size: 13px; color: #6c757d; background: #e9ecef; padding: 4px 10px; border-radius: 12px;">🔒 Quality Gates Incomplete</span>
+                <span class="status-badge">🔒 Quality Gates Incomplete</span>
             {% endif %}
         </div>
     </div>
 
-    <p style="font-size: 13px; color: #495057; margin-bottom: 14px;">
+    <p style="font-size: var(--text-sm); color: var(--color-muted); margin-bottom: var(--space-4);">
         Verifies all mandatory quality gates (explicit human approval, passing AI review, and evidence grounding),
         then formats platform-specific payloads according to character constraints.
     </p>
 
     {% if can_prepare %}
-        <form method="post" action="{% url 'content:prepare_publishing' content.pk %}" style="margin-bottom: 16px;">
+        <form method="post" action="{% url 'content:prepare_publishing' content.pk %}" style="margin-bottom: var(--space-4);">
             {% csrf_token %}
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">
-                    Target Platforms:
-                </label>
-                <div style="display: flex; gap: 16px;">
-                    <label style="font-weight: normal; font-size: 14px;">
+            <div class="form-group">
+                <label>Target Platforms:</label>
+                <div style="display: flex; gap: var(--space-4);">
+                    <label style="font-weight: normal;">
                         <input type="checkbox" name="platforms" value="twitter" checked> Twitter / X (280 chars)
                     </label>
-                    <label style="font-weight: normal; font-size: 14px;">
+                    <label style="font-weight: normal;">
                         <input type="checkbox" name="platforms" value="linkedin" checked> LinkedIn (3,000 chars)
                     </label>
                 </div>
             </div>
-            <button type="submit" class="btn btn-success">
+            <button type="submit" class="button btn-success">
                 🚀 Validate &amp; Prepare for Publishing
             </button>
         </form>
     {% elif not active_prep %}
-        <div style="background: #fff8e6; border: 1px solid #ffd591; padding: 12px; border-radius: 4px; font-size: 13px; color: #874d00; margin-bottom: 16px;">
+        <div class="locked-notice">
             <strong>Publishing Preparation Locked:</strong>
             Content must have explicit human approval (is_approved=True) and a passing AI quality review before advancing to publication preparation.
         </div>
     {% endif %}
 
     {% if active_prep and active_prep.prepared_payload %}
-        <div style="margin-top: 16px;">
-            <h4 style="font-size: 14px; margin-bottom: 10px; color: #2c3e50;">Platform Payloads:</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+        <div style="margin-top: var(--space-4);">
+            <h4 style="font-size: var(--text-sm); margin-bottom: var(--space-3);">Platform Payloads:</h4>
+            <div class="platform-payloads-grid">
                 {% for platform, payload in active_prep.prepared_payload.items %}
-                <div style="background: #fdfdfd; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 8px;">
+                <div class="platform-payload-card">
+                    <div class="platform-payload-header">
                         <span style="text-transform: uppercase;">{{ platform }}</span>
-                        <span style="color: {% if payload.truncated %}#dc3545{% else %}#198754{% endif %};">
+                        <span style="color: {% if payload.truncated %}var(--color-danger){% else %}var(--color-success){% endif %};">
                             {{ payload.character_count }} chars {% if payload.truncated %}(Truncated){% else %}(Pass){% endif %}
                         </span>
                     </div>
-                    <div style="font-size: 13px; color: #333; line-height: 1.5; white-space: pre-wrap; background: #fff; border: 1px solid #f0f0f0; padding: 8px; border-radius: 4px; max-height: 180px; overflow-y: auto;">{{ payload.text }}</div>
+                    <div class="platform-payload-text">{{ payload.text }}</div>
                 </div>
                 {% endfor %}
             </div>
@@ -580,152 +374,145 @@
 
 {# Phase 6: Buffer Social Publishing & Scheduling (BR-016, BR-017, BR-018, FR-012) #}
 <div class="section-card" style="border-left: 4px solid #6f42c1;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
-        <h3 style="margin: 0;">Buffer Social Publishing &amp; Scheduling</h3>
+    <div class="section-card-header">
+        <h3>Buffer Social Publishing &amp; Scheduling</h3>
         <div>
             {% if buffer_status.configured %}
-                <span class="badge-passed" style="font-size: 13px;" title="{{ buffer_status.masked_token }}">
+                <span class="badge-passed" title="{{ buffer_status.masked_token }}">
                     ✓ Buffer Connected ({{ buffer_status.masked_token }})
                 </span>
             {% else %}
-                <span style="font-size: 13px; color: #dc3545; background: #f8d7da; padding: 4px 10px; border-radius: 12px;">
+                <span class="status-badge status-failed">
                     ⚠ Buffer Not Configured
                 </span>
             {% endif %}
         </div>
     </div>
 
-    <p style="font-size: 13px; color: #495057; margin-bottom: 14px;">
+    <p style="font-size: var(--text-sm); color: var(--color-muted); margin-bottom: var(--space-4);">
         Publish or schedule human-approved content to linked social media channels via the Buffer API v1.
         Requires approved content status and configured Buffer credentials.
     </p>
 
     {% if not buffer_status.configured %}
-        <div style="background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 12px; border-radius: 4px; font-size: 13px; margin-bottom: 16px;">
+        <div class="buffer-error">
             <strong>Buffer credentials missing:</strong> Please set <code>BUFFER_ACCESS_TOKEN</code> in your environment or settings to enable social publishing.
         </div>
     {% elif not can_publish %}
-        <div style="background: #fff8e6; border: 1px solid #ffd591; padding: 12px; border-radius: 4px; font-size: 13px; color: #874d00; margin-bottom: 16px;">
+        <div class="locked-notice">
             <strong>Publishing Locked:</strong>
             Publishing requires explicit human approval (is_approved=True) and content in 'Approved' or 'Ready to Publish' state.
         </div>
     {% elif not buffer_profiles %}
-        <div style="background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 12px; border-radius: 4px; font-size: 13px; margin-bottom: 16px;">
+        <div class="alert alert-warning" style="margin-bottom: var(--space-4);">
             <strong>No connected social profiles found:</strong> Buffer account has no active social channels or profile retrieval failed.
         </div>
     {% else %}
         {# Publishing & Scheduling Form #}
-        <form method="post" action="{% url 'content:publish' content.pk %}" style="margin-bottom: 20px;" onsubmit="this.querySelector('button[type=submit]').disabled=true; this.querySelector('button[type=submit]').innerText='Sending to Buffer...';">
+        <form method="post" action="{% url 'content:publish' content.pk %}" style="margin-bottom: var(--space-5);"
+              onsubmit="this.querySelector('button[type=submit]').disabled=true; this.querySelector('button[type=submit]').innerText='Sending to Buffer...';">
             {% csrf_token %}
 
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">
-                    Select Target Social Profiles:
-                </label>
-                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <div class="form-group">
+                <label>Select Target Social Profiles:</label>
+                <div style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
                     {% for profile in buffer_profiles %}
-                    <label style="font-weight: normal; font-size: 14px; background: #f8f9fa; border: 1px solid #dee2e6; padding: 6px 12px; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <label class="social-profile-label">
                         <input type="checkbox" name="profile_ids" value="{{ profile.id }}" checked>
-                        <span style="font-weight: 600; text-transform: capitalize;">{{ profile.service }}</span>
-                        <span style="color: #6c757d;">({{ profile.formatted_username }})</span>
+                        <span style="font-weight: 700; text-transform: capitalize;">{{ profile.service }}</span>
+                        <span style="color: var(--color-muted);">({{ profile.formatted_username }})</span>
                     </label>
                     {% endfor %}
                 </div>
             </div>
 
-            <div style="margin-bottom: 14px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
-                <div>
-                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">
-                        Publishing Mode:
+            <div class="form-group">
+                <label>Publishing Mode:</label>
+                <div style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
+                    <label style="font-weight: normal;">
+                        <input type="radio" name="mode" value="immediate" checked onclick="document.getElementById('scheduling-fields').style.display='none';">
+                        Publish Immediately (Now)
                     </label>
-                    <div style="display: flex; gap: 14px;">
-                        <label style="font-weight: normal; font-size: 14px;">
-                            <input type="radio" name="mode" value="immediate" checked onclick="document.getElementById('scheduling-fields').style.display='none';">
-                            Publish Immediately (Now)
-                        </label>
-                        <label style="font-weight: normal; font-size: 14px;">
-                            <input type="radio" name="mode" value="scheduled" onclick="document.getElementById('scheduling-fields').style.display='block';">
-                            Schedule for Later
-                        </label>
-                    </div>
-                </div>
-
-                <div id="scheduling-fields" style="display: none;">
-                    <label for="scheduled_at" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">
-                        Target Publication Time:
+                    <label style="font-weight: normal;">
+                        <input type="radio" name="mode" value="scheduled" onclick="document.getElementById('scheduling-fields').style.display='block';">
+                        Schedule for Later
                     </label>
-                    <input type="datetime-local" name="scheduled_at" id="scheduled_at" style="padding: 6px 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px;">
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-success" style="background: #6f42c1; border-color: #6f42c1;">
+            <div id="scheduling-fields" style="display: none;" class="form-group">
+                <label for="scheduled_at">Target Publication Time:</label>
+                <input type="datetime-local" name="scheduled_at" id="scheduled_at" style="width: auto;">
+            </div>
+
+            <button type="submit" class="button" style="background: #6f42c1; border-color: #6f42c1;">
                 📤 Send to Buffer
             </button>
         </form>
     {% endif %}
 
     {# Publication History #}
-    <h4 style="font-size: 14px; margin: 18px 0 10px 0; color: #2c3e50;">Publication History &amp; Status</h4>
+    <h4 style="font-size: var(--text-sm); margin: var(--space-5) 0 var(--space-3) 0;">Publication History &amp; Status</h4>
     {% if publications %}
-        <div style="border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <thead style="background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+        <div class="table-wrap">
+            <table>
+                <thead>
                     <tr>
-                        <th style="padding: 8px 12px; text-align: left;">Date</th>
-                        <th style="padding: 8px 12px; text-align: left;">Profile</th>
-                        <th style="padding: 8px 12px; text-align: left;">Mode</th>
-                        <th style="padding: 8px 12px; text-align: left;">Status</th>
-                        <th style="padding: 8px 12px; text-align: left;">Buffer ID / Info</th>
-                        <th style="padding: 8px 12px; text-align: left;">Action</th>
+                        <th>Date</th>
+                        <th>Profile</th>
+                        <th>Mode</th>
+                        <th>Status</th>
+                        <th>Buffer ID / Info</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for pub in publications %}
-                    <tr style="border-bottom: 1px solid #f0f0f0;">
-                        <td style="padding: 8px 12px; white-space: nowrap;">{{ pub.created_at|date:"M d, H:i" }}</td>
-                        <td style="padding: 8px 12px;">
-                            <span style="font-weight: 600; text-transform: capitalize;">{{ pub.profile_service|default:"Buffer" }}</span>
-                            {% if pub.profile_name %}<br><small style="color: #6c757d;">{{ pub.profile_name }}</small>{% endif %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ pub.created_at|date:"M d, H:i" }}</td>
+                        <td>
+                            <span style="font-weight: 700; text-transform: capitalize;">{{ pub.profile_service|default:"Buffer" }}</span>
+                            {% if pub.profile_name %}<br><small style="color: var(--color-muted);">{{ pub.profile_name }}</small>{% endif %}
                         </td>
-                        <td style="padding: 8px 12px; text-transform: capitalize;">
+                        <td style="text-transform: capitalize;">
                             {{ pub.mode }}
                             {% if pub.mode == 'scheduled' and pub.scheduled_at %}
-                                <br><small style="color: #0d6efd;">Target: {{ pub.scheduled_at|date:"M d, H:i" }}</small>
+                                <br><small style="color: var(--color-primary);">Target: {{ pub.scheduled_at|date:"M d, H:i" }}</small>
                             {% elif pub.published_at %}
-                                <br><small style="color: #198754;">Published: {{ pub.published_at|date:"M d, H:i" }}</small>
+                                <br><small style="color: var(--color-success);">Published: {{ pub.published_at|date:"M d, H:i" }}</small>
                             {% endif %}
                         </td>
-                        <td style="padding: 8px 12px;">
+                        <td>
                             {% if pub.status == 'published' %}
-                                <span class="badge-passed" style="font-size: 11px;">Published</span>
+                                <span class="badge-passed">Published</span>
                             {% elif pub.status == 'scheduled' %}
-                                <span class="badge-passed" style="font-size: 11px; background: #e8f4fd; color: #0d6efd; border-color: #b6d4fe;">Scheduled</span>
+                                <span class="status-badge status-scheduled">Scheduled</span>
                             {% elif pub.status == 'ambiguous' %}
-                                <span class="badge-needs_revision" style="font-size: 11px; background: #fff3cd; color: #856404; border-color: #ffeeba;">Ambiguous</span>
+                                <span class="badge-needs_revision">Ambiguous</span>
                             {% elif pub.status == 'failed' %}
-                                <span class="badge-failed" style="font-size: 11px;">Failed</span>
+                                <span class="badge-failed">Failed</span>
                             {% else %}
-                                <span style="font-size: 11px; background: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 4px;">{{ pub.status }}</span>
+                                <span class="status-badge">{{ pub.status }}</span>
                             {% endif %}
                         </td>
-                        <td style="padding: 8px 12px; font-size: 12px;">
+                        <td style="font-size: var(--text-xs);">
                             {% if pub.external_post_id %}
                                 <code>{{ pub.external_post_id }}</code>
                             {% elif pub.error_message %}
-                                <span style="color: #dc3545;" title="{{ pub.error_message }}">{{ pub.error_message|truncatechars:40 }}</span>
+                                <span style="color: var(--color-danger);" title="{{ pub.error_message }}">{{ pub.error_message|truncatechars:40 }}</span>
                             {% else %}
                                 —
                             {% endif %}
                         </td>
-                        <td style="padding: 8px 12px;">
+                        <td>
                             {% if pub.status == 'ambiguous' %}
-                                <form method="post" action="{% url 'content:reconcile_publication' content.pk pub.pk %}" style="display: flex; gap: 4px; margin: 0;">
+                                <form method="post" action="{% url 'content:reconcile_publication' content.pk pub.pk %}" style="display: flex; gap: var(--space-1); margin: 0;">
                                     {% csrf_token %}
-                                    <button type="submit" name="resolution" value="confirmed_published" class="btn btn-sm btn-success" style="padding: 2px 6px; font-size: 11px;" title="Mark as successfully published">Confirm Pub</button>
-                                    <button type="submit" name="resolution" value="mark_failed" class="btn btn-sm btn-warning" style="padding: 2px 6px; font-size: 11px;" title="Mark as failed">Mark Failed</button>
+                                    <button type="submit" name="resolution" value="confirmed_published" class="button btn-success button-small" title="Mark as successfully published">Confirm Pub</button>
+                                    <button type="submit" name="resolution" value="mark_failed" class="button btn-warning button-small" title="Mark as failed">Mark Failed</button>
                                 </form>
                             {% else %}
-                                <span style="color: #adb5bd; font-size: 12px;">—</span>
+                                <span style="color: var(--color-muted);">—</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -734,46 +521,46 @@
             </table>
         </div>
     {% else %}
-        <p style="color: #6c757d; font-style: italic; font-size: 13px;">No publications attempted for this content yet.</p>
+        <p style="color: var(--color-muted); font-style: italic; font-size: var(--text-sm);">No publications attempted for this content yet.</p>
     {% endif %}
 </div>
 
 {# Phase 5: Workflow Audit Trail (FR-021) #}
 <div class="section-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0;">Workflow Audit Trail</h3>
-        <span style="font-size: 12px; color: #6c757d;">{{ recent_audit_logs|length }} Events Logged</span>
+    <div class="section-card-header">
+        <h3>Workflow Audit Trail</h3>
+        <span style="font-size: var(--text-xs); color: var(--color-muted);">{{ recent_audit_logs|length }} Events Logged</span>
     </div>
 
     {% if recent_audit_logs %}
-        <div style="max-height: 220px; overflow-y: auto;">
+        <div class="audit-list">
             {% for log in recent_audit_logs %}
-            <div style="border-bottom: 1px solid #f0f0f0; padding: 8px 0; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div class="audit-item">
                 <div>
-                    <span style="font-weight: 600; color: #2c3e50;">{{ log.event_type }}</span>:
-                    <span style="color: #495057;">{{ log.message }}</span>
+                    <span style="font-weight: 700; color: var(--color-ink);">{{ log.event_type }}</span>:
+                    <span style="color: var(--color-text);">{{ log.message }}</span>
                 </div>
-                <div style="white-space: nowrap; font-size: 11px; color: #6c757d;">
+                <div style="white-space: nowrap; font-size: var(--text-xs); color: var(--color-muted);">
                     {{ log.created_at|date:"M d, H:i:s" }}
                 </div>
             </div>
             {% endfor %}
         </div>
     {% else %}
-        <p style="color: #6c757d; font-style: italic; font-size: 13px;">No workflow events recorded yet.</p>
+        <p style="color: var(--color-muted); font-style: italic; font-size: var(--text-sm);">No workflow events recorded yet.</p>
     {% endif %}
 </div>
 
-<div class="actions">
-    <a href="{% url 'content:edit' content.pk %}" class="btn btn-primary">Edit</a>
-    <a href="{% url 'content:versions' content.pk %}" class="btn btn-secondary">View Version History</a>
+<div class="form-actions">
+    <a href="{% url 'content:edit' content.pk %}" class="button">Edit</a>
+    <a href="{% url 'content:versions' content.pk %}" class="button button-secondary">View Version History</a>
     {% if content.owner == request.user %}
     <form method="post" action="{% url 'content:delete' content.pk %}" style="display: inline;">
         {% csrf_token %}
-        <button type="submit" class="btn btn-warning" onclick="return confirm('Are you sure you want to delete this content?');">Delete</button>
+        <button type="submit" class="button btn-warning" onclick="return confirm('Are you sure you want to delete this content?');">Delete</button>
     </form>
     {% endif %}
-    <a href="{% url 'content:list' %}" class="btn btn-secondary">Back to List</a>
+    <a href="{% url 'content:list' %}" class="button button-secondary">Back to List</a>
 </div>
 
 {# TASK-047: JavaScript for confirmation dialogs on critical transitions #}

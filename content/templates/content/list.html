@@ -1,36 +1,29 @@
 {% extends 'content/base.html' %}
 
-{% block title %}My Content - AI Content Automater{% endblock %}
+{% block title %}Content Studio | AI Content Automater{% endblock %}
 
 {% block content %}
-    <div class="card">
-        <h2>My Content</h2>
+<section class="page-heading">
+    <div><h1>Content Studio</h1><p>Create, review, and prepare the content you own without losing sight of its lifecycle.</p></div>
+    <a class="button button-primary" href="{% url 'content:create' %}">+ Create content</a>
+</section>
 
-        {% if contents %}
-            <ul class="content-list">
-                {% for content in contents %}
-                    <li class="content-item">
-                        <h3><a href="{% url 'content:detail' content.pk %}">{{ content.title }}</a></h3>
-                        <div class="content-meta">
-                            <span class="badge badge-{{ content.lifecycle_state }}">{{ content.get_lifecycle_state_display }}</span>
-                            {% if content.topic %}
-                                | Topic: {{ content.topic }}
-                            {% endif %}
-                            | Created: {{ content.created_at|date:"M d, Y" }}
-                            | Updated: {{ content.updated_at|date:"M d, Y" }}
-                        </div>
-                        {% if content.description %}
-                            <p style="color: #666; font-size: 14px;">{{ content.description|truncatewords:20 }}</p>
-                        {% endif %}
-                        <div style="margin-top: 10px;">
-                            <a href="{% url 'content:detail' content.pk %}" class="btn" style="font-size: 12px; padding: 6px 12px;">View</a>
-                            <a href="{% url 'content:edit' content.pk %}" class="btn-secondary btn" style="font-size: 12px; padding: 6px 12px;">Edit</a>
-                        </div>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p style="color: #666;">You haven't created any content yet. <a href="{% url 'content:create' %}">Create your first content</a>.</p>
-        {% endif %}
-    </div>
+<section class="panel">
+    <form class="filter-bar" method="get" aria-label="Filter content">
+        <div><label class="sr-only" for="content-search">Search content</label><input id="content-search" type="search" name="q" value="{{ query }}" placeholder="Search title or topic"></div>
+        <div><label class="sr-only" for="content-state">Lifecycle state</label><select id="content-state" name="state"><option value="">All states</option>{% for value, label in lifecycle_choices %}<option value="{{ value }}"{% if selected_state == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="sr-only" for="content-sort">Sort content</label><select id="content-sort" name="sort"><option value="updated"{% if sort == 'updated' %} selected{% endif %}>Recently updated</option><option value="created"{% if sort == 'created' %} selected{% endif %}>Recently created</option></select></div>
+        <button class="button button-secondary" type="submit">Apply</button>
+    </form>
+</section>
+
+<section class="panel table-panel">
+    <div class="panel-header"><div><h2>Your content</h2><p>{% if query or selected_state %}Filtered results{% else %}All content you own{% endif %}</p></div></div>
+    {% if contents %}
+    <div class="table-wrap"><table><thead><tr><th scope="col">Title</th><th scope="col">State</th><th scope="col">Updated</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>
+        {% for content in contents %}<tr><td><a class="table-title" href="{% url 'content:detail' content.pk %}">{{ content.title }}</a>{% if content.topic %}<span class="table-subtitle">{{ content.topic }}</span>{% endif %}</td><td>{% include "frontend/components/status_badge.html" with value=content.lifecycle_state label=content.get_lifecycle_state_display %}</td><td>{{ content.updated_at|date:"M j, Y" }}</td><td><a class="table-action" href="{% url 'content:detail' content.pk %}">Open<span class="sr-only"> {{ content.title }}</span></a></td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if page_obj.has_other_pages %}<nav class="pagination" aria-label="Content pagination">{% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&state={{ selected_state|urlencode }}&sort={{ sort }}&page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&state={{ selected_state|urlencode }}&sort={{ sort }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+    {% else %}{% if query or selected_state %}{% include "frontend/components/empty_state.html" with title="No matching content" description="Try another title, topic, or lifecycle state." %}{% else %}{% include "frontend/components/empty_state.html" with title="Create your first content item" description="Start with the topic and body, then let the existing lifecycle guide review and publishing preparation." action_url="/content/create/" action_label="Create content" %}{% endif %}{% endif %}
+</section>
 {% endblock %}

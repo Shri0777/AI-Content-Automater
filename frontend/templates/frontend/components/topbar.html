@@ -1,0 +1,17 @@
+<header class="app-topbar">
+    <button class="icon-button mobile-menu" type="button" data-sidebar-toggle aria-controls="app-sidebar" aria-expanded="false" aria-label="Open navigation"><span aria-hidden="true">☰</span></button>
+    <div class="breadcrumb" aria-label="Current location">{% block page_label %}Workspace{% endblock %}</div>
+    <div class="topbar-actions">
+        <a class="button button-primary" href="{% url 'content:create' %}"><span aria-hidden="true">+</span> Create content</a>
+        <details class="account-menu">
+            <summary aria-label="Account menu"><span class="avatar" aria-hidden="true">{{ request.user.email|first|upper }}</span><span class="account-name">{{ request.user.email }}</span></summary>
+            <div class="account-menu-panel">
+                <a href="{% url 'research:profile_view' %}">Research preferences</a>
+                <form method="post" action="{% url 'users:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit">Log out</button>
+                </form>
+            </div>
+        </details>
+    </div>
+</header>

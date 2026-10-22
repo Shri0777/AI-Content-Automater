@@ -1,0 +1,44 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}Dashboard | AI Content Automater{% endblock %}
+{% block page_label %}Dashboard{% endblock %}
+
+{% block content %}
+<section class="page-heading dashboard-heading">
+    <div>
+        <h1>Your content workspace</h1>
+        <p>See what needs attention and continue from the next real step.</p>
+    </div>
+    <div class="page-actions"><a class="button button-secondary" href="{% url 'research:request_new' %}">Start research</a></div>
+</section>
+
+<section class="metric-grid" aria-label="Workspace summary">
+    <article class="metric-card"><span class="metric-label">Total content</span><strong>{{ content_total }}</strong><span class="metric-detail">Items you own</span></article>
+    <article class="metric-card metric-warning"><span class="metric-label">Needs review</span><strong>{{ needs_review_count }}</strong><span class="metric-detail">Awaiting workflow progress</span></article>
+    <article class="metric-card metric-success"><span class="metric-label">Approved</span><strong>{{ approved_count }}</strong><span class="metric-detail">Approved or ready to publish</span></article>
+    <article class="metric-card metric-info"><span class="metric-label">Scheduled</span><strong>{{ scheduled_count }}</strong><span class="metric-detail">Confirmed scheduled publications</span></article>
+</section>
+
+<section class="dashboard-grid">
+    <article class="panel table-panel">
+        <div class="panel-header"><div><h2>Recent content</h2><p>Latest updates across your owned content.</p></div><a href="{% url 'content:list' %}">View all</a></div>
+        {% if recent_content %}
+        <div class="table-wrap"><table><thead><tr><th scope="col">Title</th><th scope="col">State</th><th scope="col">Updated</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead><tbody>
+        {% for content in recent_content %}<tr><td><a class="table-title" href="{% url 'content:detail' content.pk %}">{{ content.title }}</a>{% if content.topic %}<span class="table-subtitle">{{ content.topic }}</span>{% endif %}</td><td>{% include "frontend/components/status_badge.html" with value=content.lifecycle_state label=content.get_lifecycle_state_display %}</td><td>{{ content.updated_at|date:"M j, Y" }}</td><td><a class="table-action" href="{% url 'content:detail' content.pk %}">Open<span class="sr-only"> {{ content.title }}</span></a></td></tr>{% endfor %}
+        </tbody></table></div>
+        {% else %}{% include "frontend/components/empty_state.html" with title="No content yet" description="Create an item manually or start a research request when you are ready." action_url="/content/create/" action_label="Create content" %}{% endif %}
+    </article>
+    <aside class="panel activity-panel">
+        <div class="panel-header"><div><h2>Research activity</h2><p>Recent request state.</p></div><a href="{% url 'research:request_list' %}">View all</a></div>
+        {% if recent_requests %}<ol class="activity-list">{% for item in recent_requests %}<li><a href="{% url 'research:request_detail' item.pk %}"><strong>{{ item.specific_query|default:"Research request"|truncatechars:52 }}</strong><span>{% include "frontend/components/status_badge.html" with value=item.status label=item.get_status_display %} <time datetime="{{ item.updated_at|date:'c' }}">{{ item.updated_at|date:"M j" }}</time></span></a></li>{% endfor %}</ol>{% else %}<div class="compact-empty"><p>No research requests yet.</p><a href="{% url 'research:request_new' %}">Start research</a></div>{% endif %}
+    </aside>
+</section>
+
+<section class="panel integration-panel">
+    <div class="panel-header"><div><h2>Integrations and publishing</h2><p>Configuration status is shown without testing external services.</p></div><a class="button button-secondary button-small" href="{% url 'ai_providers:dashboard' %}">Manage providers</a></div>
+    <div class="integration-grid">
+        <div class="integration-row"><div><h3>Text provider</h3><p>{% if text_provider %}{{ text_provider.provider_name|title }} is configured for {{ text_provider.get_capability_display|lower }}.{% else %}No dedicated text provider is configured.{% endif %}</p></div>{% if text_provider %}<span class="status-badge status-configured">Configured</span>{% else %}<a class="button button-secondary button-small" href="{% url 'ai_providers:configure' %}">Configure</a>{% endif %}</div>
+        <div class="integration-row"><div><h3>Buffer publishing</h3><p>{% if buffer_connected %}Connection state last verified by Buffer workflow.{% elif buffer_configured %}Credentials are present; destination verification happens before publishing.{% else %}No Buffer credential is configured.{% endif %}</p></div>{% if buffer_connected %}<span class="status-badge status-published">Connected</span>{% elif buffer_configured %}<span class="status-badge status-warning">Needs verification</span>{% else %}<a class="button button-secondary button-small" href="{% url 'frontend:publishing' %}">View publishing</a>{% endif %}</div>
+    </div>
+</section>
+{% endblock %}

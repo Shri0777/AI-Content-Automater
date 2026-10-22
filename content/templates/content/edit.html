@@ -1,37 +1,12 @@
 {% extends "content/base.html" %}
-
-{% block title %}Edit - {{ content.title }}{% endblock %}
-
+{% block title %}Edit {{ content.title }} | AI Content Automater{% endblock %}
 {% block content %}
-<h1>Edit Content</h1>
-
-<form method="post">
+<section class="page-heading"><div><h1>Edit content</h1><p>Metadata updates are separate from creating a new immutable content version.</p></div></section>
+<form method="post" class="editor-form" novalidate>
     {% csrf_token %}
-
-    <h2>Content Metadata</h2>
-    {{ content_form.as_p }}
-
-    <h2>Create New Version (Optional)</h2>
-    <p>
-        <label>
-            <input type="checkbox" name="create_version" value="true" id="create-version-toggle">
-            Create a new version with changes
-        </label>
-    </p>
-
-    <div id="version-fields" style="display: none;">
-        {{ version_form.as_p }}
-    </div>
-
-    <div class="form-actions">
-        <button type="submit">Save Changes</button>
-        <a href="{% url 'content:detail' content.pk %}">Cancel</a>
-    </div>
+    <section class="panel"><h2>Content metadata</h2>{{ content_form.non_field_errors }}{% for field in content_form %}<div class="form-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</div>{% endfor %}</section>
+    <section class="panel"><h2>New version</h2><p class="section-intro">A material edit creates a new version and can invalidate approval and publishing preparation.</p><div class="form-group"><label class="checkbox-label" for="create-version-toggle"><input type="checkbox" name="create_version" value="true" id="create-version-toggle"> Create a new version with the changes below</label></div><div id="version-fields" hidden>{% for field in version_form %}<div class="form-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</div>{% endfor %}</div></section>
+    <div class="form-actions"><button type="submit" class="button button-primary">Save changes</button><a href="{% url 'content:detail' content.pk %}" class="button button-secondary">Cancel</a></div>
 </form>
-
-<script>
-document.getElementById('create-version-toggle').addEventListener('change', function() {
-    document.getElementById('version-fields').style.display = this.checked ? 'block' : 'none';
-});
-</script>
 {% endblock %}
+{% block extra_js %}<script>document.getElementById('create-version-toggle').addEventListener('change', function () { document.getElementById('version-fields').hidden = !this.checked; });</script>{% endblock %}

@@ -1,199 +1,153 @@
-{% extends "content/base.html" %}
+{% extends "ai_providers/base.html" %}
+{% block title %}AI Providers | AI Content Automater{% endblock %}
 
-{% block title %}AI Provider Configuration | AI Content Automater{% endblock %}
-
-{% block extra_css %}
-<style>
-    .provider-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 20px;
-        margin-top: 20px;
-    }
-    .provider-card {
-        background: #ffffff;
-        border: 1px solid #e1e4e8;
-        border-radius: 8px;
-        padding: 24px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .provider-card h3 {
-        margin-top: 0;
-        margin-bottom: 12px;
-        color: #24292e;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .status-badge {
-        font-size: 12px;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-weight: 600;
-    }
-    .badge-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .badge-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    .badge-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-    .badge-secondary { background: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }
-    .meta-row {
-        margin: 8px 0;
-        display: flex;
-        justify-content: space-between;
-        font-size: 14px;
-    }
-    .meta-label { color: #586069; font-weight: 500; }
-    .meta-value { color: #24292e; font-family: monospace; }
-    .btn-group {
-        margin-top: 18px;
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-</style>
-<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+{% block extra_js %}
+{# HTMX for in-place connection test results only #}
+<script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <div>
-            <h2>AI Provider Readiness & Integration</h2>
-            <p style="color: #586069; margin-top: 4px;">
-                Manage provider credentials, verify endpoint capabilities, and test live readiness securely.
-            </p>
-        </div>
-        <div>
-            <a href="{% url 'ai_providers:configure' %}" class="btn">Configure Provider</a>
-        </div>
+<section class="page-heading">
+    <div>
+        <h1>AI Providers</h1>
+        <p>Configure text and image generation credentials. Secrets are encrypted immediately and never returned in plaintext.</p>
     </div>
+    <div class="page-actions">
+        <a class="button button-primary" href="{% url 'ai_providers:configure' %}">Configure provider</a>
+    </div>
+</section>
 
-    <div class="provider-grid">
-        <!-- Text Generation Provider Card -->
-        <div class="provider-card">
-            <h3>
-                <span>Text Generation (Required)</span>
-                {% if text_config %}
-                    {% if text_config.validation_status == 'success' %}
-                        <span class="status-badge badge-success">✓ Ready</span>
-                    {% elif text_config.validation_status == 'failed' %}
-                        <span class="status-badge badge-danger">✗ Failed</span>
-                    {% else %}
-                        <span class="status-badge badge-warning">⚠ Unverified</span>
-                    {% endif %}
-                {% elif env_provider %}
-                    <span class="status-badge badge-success">✓ Active (Env)</span>
-                {% else %}
-                    <span class="status-badge badge-secondary">Not Configured</span>
-                {% endif %}
-            </h3>
+{% include "frontend/components/toast_container.html" %}
 
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:var(--space-5);">
+
+    {# ── Text generation ── #}
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Text generation</h2>
+                <p>Required for the content generation workflow.</p>
+            </div>
             {% if text_config %}
-                <div class="meta-row">
-                    <span class="meta-label">Provider:</span>
-                    <span class="meta-value">{{ text_config.provider_name|title }}</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label">Model:</span>
-                    <span class="meta-value">{{ text_config.model_name|default:"Default" }}</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label">Endpoint:</span>
-                    <span class="meta-value">{{ text_config.endpoint_url|default:"Default API URL" }}</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label">Stored Secret:</span>
-                    <span class="meta-value">{{ text_credential_masked|default:"••••••••" }}</span>
-                </div>
-
-                <div id="status-card-{{ text_config.pk }}">
-                    {% include "ai_providers/partials/status.html" with config=text_config %}
-                </div>
-
-                <div class="btn-group">
-                    <form method="post" action="{% url 'ai_providers:validate' text_config.pk %}" style="display: inline;"
-                          hx-post="{% url 'ai_providers:validate' text_config.pk %}"
-                          hx-target="#status-card-{{ text_config.pk }}"
-                          hx-swap="outerHTML">
-                        {% csrf_token %}
-                        <button type="submit" class="btn">Test Connection</button>
-                    </form>
-                    <a href="{% url 'ai_providers:configure' %}?config_id={{ text_config.pk }}" class="btn btn-secondary">
-                        Edit
-                    </a>
-                    <form method="post" action="{% url 'ai_providers:remove' text_config.pk %}" style="display: inline;" onsubmit="return confirm('Remove this provider configuration?');">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-danger">Remove</button>
-                    </form>
-                </div>
-
-            {% elif env_provider %}
-                <div class="meta-row">
-                    <span class="meta-label">Provider:</span>
-                    <span class="meta-value">{{ env_provider.display_name }} (via TEXT_API_KEY)</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label">Model:</span>
-                    <span class="meta-value">{{ env_provider.model_name }}</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label">Endpoint:</span>
-                    <span class="meta-value">{{ env_provider.endpoint }}</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label">Active Secret:</span>
-                    <span class="meta-value">{{ env_provider.masked_key }}</span>
-                </div>
-
-                <div style="padding: 12px; background: #e8f4fd; border: 1px solid #b8daff; border-radius: 6px; margin: 12px 0; font-size: 13px; color: #004085;">
-                    Operating using canonical environment variables (<code>TEXT_API_KEY</code>). You can override this by configuring custom credentials below.
-                </div>
-
-                <div class="btn-group">
-                    <a href="{% url 'ai_providers:configure' %}" class="btn">Configure Dedicated Account</a>
-                </div>
-
-            {% else %}
-                <p style="color: #6a737d; margin: 14px 0; font-size: 14px;">
-                    No text provider is configured. The system requires an active text provider (OpenAI, Anthropic, or compatible service) for Phase 4 generation.
-                </p>
-                <div class="btn-group">
-                    <a href="{% url 'ai_providers:configure' %}" class="btn">Add Text Provider</a>
-                </div>
-            {% endif %}
-        </div>
-
-        <!-- Image Generation Provider Card (Optional) -->
-        <div class="provider-card">
-            <h3>
-                <span>Image Generation (Optional)</span>
-                {% if image_config %}
-                    <span class="status-badge badge-warning">Configured</span>
+                {% if text_config.validation_status == 'success' %}
+                    <span class="status-badge status-approved">✓ Ready</span>
+                {% elif text_config.validation_status == 'failed' %}
+                    <span class="status-badge status-failed">✗ Failed</span>
                 {% else %}
-                    <span class="status-badge badge-secondary">Deferred</span>
+                    <span class="status-badge status-pending_review">Unverified</span>
                 {% endif %}
-            </h3>
-
-            <p style="color: #586069; font-size: 14px; margin: 12px 0;">
-                Per project requirements, image generation is an optional, deferred capability and is not part of the critical workflow.
-            </p>
-
-            {% if image_config %}
-                <div class="meta-row">
-                    <span class="meta-label">Provider:</span>
-                    <span class="meta-value">{{ image_config.provider_name|title }}</span>
-                </div>
-                <div class="btn-group">
-                    <form method="post" action="{% url 'ai_providers:remove' image_config.pk %}" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-secondary">Remove</button>
-                    </form>
-                </div>
+            {% elif env_provider %}
+                <span class="status-badge status-approved">✓ Active (env)</span>
             {% else %}
-                <div class="btn-group">
-                    <a href="{% url 'ai_providers:configure' %}?capability=image" class="btn btn-secondary">Configure (Optional)</a>
-                </div>
+                <span class="status-badge">Not configured</span>
             {% endif %}
         </div>
-    </div>
+
+        {% if text_config %}
+        <div class="preference-grid" style="margin-top:var(--space-4);">
+            <div><span class="preference-label">Provider</span><p>{{ text_config.provider_name|title }}</p></div>
+            <div><span class="preference-label">Model</span><p>{{ text_config.model_name|default:"Provider default" }}</p></div>
+            <div><span class="preference-label">Endpoint</span><p>{{ text_config.endpoint_url|default:"Provider default API URL" }}</p></div>
+            <div><span class="preference-label">Stored secret</span><p><code>{{ text_credential_masked|default:"••••••••" }}</code></p></div>
+        </div>
+
+        <div id="status-card-{{ text_config.pk }}" style="margin-top:var(--space-4);">
+            {% include "ai_providers/partials/status.html" with config=text_config %}
+        </div>
+
+        <div class="form-actions" style="margin-top:var(--space-4);">
+            <form method="post"
+                  action="{% url 'ai_providers:validate' text_config.pk %}"
+                  hx-post="{% url 'ai_providers:validate' text_config.pk %}"
+                  hx-target="#status-card-{{ text_config.pk }}"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                <button type="submit" class="button button-secondary button-small">Test connection</button>
+            </form>
+            <a href="{% url 'ai_providers:configure' %}?config_id={{ text_config.pk }}" class="button button-secondary button-small">Update</a>
+            <form method="post" action="{% url 'ai_providers:remove' text_config.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="button button-small btn-danger"
+                        data-confirm="Remove the text provider configuration?">Remove</button>
+            </form>
+        </div>
+
+        {% elif env_provider %}
+        <div class="preference-grid" style="margin-top:var(--space-4);">
+            <div><span class="preference-label">Provider</span><p>{{ env_provider.display_name }}</p></div>
+            <div><span class="preference-label">Model</span><p>{{ env_provider.model_name|default:"Provider default" }}</p></div>
+            <div><span class="preference-label">Endpoint</span><p>{{ env_provider.endpoint }}</p></div>
+            <div><span class="preference-label">Environment secret</span><p><code>{{ env_provider.masked_key }}</code></p></div>
+        </div>
+        <div class="alert alert-info" style="margin-top:var(--space-4);">
+            Provider is active via environment variable. To override with per-user credentials, configure below.
+        </div>
+        <div class="form-actions" style="margin-top:var(--space-4);">
+            <a href="{% url 'ai_providers:configure' %}" class="button button-secondary button-small">Configure override</a>
+        </div>
+
+        {% else %}
+        <div style="margin-top:var(--space-4);">
+            {% include "frontend/components/empty_state.html" with title="No text provider configured" description="Add a provider API key to enable AI content generation." action_url="/ai/configure/" action_label="Configure text provider" %}
+        </div>
+        {% endif %}
+    </section>
+
+    {# ── Image generation ── #}
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Image generation</h2>
+                <p>Optional. Does not block the text generation workflow.</p>
+            </div>
+            {% if image_config %}
+                {% if image_config.validation_status == 'success' %}
+                    <span class="status-badge status-approved">✓ Ready</span>
+                {% elif image_config.validation_status == 'failed' %}
+                    <span class="status-badge status-failed">✗ Failed</span>
+                {% else %}
+                    <span class="status-badge status-pending_review">Unverified</span>
+                {% endif %}
+            {% else %}
+                <span class="status-badge">Not configured</span>
+            {% endif %}
+        </div>
+
+        {% if image_config %}
+        <div class="preference-grid" style="margin-top:var(--space-4);">
+            <div><span class="preference-label">Provider</span><p>{{ image_config.provider_name|title }}</p></div>
+            <div><span class="preference-label">Model</span><p>{{ image_config.model_name|default:"Provider default" }}</p></div>
+            <div><span class="preference-label">Endpoint</span><p>{{ image_config.endpoint_url|default:"Provider default API URL" }}</p></div>
+            <div><span class="preference-label">Stored secret</span><p><code>{{ image_credential_masked|default:"••••••••" }}</code></p></div>
+        </div>
+
+        <div id="status-card-image-{{ image_config.pk }}" style="margin-top:var(--space-4);">
+            {% include "ai_providers/partials/status.html" with config=image_config %}
+        </div>
+
+        <div class="form-actions" style="margin-top:var(--space-4);">
+            <form method="post"
+                  action="{% url 'ai_providers:validate' image_config.pk %}"
+                  hx-post="{% url 'ai_providers:validate' image_config.pk %}"
+                  hx-target="#status-card-image-{{ image_config.pk }}"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                <button type="submit" class="button button-secondary button-small">Test connection</button>
+            </form>
+            <a href="{% url 'ai_providers:configure' %}?config_id={{ image_config.pk }}&capability=image" class="button button-secondary button-small">Update</a>
+            <form method="post" action="{% url 'ai_providers:remove' image_config.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="button button-small btn-danger"
+                        data-confirm="Remove the image provider configuration?">Remove</button>
+            </form>
+        </div>
+
+        {% else %}
+        <div style="margin-top:var(--space-4);">
+            {% include "frontend/components/empty_state.html" with title="No image provider configured" description="Image generation is optional and does not block the core workflow." action_url="/ai/configure/?capability=image" action_label="Configure image provider" %}
+        </div>
+        {% endif %}
+    </section>
+
 </div>
 {% endblock %}
