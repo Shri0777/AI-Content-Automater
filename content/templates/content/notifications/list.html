@@ -1,0 +1,62 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ page_title }} 
+                {% if unread_count > 0 %}
+                <span class="badge bg-primary">{{ unread_count }} unread</span>
+                {% endif %}
+            </h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'content:notification_preferences' %}" class="btn btn-outline-secondary">Preferences</a>
+            {% if unread_count > 0 %}
+            <form method="post" action="{% url 'content:notification_mark_all_read' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">Mark All Read</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <a href="{% url 'content:notification_list' %}" class="btn btn-sm {% if not showing_unread_only %}btn-primary{% else %}btn-outline-primary{% endif %}">All</a>
+        <a href="{% url 'content:notification_list' %}?unread=true" class="btn btn-sm {% if showing_unread_only %}btn-primary{% else %}btn-outline-primary{% endif %}">Unread Only</a>
+    </div>
+
+    {% if notifications %}
+    <div class="list-group">
+        {% for notification in notifications %}
+        <div class="list-group-item {% if not notification.is_read %}list-group-item-primary{% endif %}">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">{{ notification.title }}</h5>
+                <small>{{ notification.created_at|timesince }} ago</small>
+            </div>
+            <p class="mb-1">{{ notification.message }}</p>
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    {{ notification.get_notification_type_display }}
+                    {% if notification.content %} • <a href="{% url 'content:detail' notification.content.id %}">View Content</a>{% endif %}
+                    {% if notification.campaign %} • <a href="{% url 'content:campaign_detail' notification.campaign.id %}">View Campaign</a>{% endif %}
+                </small>
+                {% if not notification.is_read %}
+                <form method="post" action="{% url 'content:notification_mark_read' notification.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Mark Read</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <p class="mb-0">No notifications to display.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ page_title }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'content:media_list' %}" class="btn btn-outline-secondary">Back to Library</a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="file" class="form-label">Select File *</label>
+                    <input type="file" class="form-control" id="file" name="file" required accept="image/*,video/mp4">
+                    <div class="form-text">Supported: JPEG, PNG, GIF, WebP, MP4. Max size: 10MB</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="content_id" class="form-label">Associate with Content (Optional)</label>
+                    <select class="form-select" id="content_id" name="content_id">
+                        <option value="">None</option>
+                        {% for content in recent_content %}
+                        <option value="{{ content.id }}">{{ content.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

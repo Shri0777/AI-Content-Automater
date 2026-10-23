@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Third-party apps
+    "django_celery_beat",
     # Project apps
     "users",
     "content",
@@ -160,3 +162,38 @@ LOGGING = {
         },
     },
 }
+
+
+# ============================================================================
+# Celery Configuration (Background Tasks)
+# ============================================================================
+
+CELERY_BROKER_URL = get_env('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = get_env('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes max
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes soft limit
+
+# Celery Beat Schedule (Periodic Tasks)
+CELERY_BEAT_SCHEDULE = {
+    'schedule-due-campaigns': {
+        'task': 'content.tasks.schedule_due_campaigns',
+        'schedule': 60.0,  # Every minute
+    },
+    'reconcile-ambiguous-publications': {
+        'task': 'content.tasks.reconcile_ambiguous_publications',
+        'schedule': 300.0,  # Every 5 minutes
+    },
+}
+
+
+# ============================================================================
+# Media Files (User Uploads)
+# ============================================================================
+
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'

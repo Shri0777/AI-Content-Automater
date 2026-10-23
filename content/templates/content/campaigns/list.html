@@ -1,0 +1,85 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ page_title }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'content:campaign_create' %}" class="btn btn-primary">Create Campaign</a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if campaigns %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Topic</th>
+                    <th>Frequency</th>
+                    <th>Status</th>
+                    <th>Executions</th>
+                    <th>Success Rate</th>
+                    <th>Next Run</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for campaign in campaigns %}
+                <tr>
+                    <td><a href="{% url 'content:campaign_detail' campaign.id %}">{{ campaign.name }}</a></td>
+                    <td>{{ campaign.topic }}</td>
+                    <td>{{ campaign.get_frequency_display }}</td>
+                    <td>
+                        <span class="badge 
+                            {% if campaign.status == 'active' %}bg-success
+                            {% elif campaign.status == 'paused' %}bg-warning
+                            {% elif campaign.status == 'completed' %}bg-secondary
+                            {% else %}bg-info{% endif %}">
+                            {{ campaign.get_status_display }}
+                        </span>
+                    </td>
+                    <td>{{ campaign.execution_count }}</td>
+                    <td>
+                        {% if campaign.execution_count > 0 %}
+                            {{ campaign.success_count }}/{{ campaign.execution_count }}
+                            ({% widthratio campaign.success_count campaign.execution_count 100 %}%)
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if campaign.next_execution %}
+                            {{ campaign.next_execution|date:"Y-m-d H:i" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'content:campaign_detail' campaign.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <p class="mb-0">No campaigns yet. <a href="{% url 'content:campaign_create' %}">Create your first campaign</a> to automate content generation.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

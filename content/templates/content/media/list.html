@@ -1,0 +1,66 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ page_title }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'content:media_upload' %}" class="btn btn-primary">Upload Media</a>
+        </div>
+    </div>
+
+    {% if page_obj %}
+    <div class="row row-cols-1 row-cols-md-4 g-4">
+        {% for media in page_obj %}
+        <div class="col">
+            <div class="card h-100">
+                {% if media.file and media.mime_type|slice:":5" == "image" %}
+                <img src="{{ media.file.url }}" class="card-img-top" alt="{{ media.file_name }}" style="height: 200px; object-fit: cover;">
+                {% else %}
+                <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 200px;">
+                    <span>{{ media.mime_type }}</span>
+                </div>
+                {% endif %}
+                <div class="card-body">
+                    <h6 class="card-title text-truncate" title="{{ media.file_name }}">{{ media.file_name }}</h6>
+                    <p class="card-text small text-muted">
+                        {{ media.file_size|filesizeformat }}<br>
+                        {{ media.created_at|date:"Y-m-d" }}
+                    </p>
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'content:media_detail' media.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1">First</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+            {% endif %}
+            
+            <li class="page-item active"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="alert alert-info">
+        <p class="mb-0">No media files yet. <a href="{% url 'content:media_upload' %}">Upload your first file</a>.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

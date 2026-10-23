@@ -471,3 +471,216 @@ class ContentPublication(models.Model):
     def __str__(self):
         target = f"{self.profile_service or 'social'} ({self.profile_name or self.profile_id})"
         return f"Publication of {self.content.title} v{self.content_version.version_number} to {target} [{self.status}]"
+
+
+class Campaign(models.Model):
+    """
+    Recurring content generation campaign.
+
+    Implements FR-030 and FR-031 for scheduled, recurring content campaigns.
+    """
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('active', 'Active'),
+        ('paused', 'Paused'),
+        ('completed', 'Completed'),
+        ('archived', 'Archived'),
+    ]
+
+    FREQUENCY_CHOICES = [
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('biweekly', 'Bi-weekly'),
+        ('monthly', 'Monthly'),
+    ]
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='campaigns')
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', db_index=True)
+    topic = models.CharField(max_length=500)
+    generation_instructions = models.TextField()
+    research_instructions = models.TextField(blank=True)
+    target_platforms = models.JSONField(default=list)
+    publish_immediately = models.BooleanField(default=False)
+    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default='weekly')
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    next_execution = models.DateTimeField(null=True, blank=True, db_index=True)
+    execution_count = models.PositiveIntegerField(default=0)
+    success_count = models.PositiveIntegerField(default=0)
+    failure_count = models.PositiveIntegerField(default=0)
+    last_executed = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'campaign'
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['owner', 'status']), models.Index(fields=['status', 'next_execution'])]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_status_display()})"
+
+
+class CampaignExecution(models.Model):
+    """Individual execution record for a campaign."""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('researching', 'Researching'),
+        ('generating', 'Generating'),
+        ('reviewing', 'Reviewing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='executions')
+    scheduled_time = models.DateTimeField(db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    content = models.ForeignKey(Content, null=True, blank=True, on_delete=models.SET_NULL, related_name='campaign_executions')
+    error_message = models.TextField(blank=True)
+    error_type = models.CharField(max_length=50, blank=True)
+    retry_count = models.PositiveSmallIntegerField(default=0)
+    execution_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'campaign_execution'
+        ordering = ['-scheduled_time']
+        indexes = [models.Index(fields=['campaign', 'status']), models.Index(fields=['status', 'scheduled_time'])]
+
+    def __str__(self):
+        return f"{self.campaign.name} - {self.scheduled_time.date()} ({self.status})"
+
+
+class Notification(models.Model):
+    """
+    User notification for workflow events, approvals, and failures (FR-038).
+    """
+    NOTIFICATION_TYPE_CHOICES = [
+        ('generation_success', 'Content Generation Successful'),
+        ('generation_failure', 'Content Generation Failed'),
+        ('review_needs_revision', 'Review Needs Revision'),
+        ('review_passed', 'Review Passed'),
+        ('approval_required', 'Approval Required'),
+        ('publishing_success', 'Publishing Successful'),
+        ('publishing_failure', 'Publishing Failed'),
+        ('publishing_partial', 'Publishing Partially Successful'),
+        ('campaign_execution_success', 'Campaign Execution Successful'),
+        ('campaign_execution_failure', 'Campaign Execution Failed'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications', db_index=True)
+    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPE_CHOICES, db_index=True)
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+
+    # Context links
+    content = models.ForeignKey(Content, null=True, blank=True, on_delete=models.SET_NULL, related_name='notifications')
+    campaign = models.ForeignKey('Campaign', null=True, blank=True, on_delete=models.SET_NULL, related_name='notifications')
+
+    # Status
+    is_read = models.BooleanField(default=False, db_index=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    delivery_status = models.CharField(max_length=50, default='pending')
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'notification'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_read']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} for {self.user.email} ({self.get_notification_type_display()})"
+
+
+class NotificationPreference(models.Model):
+    """
+    User preferences for notification delivery (FR-038.4).
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_preferences')
+
+    # Per-type preferences
+    email_enabled = models.BooleanField(default=True)
+    in_app_enabled = models.BooleanField(default=True)
+
+    # Specific notification type overrides (JSON field for flexibility)
+    type_preferences = models.JSONField(default=dict, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'notification_preference'
+
+    def __str__(self):
+        return f"Notification preferences for {self.user.email}"
+
+
+class Media(models.Model):
+    """
+    Media file associated with content for social publishing (FR-039).
+    """
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='media', db_index=True)
+    content = models.ForeignKey(Content, null=True, blank=True, on_delete=models.SET_NULL, related_name='media')
+
+    # File storage
+    file = models.FileField(upload_to='media/%Y/%m/', max_length=255)
+    file_name = models.CharField(max_length=255)
+    file_size = models.IntegerField(help_text='Size in bytes')
+    mime_type = models.CharField(max_length=100)
+
+    # Validation status
+    is_validated = models.BooleanField(default=False)
+    validation_errors = models.TextField(blank=True)
+
+    # Image metadata (from PIL/Pillow if image)
+    width = models.IntegerField(null=True, blank=True)
+    height = models.IntegerField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'media'
+        ordering = ['-created_at']
+        verbose_name_plural = 'Media'
+
+    def __str__(self):
+        return f"{self.file_name} ({self.owner.email})"
+
+
+class PublicationMetrics(models.Model):
+    """
+    Analytics metrics for published content (FR-011).
+    Stores operational metrics and platform engagement where available.
+    """
+    publication = models.ForeignKey(ContentPublication, on_delete=models.CASCADE, related_name='metrics', db_index=True)
+    platform = models.CharField(max_length=50, db_index=True)
+
+    # Operational metrics (always available)
+    published_at = models.DateTimeField()
+
+    # Platform engagement metrics (where API provides them)
+    impressions = models.IntegerField(null=True, blank=True, help_text='Number of times content was displayed')
+    engagements = models.IntegerField(null=True, blank=True, help_text='Total engagements (likes, shares, comments)')
+    clicks = models.IntegerField(null=True, blank=True, help_text='Number of link clicks')
+
+    # Collection metadata
+    collected_at = models.DateTimeField(auto_now=True)
+    collection_status = models.CharField(max_length=50, default='available')
+
+    class Meta:
+        db_table = 'publication_metrics'
+        ordering = ['-published_at']
+        verbose_name_plural = 'Publication Metrics'
+
+    def __str__(self):
+        return f"Metrics for {self.publication.content.title} on {self.platform}"

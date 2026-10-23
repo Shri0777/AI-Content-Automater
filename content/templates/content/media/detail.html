@@ -1,0 +1,71 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ media.file_name }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'content:media_list' %}" class="btn btn-outline-secondary">Back to Library</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            {% if media.file %}
+                {% if media.mime_type|slice:":5" == "image" %}
+                <img src="{{ media.file.url }}" class="img-fluid" alt="{{ media.file_name }}">
+                {% elif media.mime_type|slice:":5" == "video" %}
+                <video controls class="w-100">
+                    <source src="{{ media.file.url }}" type="{{ media.mime_type }}">
+                </video>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-warning">File not available</div>
+            {% endif %}
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Details</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Type</dt>
+                        <dd class="col-sm-7">{{ media.mime_type }}</dd>
+                        
+                        <dt class="col-sm-5">Size</dt>
+                        <dd class="col-sm-7">{{ media.file_size|filesizeformat }}</dd>
+                        
+                        {% if media.width and media.height %}
+                        <dt class="col-sm-5">Dimensions</dt>
+                        <dd class="col-sm-7">{{ media.width }} × {{ media.height }}</dd>
+                        {% endif %}
+                        
+                        <dt class="col-sm-5">Uploaded</dt>
+                        <dd class="col-sm-7">{{ media.created_at|date:"Y-m-d H:i" }}</dd>
+                        
+                        <dt class="col-sm-5">Associated</dt>
+                        <dd class="col-sm-7">
+                            {% if media.content %}
+                            <a href="{% url 'content:detail' media.content.id %}">{{ media.content.title }}</a>
+                            {% else %}
+                            None
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+                <div class="card-footer">
+                    <form method="post" action="{% url 'content:media_delete' media.id %}" onsubmit="return confirm('Are you sure you want to delete this file?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-sm w-100">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

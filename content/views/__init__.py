@@ -7,9 +7,9 @@ from django.db import transaction
 from django.core.paginator import Paginator
 from django.db.models import Q
 
-from .models import Content, ContentVersion
-from .forms import ContentForm, ContentVersionForm
-from .authorization import user_owns_content
+from content.models import Content, ContentVersion
+from content.forms import ContentForm, ContentVersionForm
+from content.authorization import user_owns_content
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +114,11 @@ def content_detail(request, pk):
     can_auto_correct = ai_revisions_count < 2 and current_version is not None
 
     # Phase 5: Observable workflow summary and pipeline state
-    from .services.workflow_orchestrator import WorkflowOrchestratorService
+    from content.services.workflow_orchestrator import WorkflowOrchestratorService
     workflow_summary = WorkflowOrchestratorService.get_workflow_summary(content)
 
     # Phase 6: Buffer Social Publishing & Scheduling
-    from .services.buffer_service import BufferPublishingService
+    from content.services.buffer_service import BufferPublishingService
     buffer_service = BufferPublishingService()
     buffer_status = buffer_service.get_connection_status()
     buffer_profiles = []
@@ -197,8 +197,8 @@ def content_edit(request, pk):
 
                     content.save(update_fields=['current_version', 'lifecycle_state', 'updated_at'])
 
-                    from .services.publishing_service import PublishingPreparationService
-                    from .models import WorkflowAuditLog
+                    from content.services.publishing_service import PublishingPreparationService
+                    from content.models import WorkflowAuditLog
                     PublishingPreparationService.invalidate_preparations_for_content(
                         content=content,
                         reason=f"Material edit: new version v{new_version.version_number} created.",
@@ -242,7 +242,7 @@ def content_trigger_review(request, pk):
     """
     Trigger an automated quality review on the current version.
     """
-    from .services.review_service import QualityReviewService
+    from content.services.review_service import QualityReviewService
 
     content = get_object_or_404(Content, pk=pk)
     if not content.current_version:
@@ -272,7 +272,7 @@ def content_apply_correction(request, pk):
     """
     Apply a bounded automated correction to the current version based on review findings.
     """
-    from .services.correction_service import ContentCorrectionService
+    from content.services.correction_service import ContentCorrectionService
 
     notes = request.POST.get('user_notes', '').strip()
     result = ContentCorrectionService.apply_bounded_correction(
@@ -299,7 +299,7 @@ def content_approve_version(request, pk):
     """
     Explicit human approval gate for a specific ContentVersion.
     """
-    from .services.workflow_orchestrator import WorkflowOrchestratorService
+    from content.services.workflow_orchestrator import WorkflowOrchestratorService
 
     version_number_raw = request.POST.get('version_number')
     version_number = int(version_number_raw) if version_number_raw and str(version_number_raw).isdigit() else None
@@ -328,7 +328,7 @@ def content_prepare_publishing(request, pk):
     """
     Final validation gate and publishing preparation for target platforms (Phase 5).
     """
-    from .services.workflow_orchestrator import WorkflowOrchestratorService
+    from content.services.workflow_orchestrator import WorkflowOrchestratorService
 
     platforms = request.POST.getlist('platforms')
     if not platforms:
@@ -402,7 +402,7 @@ def content_transition(request, pk):
             except Exception:
                 pass
 
-        from .services.workflow_orchestrator import WorkflowOrchestratorService
+        from content.services.workflow_orchestrator import WorkflowOrchestratorService
         result = WorkflowOrchestratorService.execute_state_transition(
             content_id=pk,
             target_state=new_state,
@@ -441,7 +441,7 @@ def content_publish(request, pk):
     """
     Publish or schedule approved content via Buffer (Phase 6).
     """
-    from .services.publishing_orchestrator import BufferPublishingOrchestrator
+    from content.services.publishing_orchestrator import BufferPublishingOrchestrator
     from django.utils.dateparse import parse_datetime
     from django.utils import timezone
     from datetime import datetime
@@ -501,7 +501,7 @@ def content_reconcile_publication(request, pk, pub_id):
     """
     Manually reconcile an ambiguous publication attempt (Phase 6).
     """
-    from .services.publishing_orchestrator import BufferPublishingOrchestrator
+    from content.services.publishing_orchestrator import BufferPublishingOrchestrator
 
     resolution = request.POST.get('resolution')
     external_post_id = request.POST.get('external_post_id') or None

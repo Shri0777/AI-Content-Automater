@@ -1,0 +1,77 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ page_title }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'content:campaign_list' %}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="name" class="form-label">Campaign Name *</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                    <div class="form-text">A descriptive name for this campaign.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="topic" class="form-label">Topic *</label>
+                    <input type="text" class="form-control" id="topic" name="topic" required>
+                    <div class="form-text">The main topic or subject for content generation.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="frequency" class="form-label">Frequency</label>
+                    <select class="form-select" id="frequency" name="frequency">
+                        {% for value, label in frequency_choices %}
+                        <option value="{{ value }}" {% if value == 'weekly' %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ today|date:'Y-m-d' }}">
+                    <div class="form-text">When to start executing this campaign.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="generation_instructions" class="form-label">Generation Instructions</label>
+                    <textarea class="form-control" id="generation_instructions" name="generation_instructions" rows="4"></textarea>
+                    <div class="form-text">Optional instructions for AI content generation.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="research_instructions" class="form-label">Research Instructions</label>
+                    <textarea class="form-control" id="research_instructions" name="research_instructions" rows="4"></textarea>
+                    <div class="form-text">Optional instructions for research collection.</div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="{% url 'content:campaign_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Create Campaign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

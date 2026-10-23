@@ -25,20 +25,37 @@ DEFAULT_TIMEOUT = 10  # seconds
 MAX_TRANSIENT_RETRIES = 1
 DEFAULT_GRAPHQL_ENDPOINT = "https://api.buffer.com"
 
+# Sentinel value to distinguish "no argument provided" from "explicit empty string"
+_UNSET = object()
+
 
 class BufferPublishingService:
     """
     Client for interacting with the official Buffer GraphQL API.
     All operations are sent via POST to https://api.buffer.com with Bearer auth.
+
+    Token configuration uses a sentinel pattern to enable deterministic test isolation:
+    - No access_token argument → Use settings.BUFFER_ACCESS_TOKEN if available, else ''
+    - Explicit access_token='' → Use empty string, even if settings has a value
+    - Explicit access_token='<value>' → Use provided value
+
+    This allows tests to create unconfigured services regardless of developer's .env.
     """
 
     def __init__(
         self,
-        access_token: Optional[str] = None,
+        access_token = _UNSET,
         api_url: Optional[str] = None,
         timeout: int = DEFAULT_TIMEOUT
     ):
-        self.access_token = access_token or getattr(settings, 'BUFFER_ACCESS_TOKEN', '')
+        # Sentinel pattern: distinguish "not provided" from "explicit empty string"
+        if access_token is _UNSET:
+            # No explicit token provided - use settings if available
+            self.access_token = getattr(settings, 'BUFFER_ACCESS_TOKEN', '')
+        else:
+            # Explicit token provided (including '') - use it exactly
+            self.access_token = access_token or ''
+
         # Support both BUFFER_API_URL and legacy BUFFER_API_BASE_URL setting names
         configured_url = api_url or getattr(settings, 'BUFFER_API_URL', None) or getattr(settings, 'BUFFER_API_BASE_URL', None)
         self.api_url = (configured_url or DEFAULT_GRAPHQL_ENDPOINT).rstrip('/')
@@ -86,7 +103,7 @@ class BufferPublishingService:
     def get_connection_status(self) -> Dict[str, Any]:
         """
         Validate token and check connection to Buffer via GraphQL account query.
-        
+
         Returns:
             Dict containing configured status, connected flag, account info, and masked token.
         """
@@ -214,7 +231,7 @@ class BufferPublishingService:
     def get_profiles(self) -> List[Dict[str, Any]]:
         """
         Fetch authorized social channels connected to this Buffer account.
-        
+
         Returns:
             List of profile dicts (id, service, formatted_username, etc.) or empty list.
         """
@@ -313,13 +330,13 @@ class BufferPublishingService:
     ) -> Dict[str, Any]:
         """
         Create a social update in Buffer via the GraphQL createPost mutation.
-        
+
         Args:
             profile_ids: List of Buffer channel IDs
             text: Post text content
             now: True to publish immediately (mode: shareNow), False for scheduled (mode: customScheduled)
             due_at: Optional future timestamp for scheduled publication
-            
+
         Returns:
             Dict containing success flag, updates list, sanitized response data, or error details.
         """

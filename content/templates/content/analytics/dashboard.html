@@ -1,0 +1,137 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ page_title }}</h1>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <a href="?days=7" class="btn btn-sm {% if days == 7 %}btn-primary{% else %}btn-outline-primary{% endif %}">7 Days</a>
+                <a href="?days=30" class="btn btn-sm {% if days == 30 %}btn-primary{% else %}btn-outline-primary{% endif %}">30 Days</a>
+                <a href="?days=90" class="btn btn-sm {% if days == 90 %}btn-primary{% else %}btn-outline-primary{% endif %}">90 Days</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="display-4">{{ summary.total_content }}</h3>
+                    <p class="text-muted mb-0">Total Content</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="display-4">{{ publishing.total_publications }}</h3>
+                    <p class="text-muted mb-0">Publications</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="display-4">{{ campaigns.total_campaigns }}</h3>
+                    <p class="text-muted mb-0">Active Campaigns</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="display-4">{{ publishing.success_rate|floatformat:0 }}%</h3>
+                    <p class="text-muted mb-0">Success Rate</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Publishing Status (Last {{ days }} days)</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Successful</dt>
+                        <dd class="col-sm-6">{{ publishing.successful }}</dd>
+                        
+                        <dt class="col-sm-6">Failed</dt>
+                        <dd class="col-sm-6">{{ publishing.failed }}</dd>
+                        
+                        <dt class="col-sm-6">Scheduled</dt>
+                        <dd class="col-sm-6">{{ publishing.scheduled }}</dd>
+                        
+                        <dt class="col-sm-6">Pending</dt>
+                        <dd class="col-sm-6">{{ publishing.pending }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Content Lifecycle</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Draft</dt>
+                        <dd class="col-sm-6">{{ content.draft }}</dd>
+                        
+                        <dt class="col-sm-6">Pending Review</dt>
+                        <dd class="col-sm-6">{{ content.pending_review }}</dd>
+                        
+                        <dt class="col-sm-6">Approved</dt>
+                        <dd class="col-sm-6">{{ content.approved }}</dd>
+                        
+                        <dt class="col-sm-6">Published</dt>
+                        <dd class="col-sm-6">{{ content.published }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Platform Breakdown (Last {{ days }} days)</h5>
+                </div>
+                <div class="card-body">
+                    {% if publishing.platform_breakdown %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Platform</th>
+                                    <th>Publications</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for platform in publishing.platform_breakdown %}
+                                <tr>
+                                    <td>{{ platform.provider|title }}</td>
+                                    <td>{{ platform.total }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No platform data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

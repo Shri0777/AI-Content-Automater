@@ -1,0 +1,38 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ page_title }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'content:analytics_dashboard' %}" class="btn btn-outline-secondary">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Publishing Metrics (Last {{ days }} days)</h5>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Total Publications</dt>
+                <dd class="col-sm-9">{{ publishing.total_publications }}</dd>
+                
+                <dt class="col-sm-3">Success Rate</dt>
+                <dd class="col-sm-9">{{ publishing.success_rate|floatformat:1 }}%</dd>
+                
+                <dt class="col-sm-3">Platform Breakdown</dt>
+                <dd class="col-sm-9">
+                    {% for platform in publishing.platform_breakdown %}
+                    {{ platform.provider|title }}: {{ platform.total }}<br>
+                    {% endfor %}
+                </dd>
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}
