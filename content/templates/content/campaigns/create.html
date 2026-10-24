@@ -66,6 +66,22 @@
                     <div class="form-text">Optional instructions for research collection.</div>
                 </div>
 
+                <div class="mb-3">
+                    <label for="target_platforms" class="form-label">Buffer destination IDs</label>
+                    <input type="text" class="form-control" id="target_platforms" name="target_platforms" placeholder="channel-id-1, channel-id-2">
+                    <div class="form-text">Use IDs from verified Buffer destinations. The server rechecks each destination before submission.</div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="image_approval_required" name="image_approval_required" checked>
+                    <label class="form-check-label" for="image_approval_required">Require approval for generated images</label>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="publish_immediately" name="publish_immediately">
+                    <label class="form-check-label" for="publish_immediately">Submit automatically after all approvals and validation pass</label>
+                </div>
+
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                     <a href="{% url 'content:campaign_list' %}" class="btn btn-outline-secondary">Cancel</a>
                     <button type="submit" class="btn btn-primary">Create Campaign</button>

@@ -16,6 +16,7 @@ Implements the end-to-end publishing workflow:
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -25,6 +26,7 @@ from content.models import (
     ContentPublication,
     ContentReview,
     ContentVersion,
+    CampaignExecution,
     PublishingPreparation,
     WorkflowAuditLog,
 )
@@ -49,7 +51,8 @@ class BufferPublishingOrchestrator:
         mode: str = 'immediate',
         scheduled_at: Optional[datetime] = None,
         client_idempotency_key: Optional[str] = None,
-        custom_text: Optional[str] = None
+        custom_text: Optional[str] = None,
+        image_urls: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Execute publishing or scheduling workflow for approved content.
@@ -111,6 +114,70 @@ class BufferPublishingOrchestrator:
                     'error': f"Version {current_version.version_number} must pass AI Quality Review before publication.",
                     'error_type': 'review_required'
                 }
+
+            # Campaign content must retain its generated image and explicit
+            # image-approval decision across both automatic and manual submits.
+            campaign_execution = (
+                CampaignExecution.objects
+                .select_for_update(of=('self',))
+                .filter(content=content)
+                .select_related('campaign', 'image_media')
+                .order_by('-created_at')
+                .first()
+            )
+            if campaign_execution:
+                media = campaign_execution.image_media
+                if not media or not media.is_validated or not (media.mime_type or '').lower().startswith('image/'):
+                    return {
+                        'success': False,
+                        'error': 'Campaign content requires its validated generated image before publishing.',
+                        'error_type': 'campaign_image_required'
+                    }
+                if campaign_execution.execution_data.get('image_version_id') != current_version.pk:
+                    return {
+                        'success': False,
+                        'error': 'Campaign image was generated from a different content version.',
+                        'error_type': 'stale_campaign_image'
+                    }
+                if media.approval_status == 'rejected':
+                    return {
+                        'success': False,
+                        'error': 'The campaign image was rejected and cannot be published.',
+                        'error_type': 'image_rejected'
+                    }
+                if campaign_execution.campaign.image_approval_required and media.approval_status != 'approved':
+                    return {
+                        'success': False,
+                        'error': 'Campaign image approval is required before publishing.',
+                        'error_type': 'image_approval_required'
+                    }
+                if not content.publishing_preparations.filter(
+                    content_version=current_version,
+                    status='prepared',
+                ).exists():
+                    return {
+                        'success': False,
+                        'error': 'Campaign content must pass final publishing validation before submission.',
+                        'error_type': 'final_validation_required'
+                    }
+                try:
+                    campaign_image_url = media.file.url
+                except (ValueError, OSError):
+                    campaign_image_url = ''
+                parsed_image_url = urlsplit(campaign_image_url)
+                if parsed_image_url.scheme != 'https' or not parsed_image_url.hostname:
+                    return {
+                        'success': False,
+                        'error': 'Campaign media storage must provide a public HTTPS image URL.',
+                        'error_type': 'public_media_url_required'
+                    }
+                if image_urls and image_urls != [campaign_image_url]:
+                    return {
+                        'success': False,
+                        'error': 'Campaign image URL must match the approved media attached to this execution.',
+                        'error_type': 'campaign_image_mismatch'
+                    }
+                image_urls = [campaign_image_url]
 
             # Step 3: Destination validation
             if not profile_ids:
@@ -236,12 +303,15 @@ class BufferPublishingOrchestrator:
 
         # Outside the database lock, dispatch external network requests to Buffer
         for publication, profile_id in publications_to_dispatch:
-            dispatch_res = buffer_service.create_update(
-                profile_ids=[profile_id],
-                text=payload_text,
-                now=(not is_scheduled),
-                due_at=scheduled_at if is_scheduled else None
-            )
+            dispatch_kwargs = {
+                'profile_ids': [profile_id],
+                'text': payload_text,
+                'now': (not is_scheduled),
+                'due_at': scheduled_at if is_scheduled else None,
+            }
+            if image_urls:
+                dispatch_kwargs['image_urls'] = image_urls
+            dispatch_res = buffer_service.create_update(**dispatch_kwargs)
 
             with transaction.atomic():
                 publication.refresh_from_db()

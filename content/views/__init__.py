@@ -320,6 +320,15 @@ def content_approve_version(request, pk):
             messages.info(request, result['message'])
         else:
             messages.success(request, result['message'])
+        from content.models import CampaignExecution
+        from content.tasks.campaign_tasks import submit_to_buffer_task
+        pending_executions = CampaignExecution.objects.filter(
+            content_id=pk,
+            campaign__owner=request.user,
+            image_media__isnull=False,
+        ).exclude(image_media__approval_status='rejected')
+        for execution_id in pending_executions.values_list('pk', flat=True):
+            transaction.on_commit(lambda execution_id=execution_id: submit_to_buffer_task.delay(execution_id))
     else:
         messages.error(request, result['error'])
 

@@ -503,6 +503,7 @@ class Campaign(models.Model):
     research_instructions = models.TextField(blank=True)
     target_platforms = models.JSONField(default=list)
     publish_immediately = models.BooleanField(default=False)
+    image_approval_required = models.BooleanField(default=True)
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default='weekly')
     start_date = models.DateField()
     end_date = models.DateField(null=True, blank=True)
@@ -545,6 +546,8 @@ class CampaignExecution(models.Model):
     error_type = models.CharField(max_length=50, blank=True)
     retry_count = models.PositiveSmallIntegerField(default=0)
     execution_data = models.JSONField(default=dict, blank=True)
+    execution_key = models.CharField(max_length=128, unique=True, null=True, blank=True)
+    image_media = models.ForeignKey('Media', null=True, blank=True, on_delete=models.SET_NULL, related_name='campaign_executions')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -645,6 +648,16 @@ class Media(models.Model):
     # Image metadata (from PIL/Pillow if image)
     width = models.IntegerField(null=True, blank=True)
     height = models.IntegerField(null=True, blank=True)
+
+    APPROVAL_STATUS_CHOICES = [
+        ('not_required', 'Not required'),
+        ('pending', 'Pending approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    approval_status = models.CharField(max_length=20, choices=APPROVAL_STATUS_CHOICES, default='not_required', db_index=True)
+    reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='reviewed_media')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 

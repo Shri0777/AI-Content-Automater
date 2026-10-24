@@ -279,6 +279,15 @@ Audit Log
   - `docs/development/PHASE-3-COMPLETION-REPORT.md` (Social publishing)
 - **Status:** `docs/development/FINAL-V1-STATUS-REPORT.md`
 
+## Learning Guide (New)
+
+If you are new to this codebase or want to understand how it works end-to-end:
+
+- **`docs/learning/CODEBASE-LEARNING-GUIDE.md`** — Comprehensive beginner-friendly guide covering project overview, repository map, architecture, request/response flows, automated content workflow, database guide, background jobs, important files explained, code reading lessons, external integrations, testing/debugging, glossary, learning path, troubleshooting, and self-assessment.
+- **`docs/learning/FILE-REFERENCE-MAP.md`** — Quick lookup of important files, paths, purposes, and relationships grouped by subsystem.
+
+Start with the learning guide's **Learning Path** section for a step-by-step sequence through the codebase.
+
 ## Deliberate Limitations
 
 **Current V1 Scope:**

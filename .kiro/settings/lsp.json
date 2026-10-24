@@ -1,0 +1,518 @@
+{
+  "languages": {
+    "typescript": {
+      "name": "typescript-language-server",
+      "command": "/home/shri/.local/bin/typescript-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "ts",
+        "js",
+        "tsx",
+        "jsx"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "package.json",
+        "tsconfig.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/dist/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {
+        "preferences": {
+          "disableSuggestions": false
+        },
+        "tsserver": {
+          "fallbackPath": "/home/shri/.local/share/kiro/lsp-typescript/node_modules/typescript/lib/tsserver.js"
+        }
+      },
+      "request_timeout_secs": 60
+    },
+    "rust": {
+      "name": "rust-analyzer",
+      "command": "/usr/bin/rust-analyzer",
+      "args": [],
+      "file_extensions": [
+        "rs"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "Cargo.toml"
+      ],
+      "exclude_patterns": [
+        "**/target/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {
+        "cargo": {
+          "buildScripts": {
+            "enable": true
+          }
+        },
+        "diagnostics": {
+          "enable": true,
+          "enableExperimental": true
+        },
+        "workspace": {
+          "symbol": {
+            "search": {
+              "scope": "workspace"
+            }
+          }
+        }
+      },
+      "request_timeout_secs": 60
+    },
+    "python": {
+      "name": "pyright",
+      "command": "/home/shri/.local/bin/pyright-langserver",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "py"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "pyproject.toml",
+        "setup.py",
+        "requirements.txt",
+        "pyrightconfig.json"
+      ],
+      "exclude_patterns": [
+        "**/__pycache__/**",
+        "**/venv/**",
+        "**/.venv/**",
+        "**/.pytest_cache/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "java": {
+      "name": "jdtls",
+      "command": "/home/shri/.local/share/kiro/jdtls/server/bin/jdtls",
+      "args": [
+        "--java-executable",
+        "/usr/lib/jvm/java-25-openjdk/bin/java"
+      ],
+      "file_extensions": [
+        "java"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+        ".project"
+      ],
+      "exclude_patterns": [
+        "**/target/**",
+        "**/build/**",
+        "**/.gradle/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {
+        "settings": {
+          "java": {
+            "compile": {
+              "nullAnalysis": {
+                "mode": "automatic"
+              }
+            },
+            "configuration": {
+              "annotationProcessing": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      },
+      "request_timeout_secs": 60
+    },
+    "go": {
+      "name": "gopls",
+      "command": "/usr/bin/gopls",
+      "args": [],
+      "file_extensions": [
+        "go"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "go.mod",
+        "go.sum"
+      ],
+      "exclude_patterns": [
+        "**/vendor/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {
+        "usePlaceholders": true,
+        "completeUnimported": true
+      },
+      "request_timeout_secs": 60
+    },
+    "ruby": {
+      "name": "solargraph",
+      "command": "/home/shri/.local/share/gem/ruby/3.4.0/bin/solargraph",
+      "args": [
+        "stdio"
+      ],
+      "file_extensions": [
+        "rb"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "Gemfile",
+        "Rakefile"
+      ],
+      "exclude_patterns": [
+        "**/vendor/**",
+        "**/tmp/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "cpp": {
+      "name": "clangd",
+      "command": "/usr/bin/clangd",
+      "args": [
+        "--background-index"
+      ],
+      "file_extensions": [
+        "cpp",
+        "cc",
+        "cxx",
+        "c",
+        "h",
+        "hpp",
+        "hxx"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "CMakeLists.txt",
+        "compile_commands.json",
+        "Makefile"
+      ],
+      "exclude_patterns": [
+        "**/build/**",
+        "**/cmake-build-**/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "html": {
+      "name": "vscode-html-language-server",
+      "command": "/home/shri/.local/bin/vscode-html-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "html",
+        "htm"
+      ],
+      "file_patterns": [
+        "*.html",
+        "*.htm"
+      ],
+      "project_patterns": [
+        "package.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/dist/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "css": {
+      "name": "vscode-css-language-server",
+      "command": "/home/shri/.local/bin/vscode-css-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "css",
+        "scss",
+        "less"
+      ],
+      "file_patterns": [
+        "*.css",
+        "*.scss",
+        "*.less"
+      ],
+      "project_patterns": [
+        "package.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/dist/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "json": {
+      "name": "vscode-json-language-server",
+      "command": "/home/shri/.local/bin/vscode-json-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "json",
+        "jsonc"
+      ],
+      "file_patterns": [
+        "*.json",
+        "*.jsonc"
+      ],
+      "project_patterns": [
+        "package.json",
+        "tsconfig.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/dist/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "eslint": {
+      "name": "vscode-eslint-language-server",
+      "command": "/home/shri/.local/bin/vscode-eslint-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "js",
+        "jsx",
+        "ts",
+        "tsx",
+        "mjs",
+        "cjs",
+        "mts",
+        "cts",
+        "vue",
+        "svelte",
+        "astro"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "package.json",
+        "eslint.config.js",
+        "eslint.config.mjs",
+        "eslint.config.cjs",
+        ".eslintrc.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/dist/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "bash": {
+      "name": "bash-language-server",
+      "command": "/home/shri/.local/bin/bash-language-server",
+      "args": [
+        "start"
+      ],
+      "file_extensions": [
+        "sh",
+        "bash"
+      ],
+      "file_patterns": [
+        "*.sh",
+        "*.bash"
+      ],
+      "project_patterns": [
+        ".bashrc",
+        ".zshrc",
+        "package.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/vendor/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "yaml": {
+      "name": "yaml-language-server",
+      "command": "/home/shri/.local/bin/yaml-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "yaml",
+        "yml"
+      ],
+      "file_patterns": [
+        "*.yaml",
+        "*.yml"
+      ],
+      "project_patterns": [
+        "docker-compose.yml",
+        "compose.yaml",
+        "package.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "dockerfile": {
+      "name": "docker-langserver",
+      "command": "/home/shri/.local/bin/docker-langserver",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "dockerfile"
+      ],
+      "file_patterns": [
+        "Dockerfile",
+        "Dockerfile.*",
+        "*.dockerfile"
+      ],
+      "project_patterns": [
+        "Dockerfile",
+        "docker-compose.yml",
+        "compose.yaml",
+        "docker-compose.yaml"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/vendor/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "sql": {
+      "name": "sqls",
+      "command": "/home/shri/.local/bin/sqls",
+      "args": [],
+      "file_extensions": [
+        "sql"
+      ],
+      "file_patterns": [
+        "*.sql"
+      ],
+      "project_patterns": [
+        "package.json",
+        "pyproject.toml",
+        "requirements.txt",
+        "prisma/schema.prisma"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/venv/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "tailwindcss": {
+      "name": "tailwindcss-language-server",
+      "command": "/home/shri/.local/bin/tailwindcss-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "css",
+        "html",
+        "js",
+        "jsx",
+        "ts",
+        "tsx",
+        "vue",
+        "svelte",
+        "astro"
+      ],
+      "file_patterns": [],
+      "project_patterns": [
+        "tailwind.config.js",
+        "tailwind.config.ts",
+        "tailwind.config.cjs",
+        "package.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/dist/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "svelte": {
+      "name": "svelteserver",
+      "command": "/home/shri/.local/bin/svelteserver",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "svelte"
+      ],
+      "file_patterns": [
+        "*.svelte"
+      ],
+      "project_patterns": [
+        "svelte.config.js",
+        "svelte.config.ts",
+        "package.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/.svelte-kit/**",
+        "**/dist/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {},
+      "request_timeout_secs": 60
+    },
+    "astro": {
+      "name": "astro-ls",
+      "command": "/home/shri/.local/bin/astro-ls",
+      "args": [
+        "--stdio"
+      ],
+      "file_extensions": [
+        "astro"
+      ],
+      "file_patterns": [
+        "*.astro"
+      ],
+      "project_patterns": [
+        "astro.config.mjs",
+        "astro.config.js",
+        "astro.config.ts",
+        "package.json"
+      ],
+      "exclude_patterns": [
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.astro/**"
+      ],
+      "multi_workspace": false,
+      "initialization_options": {
+        "typescript": {
+          "tsdk": "/home/shri/.local/share/kiro/lsp-typescript/node_modules/typescript/lib"
+        }
+      },
+      "request_timeout_secs": 60
+    }
+  }
+}

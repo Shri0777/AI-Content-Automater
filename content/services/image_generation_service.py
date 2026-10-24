@@ -93,10 +93,10 @@ class ImageGenerationService:
         )
         
         if not gen_result.success:
-            logger.error(f"Image generation failed: {gen_result.error}")
+            logger.error('Image generation failed (%s).', gen_result.error_type or 'provider_error')
             return {
                 'success': False,
-                'error': f"AI image generation failed: {gen_result.error}",
+                'error': 'AI image generation failed. Check provider configuration and try again.',
                 'error_type': gen_result.error_type or 'generation_failed'
             }
         
@@ -157,10 +157,10 @@ class ImageGenerationService:
             }
             
         except Exception as e:
-            logger.error(f"Failed to save generated image: {e}")
+            logger.error('Generated image storage failed (%s).', type(e).__name__)
             return {
                 'success': False,
-                'error': f"Failed to save generated image: {str(e)}",
+                'error': 'Generated image could not be saved. Check media storage and try again.',
                 'error_type': 'storage_error'
             }
     

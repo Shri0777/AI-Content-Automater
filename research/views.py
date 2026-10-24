@@ -6,13 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-import os
 import logging
 from django.utils import timezone
 from django.db import transaction
 
 from research.models import ResearchProfile, ContentCreationRequest, Research
 from research.services import RSSFeedService, GNewsService, RankingService
+from research.services.collection_service import ResearchCollectionService
 from content.models import Content
 
 logger = logging.getLogger(__name__)
@@ -243,112 +243,14 @@ def request_execute(request, pk):
         creation_request.save(update_fields=['status', 'error_message', 'error_type', 'completed_at'])
     
     try:
-        # Gather entries from implemented sources only; do not imply that unimplemented
-        # categories are being searched.
-        all_entries = []
-        errors = []
-        implemented_categories = {'news'}
-        unsupported_categories = sorted(set(creation_request.source_categories) - implemented_categories)
-        if unsupported_categories:
-            errors.append('Not yet supported by an active connector: ' + ', '.join(unsupported_categories))
-        
-        # RSS/Atom feeds (example feeds - in production, these would be configurable)
-        rss_service = RSSFeedService(timeout=10, max_entries=20)
-        
-        # Example tech RSS feeds
-        rss_feeds = [
-            ('https://hnrss.org/newest', 'news'),
-            # Add more feeds based on topics/categories
-        ]
-        
-        for feed_url, category in rss_feeds:
-            if category in creation_request.source_categories:
-                result = rss_service.fetch_feed(feed_url, category=category)
-                if not isinstance(result, dict):
-                    result = {}
-                error = result.get('error')
-                if error:
-                    errors.append(f"RSS feed error: {error}")
-                else:
-                    all_entries.extend(result.get('entries') or [])
-        
-        # GNews
-        if 'news' in creation_request.source_categories:
-            gnews_api_key = os.getenv('GNEWS_API_KEY')
-            if gnews_api_key:
-                gnews_service = GNewsService(api_key=gnews_api_key, timeout=10)
-                
-                # Build search query from topics
-                query = ' '.join(creation_request.topics[:3])  # Use first 3 topics
-                if creation_request.specific_query:
-                    query = creation_request.specific_query
-                
-                result = gnews_service.search(
-                    query=query,
-                    language=creation_request.language,
-                    max_results=10,
-                    days=creation_request.freshness_days
-                )
-                
-                if not isinstance(result, dict):
-                    result = {}
-                error = result.get('error')
-                if error:
-                    errors.append(f"GNews error: {error}")
-                else:
-                    all_entries.extend(result.get('entries') or [])
-            else:
-                errors.append("GNews API key not configured (optional)")
-        
-        # Rank and deduplicate
-        ranking_service = RankingService()
-        ranked_entries = ranking_service.deduplicate_and_rank(
-            all_entries,
-            query=creation_request.specific_query or '',
-            topics=creation_request.topics,
-            freshness_days=creation_request.freshness_days
+        result = ResearchCollectionService.collect(
+            creation_request,
+            rss_service_class=RSSFeedService,
+            gnews_service_class=GNewsService,
+            ranking_service_class=RankingService,
         )
-        
-        # Save to database
-        saved_count = 0
-        for entry in ranked_entries[:50]:  # Limit to top 50
-            research = Research.objects.create(
-                owner=request.user,
-                creation_request=creation_request,
-                entry_type=entry.get('entry_type', 'rss'),
-                title=entry['title'],
-                summary=entry.get('summary', ''),
-                url=entry['url'],
-                canonical_url=entry.get('canonical_url', entry['url']),
-                source_name=entry.get('source_name', 'Unknown'),
-                author=entry.get('author'),
-                published_date=entry.get('published_date'),
-                relevance_score=entry.get('relevance_score', 0.0),
-                freshness_score=entry.get('freshness_score', 0.0),
-                quality_score=entry.get('quality_score', 0.0),
-                overall_score=entry.get('overall_score', 0.0),
-                category=entry.get('category'),
-                ranking_rationale=entry.get('ranking_rationale', '')
-            )
-            saved_count += 1
-        
-        # Update request status
-        if saved_count > 0:
-            creation_request.status = 'completed'
-            if errors:
-                creation_request.error_message = "; ".join(errors)
-                creation_request.error_type = 'partial_failure'
-            else:
-                creation_request.error_message = None
-                creation_request.error_type = None
-        else:
-            creation_request.status = 'failed'
-            creation_request.error_message = "; ".join(errors) if errors else "No research results found."
-            creation_request.error_type = 'no_results'
-
-        creation_request.completed_at = timezone.now()
-        creation_request.save()
-        
+        saved_count = result['saved_count']
+        errors = result['errors']
         # Show results
         if saved_count > 0:
             msg = f'Research complete! Found and ranked {saved_count} sources.'

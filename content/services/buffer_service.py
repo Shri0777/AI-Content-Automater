@@ -12,8 +12,11 @@ Implements the official Buffer GraphQL API (https://api.buffer.com):
 - Ambiguous outcome handling on network timeouts (BR-018: no blind retries)
 """
 import logging
+import ipaddress
+import socket
 from datetime import datetime, timezone as dt_timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
 
 import requests
 from django.conf import settings
@@ -326,7 +329,8 @@ class BufferPublishingService:
         profile_ids: List[str],
         text: str,
         now: bool = True,
-        due_at: Optional[datetime] = None
+        due_at: Optional[datetime] = None,
+        image_urls: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Create a social update in Buffer via the GraphQL createPost mutation.
@@ -361,6 +365,15 @@ class BufferPublishingService:
                 'error': 'Content text cannot be empty.',
                 'error_type': 'empty_text'
             }
+
+        image_urls = image_urls or []
+        for image_url in image_urls:
+            if not self._is_public_https_url(image_url) or not self._is_reachable_image_url(image_url):
+                return {
+                    'success': False,
+                    'error': 'Buffer image publishing requires a publicly reachable HTTPS image URL.',
+                    'error_type': 'invalid_image_url'
+                }
 
         # Format ISO 8601 UTC timestamp string for GraphQL customScheduled dueAt
         due_at_iso = None
@@ -399,6 +412,10 @@ class BufferPublishingService:
                     'mode': 'shareNow' if now else 'customScheduled'
                 }
             }
+            if image_urls:
+                input_vars['input']['assets'] = [
+                    {'image': {'url': image_url}} for image_url in image_urls
+                ]
             if not now and due_at_iso:
                 input_vars['input']['dueAt'] = due_at_iso
 
@@ -551,3 +568,32 @@ class BufferPublishingService:
             'updates': updates,
             'response_data': sanitized_response
         }
+
+    @staticmethod
+    def _is_public_https_url(value: str) -> bool:
+        """Accept only public HTTPS URLs that resolve to globally routable hosts."""
+        try:
+            parsed = urlsplit(value)
+            if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password:
+                return False
+            host = parsed.hostname.rstrip('.').lower()
+            if host in {'localhost', 'localhost.localdomain'} or host.endswith('.local'):
+                return False
+            try:
+                addresses = [ipaddress.ip_address(host)]
+            except ValueError:
+                addresses = [ipaddress.ip_address(item[4][0]) for item in socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)]
+            return bool(addresses) and all(address.is_global for address in addresses)
+        except (ValueError, OSError, TypeError):
+            return False
+
+    @staticmethod
+    def _is_reachable_image_url(value: str) -> bool:
+        """Require the configured storage URL to answer anonymously with an image."""
+        try:
+            response = requests.head(value, timeout=5, allow_redirects=False)
+            return response.status_code == 200 and response.headers.get('Content-Type', '').lower().startswith('image/')
+        except Exception:
+            # Any network error (DNS failure, connection refused, timeout, etc.)
+            # means the URL is not reachable; fail safely.
+            return False

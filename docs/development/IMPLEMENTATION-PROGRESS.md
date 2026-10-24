@@ -389,3 +389,132 @@ Significant progress has been made toward V1 requirements compliance:
 **Blockers:** None technical, only external credentials for live OAuth testing
 
 **Next Session:** Implement comprehensive tests for Phase 3, then proceed to Phase 4 (campaigns).
+
+---
+
+## Automated Content-to-Image-to-Buffer Update (2026-10-24)
+
+This is a dated implementation update. The V1 completion estimate and next-session notes above are retained as historical snapshots; they were not recalculated for this pipeline task.
+
+### Delivered
+
+- Added `AutomatedPostOrchestrationService` to build the image prompt from the passing-reviewed `ContentVersion`, generate and associate media, enforce the configured image approval state, and continue through verified Buffer destinations and final publishing validation.
+- Repaired `execute_campaign_task` to use the existing research, generation, correction/review, media, and publishing services. The task keeps a stable execution key, reuses its execution/content across retries, bounds image-generation retries, and avoids duplicate Buffer submissions through the publishing service's existing deterministic idempotency records.
+- Added per-campaign image approval configuration (required by default), media approval audit fields, and an execution-to-media relation in migration `0008_campaign_image_approval_required_and_more.py`.
+- Added owner-scoped POST image approval/rejection actions and campaign create/detail controls. Explicit human approval of the current text version remains required before final validation/publication; no approval is synthesized by automation.
+- Added Buffer image assets to the existing GraphQL publish call. Image delivery refuses non-HTTPS, non-public, unresolved, redirected, unreachable, or non-image URLs before submitting the post.
+- Extracted existing research collection into `ResearchCollectionService` and reused it from the research view and campaign task.
+
+### Verified
+
+- Focused orchestration plus research execution tests: 22 passed.
+- Full Django suite: 364 tests passed using the existing PostgreSQL test database with `--keepdb`.
+- `manage.py check`: passed.
+- `manage.py makemigrations --check --dry-run`: no changes detected.
+- `compileall -q content research`: passed.
+- `git diff --check`: passed.
+
+### Automated Content-to-Image-to-Buffer Media Storage (2026-10-24)
+
+This section documents the media storage integration that unblocks Buffer image publishing.
+
+#### Storage Architecture
+
+**Chosen provider:** Cloudflare R2 with a public custom domain.
+
+**Why R2:**
+- S3-compatible API → works with `django-storages` + `boto3` (already in `requirements.txt`)
+- Zero egress fees
+- Private bucket origin with public delivery via a custom Cloudflare domain (e.g., `https://media.example.com/`)
+- Clean HTTPS URLs required by Buffer's image publishing validation
+
+**Fallback:** Local filesystem storage (`MEDIA_URL='/media/'`) remains the default when R2 env vars are not configured. Development continues to work without any cloud account.
+
+#### Environment Variables (`.env.example`)
+
+All values are placeholders. Never store actual secrets in documentation or version control.
+
+| Variable | Purpose | Required for R2 |
+|----------|---------|-----------------|
+| `R2_ACCOUNT_ID` | Cloudflare account ID | Yes |
+| `R2_ACCESS_KEY_ID` | R2 API access key ID | Yes |
+| `R2_SECRET_ACCESS_KEY` | R2 API secret access key | Yes |
+| `R2_BUCKET_NAME` | R2 bucket name | Yes |
+| `R2_PUBLIC_DOMAIN` | Custom domain for public HTTPS access (e.g., `media.example.com`) | Yes |
+| `MEDIA_STORAGE` | Set to `r2` to enable; unset/empty = local storage | Yes (must be `r2`) |
+
+#### Configuration Steps (Manual - credentials not yet available)
+
+1. Create a Cloudflare account and enable R2
+2. Create an R2 bucket (keep it **private** - do not make the bucket public)
+3. Create R2 API credentials (Access Key ID + Secret Access Key)
+4. Add a custom domain in Cloudflare (e.g., `media.example.com`) pointing to the R2 bucket
+5. Add the env vars to `.env` (never commit actual values)
+6. Set `MEDIA_STORAGE=r2` in `.env`
+
+#### Security Properties
+
+- Bucket is **private**; public access is only via the custom domain
+- `AWS_DEFAULT_ACL = None` — no public ACLs on objects
+- `AWS_QUERYSTRING_AUTH = False` — URLs do not contain signed query strings
+- `AWS_S3_URL_PROTOCOL = "https:"` — all URLs are HTTPS
+- Buffer's existing validation (`_is_public_https_url`, `_is_reachable_image_url`) enforces:
+  - HTTPS only
+  - Globally routable DNS (no localhost, private, or link-local addresses)
+  - Anonymous HEAD → 200 + `image/*` content type
+  - No redirects (`allow_redirects=False`)
+  - No URL credentials (user:pass@host)
+
+#### Tests Added
+
+`content/tests/test_media_storage.py` — 17 tests covering:
+- Local storage default when R2 not configured
+- R2 configured flag logic with all/missing env vars
+- HTTPS URL validation (global host, HTTP, localhost, private IPs, link-local, credentials, empty)
+- Image MIME validation (valid image, non-200, non-image content type, network error)
+- Storage upload failure with sanitized error messages
+- Missing public media URL fails closed in Buffer publishing
+
+#### Verification Evidence
+
+| Command | Result |
+|---------|--------|
+| `manage.py test content.tests.test_media_storage --keepdb` | PASS, 17 tests |
+| `manage.py test content.tests.test_automated_post_orchestration research.tests.ResearchExecutionViewTests --keepdb` | PASS, 22 tests |
+| `manage.py test --keepdb --verbosity 1` | PASS, 381 tests (364 original + 17 new) |
+| `manage.py check` | PASS, no issues |
+| `manage.py makemigrations --check --dry-run` | PASS, no changes detected |
+| `compileall -q content research content_automater` | PASS |
+| `git diff --check` | PASS |
+
+#### Live Verification Status
+
+**Blocked:** No Cloudflare R2 credentials, bucket, or custom domain are configured in this environment. Live integration verification (upload → retrieve from public HTTPS domain → Buffer auth + destination discovery) cannot be performed until those are provided.
+
+**What remains before live publish:**
+1. User creates Cloudflare R2 account, bucket, API credentials, and custom domain
+2. User adds R2 env vars to `.env` (never committed)
+3. User sets `MEDIA_STORAGE=r2`
+4. Owner explicitly authorizes a live Buffer publish to a safe test destination
+
+The workflow specification's “NO mandatory text approval gate” statement conflicts with the existing publishing contract and the authoritative approval requirements. This implementation keeps the current explicit human-approval gate and documents that decision in `AUTOMATED-POST-ORCHESTRATION-IMPLEMENTATION.md`; it does not claim owner approval of a policy change.
+
+---
+
+## Documentation (2026-10-24)
+
+### Learning Guide Created
+
+**Files created:**
+- `docs/learning/CODEBASE-LEARNING-GUIDE.md` — Comprehensive beginner-friendly learning guide covering all major subsystems: project overview, repository map, architecture, request/response flows, automated content workflow, database guide, background jobs and Docker, important files explained, code reading lessons, external integrations, testing/debugging, glossary, learning path, troubleshooting reference, and self-assessment with answers.
+- `docs/learning/FILE-REFERENCE-MAP.md` — Quick lookup of important files grouped by subsystem, with paths, purposes, key classes/functions, and relationships.
+
+### README Updated
+
+Added a "Learning Guide" section to `README.md` with links to both new documentation files.
+
+### Documentation Gaps Remaining
+
+- No detailed documentation for the `frontend/` and `frontend_ui/` apps beyond what's in the learning guide's file reference map.
+- No runbook for production deployment beyond `docker-compose.yml` and `Dockerfile`.
+- No troubleshooting guide for Celery worker/beat-specific issues beyond the table in the learning guide.

@@ -29,6 +29,8 @@ urlpatterns = [
     path('campaigns/<int:pk>/pause/', campaign_views.campaign_pause, name='campaign_pause'),
     path('campaigns/<int:pk>/execute/', campaign_views.campaign_execute_now, name='campaign_execute'),
     path('campaigns/<int:pk>/delete/', campaign_views.campaign_delete, name='campaign_delete'),
+    path('campaign-executions/<int:pk>/image/approve/', campaign_views.campaign_image_approve, name='campaign_image_approve'),
+    path('campaign-executions/<int:pk>/image/reject/', campaign_views.campaign_image_reject, name='campaign_image_reject'),
 
     # Notifications
     path('notifications/', notification_views.notification_list, name='notification_list'),

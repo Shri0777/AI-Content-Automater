@@ -119,6 +119,7 @@
                             <th>Started</th>
                             <th>Status</th>
                             <th>Content</th>
+                            <th>Image</th>
                             <th>Error</th>
                             <th>Duration</th>
                         </tr>
@@ -141,6 +142,22 @@
                                 {% else %}
                                     -
                                 {% endif %}
+                            </td>
+                            <td>
+                                {% if exec.image_media %}
+                                    {% if exec.image_media.file %}
+                                    <img src="{{ exec.image_media.file.url }}" alt="Generated image for {{ exec.content.title|default:campaign.name }}" loading="lazy" style="display:block;max-width:120px;max-height:90px;object-fit:cover;margin-bottom:.4rem;">
+                                    {% endif %}
+                                    {{ exec.image_media.get_approval_status_display }}
+                                    {% if exec.image_media.approval_status == 'pending' %}
+                                    <form method="post" action="{% url 'content:campaign_image_approve' exec.pk %}" class="d-inline">
+                                        {% csrf_token %}<button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                    </form>
+                                    <form method="post" action="{% url 'content:campaign_image_reject' exec.pk %}" class="d-inline">
+                                        {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                    </form>
+                                    {% endif %}
+                                {% else %}-{% endif %}
                             </td>
                             <td>
                                 {% if exec.error_message %}

@@ -203,5 +203,71 @@ CELERY_BEAT_SCHEDULE = {
 # Media Files (User Uploads)
 # ============================================================================
 
+# Default local storage (used when R2 is not configured)
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
+
+# -----------------------------------------------------------------------------
+# Cloudflare R2 Storage (Optional - enables public HTTPS media URLs for Buffer)
+# -----------------------------------------------------------------------------
+# When all R2_* environment variables are set and MEDIA_STORAGE=r2,
+# Django uses S3-compatible R2 storage with a custom public domain.
+# This provides stable, publicly reachable HTTPS URLs required by Buffer.
+#
+# Required env vars for R2:
+#   R2_ACCOUNT_ID           Cloudflare account ID
+#   R2_ACCESS_KEY_ID        R2 API access key ID
+#   R2_SECRET_ACCESS_KEY    R2 API secret access key
+#   R2_BUCKET_NAME          R2 bucket name
+#   R2_PUBLIC_DOMAIN        Custom domain for public access (e.g., media.example.com)
+#   MEDIA_STORAGE=r2        Explicit opt-in to enable R2 backend
+#
+# The bucket should be PRIVATE. Public access is granted ONLY via the custom
+# domain configured in Cloudflare (R2_PUBLIC_DOMAIN -> R2 bucket).
+# This keeps the origin secure while providing clean HTTPS URLs.
+
+R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
+R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", "")
+R2_PUBLIC_DOMAIN = os.getenv("R2_PUBLIC_DOMAIN", "")
+MEDIA_STORAGE = os.getenv("MEDIA_STORAGE", "").strip().lower()  # 'r2' or ''
+
+_R2_CONFIGURED = all([
+    R2_ACCOUNT_ID,
+    R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY,
+    R2_BUCKET_NAME,
+    R2_PUBLIC_DOMAIN,
+    MEDIA_STORAGE == "r2",
+])
+
+if _R2_CONFIGURED:
+    INSTALLED_APPS += ["storages"]
+
+    # S3-compatible endpoint for Cloudflare R2
+    AWS_S3_ENDPOINT_URL = f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+    AWS_STORAGE_BUCKET_NAME = R2_BUCKET_NAME
+    AWS_ACCESS_KEY_ID = R2_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY = R2_SECRET_ACCESS_KEY
+    AWS_S3_REGION_NAME = "auto"
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+
+    # Custom domain for public HTTPS URLs (e.g., https://media.example.com/)
+    AWS_S3_CUSTOM_DOMAIN = R2_PUBLIC_DOMAIN
+    AWS_S3_URL_PROTOCOL = "https:"
+
+    # Security: private bucket, no public ACLs, no query-string auth on public URLs
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = False
+
+    # Cache control for generated images (adjust as needed)
+    AWS_S3_OBJECT_PARAMETERS = {
+        "CacheControl": "public, max-age=31536000, immutable",
+    }
+
+    # Use S3Boto3Storage for media files
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+    # MEDIA_URL uses the custom domain for public HTTPS URLs
+    MEDIA_URL = f"https://{R2_PUBLIC_DOMAIN}/"

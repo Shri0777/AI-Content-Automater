@@ -1,274 +1,256 @@
-"""
-Campaign execution tasks for recurring content generation (FR-029, FR-030, FR-031).
-"""
-from celery import shared_task
-from django.utils import timezone
-from django.db import transaction
+"""Idempotent campaign content and media pipeline tasks."""
 from datetime import timedelta
+from uuid import uuid4
+
+from celery import shared_task
+from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
 
 
 @shared_task(bind=True, max_retries=2)
-def execute_campaign_task(self, campaign_id):
-    """
-    Execute complete campaign workflow: research → generate → review → correct → review.
-    
-    Creates content through the full AI workflow pipeline using existing services.
-    Does NOT auto-approve - content ends in pending_review state for manual approval.
-    
-    Args:
-        campaign_id: Campaign primary key
-    
-    Returns:
-        dict: Execution result with status, content_id, and any errors
-    """
-    from content.models import Campaign, CampaignExecution, Content, ContentVersion
-    from content.services.generation_service import GenerationService
-    from content.services.review_service import ReviewService
-    from content.services.correction_service import CorrectionService
+def execute_campaign_task(self, campaign_id, execution_key=None):
+    from content.models import Campaign, CampaignExecution, Content
+    from content.services.automated_post_orchestration import AutomatedPostOrchestrationService
+    from content.services.correction_service import ContentCorrectionService
+    from content.services.generation_service import ContentGenerationService
     from research.models import ContentCreationRequest
-    
+    from research.services.collection_service import ResearchCollectionService
+
     try:
-        campaign = Campaign.objects.get(id=campaign_id)
+        campaign = Campaign.objects.get(pk=campaign_id)
     except Campaign.DoesNotExist:
-        return {'success': False, 'error': 'Campaign not found'}
-    
-    # Create execution record
-    execution = CampaignExecution.objects.create(
-        campaign=campaign,
-        scheduled_time=timezone.now(),
-        started_at=timezone.now(),
-        status='researching'
-    )
-    
+        return {'success': False, 'error_type': 'not_found', 'error': 'Campaign not found.'}
+
+    execution_key = execution_key or f"celery:{self.request.id or uuid4()}"
+    with transaction.atomic():
+        execution, created = CampaignExecution.objects.get_or_create(
+            execution_key=execution_key,
+            defaults={
+                'campaign': campaign,
+                'scheduled_time': timezone.now(),
+                'started_at': timezone.now(),
+                'status': 'researching',
+            },
+        )
+        execution = CampaignExecution.objects.select_for_update(of=('self',)).select_related('campaign', 'content').get(pk=execution.pk)
+        if execution.campaign_id != campaign.pk:
+            return {'success': False, 'error_type': 'idempotency_conflict', 'error': 'Execution key is already used by another campaign.'}
+        if execution.status == 'completed' and execution.image_media_id:
+            return {'success': True, 'duplicate': True, 'execution_id': execution.pk, 'content_id': execution.content_id}
+        if (
+            not created
+            and self.request.retries == 0
+            and execution.status in {'researching', 'generating', 'reviewing'}
+            and execution.started_at
+            and execution.started_at > timezone.now() - timedelta(minutes=15)
+        ):
+            return {'success': True, 'already_running': True, 'execution_id': execution.pk}
+        execution.started_at = timezone.now()
+        execution.status = 'researching'
+        execution.save(update_fields=['started_at', 'status', 'updated_at'])
+
     try:
-        # Step 1: Create Content object
-        content = Content.objects.create(
-            owner=campaign.owner,
-            title=f"{campaign.name} - {timezone.now().date()}",
-            topic=campaign.topic,
-            description=campaign.generation_instructions,
-            lifecycle_state='draft'
-        )
-        
-        execution.content = content
-        execution.save(update_fields=['content', 'updated_at'])
-        
-        # Step 2: Create initial research request if research instructions provided
-        if campaign.research_instructions:
-            ContentCreationRequest.objects.create(
-                content=content,
+        if not execution.content_id:
+            with transaction.atomic():
+                execution = CampaignExecution.objects.select_for_update(of=('self',)).get(pk=execution.pk)
+                if execution.content_id:
+                    content = execution.content
+                else:
+                    content = Content.objects.create(
+                        owner=campaign.owner,
+                        title=f"{campaign.name} - {timezone.localdate().isoformat()}",
+                        topic=campaign.topic,
+                        description=campaign.generation_instructions,
+                        lifecycle_state='draft',
+                    )
+                    execution.content = content
+                    execution.save(update_fields=['content', 'updated_at'])
+        else:
+            content = execution.content
+
+        request_id = execution.execution_data.get('creation_request_id')
+        creation_request = ContentCreationRequest.objects.filter(pk=request_id, user=campaign.owner).first() if request_id else None
+        if not creation_request:
+            with transaction.atomic():
+                execution = CampaignExecution.objects.select_for_update(of=('self',)).get(pk=execution.pk)
+                request_id = execution.execution_data.get('creation_request_id')
+                creation_request = ContentCreationRequest.objects.filter(pk=request_id, user=campaign.owner).first() if request_id else None
+                if not creation_request:
+                    creation_request = ContentCreationRequest.create_from_profile(
+                        user=campaign.owner,
+                        content=content,
+                        overrides={
+                            'topics': [campaign.topic],
+                            'specific_query': campaign.research_instructions or campaign.topic,
+                            'source_categories': ['news'],
+                        },
+                    )
+                    execution.execution_data = {**execution.execution_data, 'creation_request_id': creation_request.pk}
+                    execution.save(update_fields=['execution_data', 'updated_at'])
+
+        if not creation_request.research_results.exists():
+            creation_request.status = 'researching'
+            creation_request.save(update_fields=['status', 'updated_at'])
+            collected = ResearchCollectionService.collect(creation_request)
+            if not collected['success']:
+                raise RuntimeError(creation_request.error_message or 'Campaign research returned no sources.')
+
+        version = content.current_version
+        latest_review = version.reviews.order_by('-stage', '-created_at').first() if version else None
+        if not latest_review:
+            execution.status = 'generating'
+            execution.save(update_fields=['status', 'updated_at'])
+            generated = ContentGenerationService.generate_draft_for_request(
+                creation_request_id=creation_request.pk,
                 user=campaign.owner,
-                topic=campaign.topic,
-                instructions=campaign.research_instructions,
-                status='pending'
+                custom_instructions=campaign.generation_instructions,
             )
-        
-        # Step 3: Generate content using GenerationService
-        execution.status = 'generating'
-        execution.save(update_fields=['status', 'updated_at'])
-        
-        gen_service = GenerationService()
-        gen_result = gen_service.generate_content(
-            content_id=content.id,
-            user=campaign.owner,
-            topic=campaign.topic,
-            generation_instructions=campaign.generation_instructions,
-            provider_name='default'  # Use configured default provider
-        )
-        
-        if not gen_result.get('success'):
-            raise Exception(f"Generation failed: {gen_result.get('error', 'Unknown error')}")
-        
-        content.refresh_from_db()
-        if not content.current_version:
-            raise Exception("Generation did not create a content version")
-        
-        # Step 4: Run Review #1
-        execution.status = 'reviewing'
-        execution.save(update_fields=['status', 'updated_at'])
-        
-        review_service = ReviewService()
-        review_result = review_service.execute_review(
-            content_version_id=content.current_version.id,
-            stage=1,
-            provider_name='default'
-        )
-        
-        if not review_result.get('success'):
-            raise Exception(f"Review #1 failed: {review_result.get('error', 'Unknown error')}")
-        
-        review = review_result.get('review')
-        
-        # Step 5: If review needs revision, attempt correction (bounded to MAX_AUTOMATED_REVISIONS)
-        correction_count = 0
-        max_corrections = 2  # FR-021: Bounded AI Revision
-        
-        while review and review.status == 'needs_revision' and correction_count < max_corrections:
-            correction_service = CorrectionService()
-            correction_result = correction_service.execute_correction(
-                content_id=content.id,
-                review_id=review.id,
-                user=campaign.owner,
-                provider_name='default'
-            )
-            
-            if not correction_result.get('success'):
-                break  # Stop correction attempts on failure
-            
+            if not generated.get('success'):
+                raise RuntimeError('Content generation service returned failure.')
             content.refresh_from_db()
-            correction_count += 1
-            
-            # Re-review after correction (Review #2)
-            review_result = review_service.execute_review(
-                content_version_id=content.current_version.id,
-                stage=2,
-                provider_name='default'
-            )
-            
-            if not review_result.get('success'):
+            version = content.current_version
+            latest_review = version.reviews.order_by('-stage', '-created_at').first() if version else None
+
+        corrections = 0
+        while latest_review and latest_review.status != 'passed' and corrections < 2:
+            execution.status = 'reviewing'
+            execution.save(update_fields=['status', 'updated_at'])
+            corrected = ContentCorrectionService.apply_bounded_correction(content.pk, campaign.owner)
+            if not corrected.get('success'):
                 break
-            
-            review = review_result.get('review')
-        
-        # Step 6: Mark execution complete and send notification
-        # Content is now in a reviewable state but NOT auto-approved
-        # User must manually approve before publishing (FR-025: Manual Approval)
-        content.lifecycle_state = 'pending_review'
-        content.save(update_fields=['lifecycle_state', 'updated_at'])
-        
+            corrections += 1
+            content.refresh_from_db()
+            version = content.current_version
+            latest_review = version.reviews.order_by('-stage', '-created_at').first()
+
+        if not latest_review or latest_review.status != 'passed':
+            raise RuntimeError('Campaign content did not pass mandatory AI quality review after bounded correction.')
+
+        content.refresh_from_db()
+        if content.lifecycle_state == 'in_progress':
+            content.lifecycle_state = 'pending_review'
+            content.save(update_fields=['lifecycle_state', 'updated_at'])
+
+        image_result = AutomatedPostOrchestrationService.generate_image(execution.pk)
+        if not image_result.get('success'):
+            raise RuntimeError('Image generation service returned failure.')
+        submit_to_buffer_task.delay(execution.pk)
+
         execution.status = 'completed'
         execution.completed_at = timezone.now()
-        execution.save(update_fields=['status', 'completed_at', 'updated_at'])
-        
-        # Update campaign stats
-        campaign.execution_count += 1
-        campaign.success_count += 1
-        campaign.last_executed = timezone.now()
-        campaign.save(update_fields=[
-            'execution_count', 'success_count', 'last_executed', 'updated_at'
-        ])
-        
-        # Send success notification
+        execution.error_message = ''
+        execution.error_type = ''
+        execution.save(update_fields=['status', 'completed_at', 'error_message', 'error_type', 'updated_at'])
+        execution.execution_data = {**execution.execution_data, 'correction_count': corrections}
+        execution.save(update_fields=['execution_data', 'updated_at'])
+
+        with transaction.atomic():
+            execution = CampaignExecution.objects.select_for_update(of=('self',)).get(pk=execution.pk)
+            if not execution.execution_data.get('campaign_counted'):
+                Campaign.objects.filter(pk=campaign.pk).update(
+                    execution_count=F('execution_count') + 1,
+                    success_count=F('success_count') + 1,
+                    last_executed=timezone.now(),
+                )
+                execution.execution_data = {**execution.execution_data, 'campaign_counted': True}
+                execution.save(update_fields=['execution_data', 'updated_at'])
+
         from content.services.notification_service import NotificationService
         NotificationService.create_notification(
             user=campaign.owner,
             notification_type='campaign_execution_success',
-            title=f'Campaign "{campaign.name}" executed successfully',
-            message=f'New content "{content.title}" has been generated and is ready for review.',
+            title=f'Campaign "{campaign.name}" generated content',
+            message=f'"{content.title}" passed AI review. Human text approval and the configured image approval are still enforced before publishing.',
             content=content,
             campaign=campaign,
-            send_email=True
+            send_email=True,
         )
-        
-        # Schedule next execution
         _schedule_next_execution(campaign)
-        
         return {
             'success': True,
-            'content_id': content.id,
-            'execution_id': execution.id,
-            'correction_count': correction_count,
-            'final_review_status': review.status if review else 'unknown'
+            'content_id': content.pk,
+            'execution_id': execution.pk,
+            'correction_count': corrections,
+            'final_review_status': latest_review.status,
+            'pipeline_state': image_result.get('state'),
         }
-        
-    except Exception as e:
-        # Record failure
-        execution.status = 'failed'
-        execution.error_message = str(e)
-        execution.error_type = type(e).__name__
-        execution.completed_at = timezone.now()
-        execution.save(update_fields=[
-            'status', 'error_message', 'error_type', 'completed_at', 'updated_at'
-        ])
-        
-        campaign.failure_count += 1
-        campaign.last_error = str(e)
-        campaign.save(update_fields=['failure_count', 'last_error', 'updated_at'])
-        
-        # Send failure notification
+    except Exception as exc:
+        execution.refresh_from_db()
+        execution.retry_count += 1
+        execution.error_message = 'Campaign execution failed during a workflow step. Inspect its error type and retry status.'
+        execution.error_type = type(exc).__name__
+        execution.save(update_fields=['retry_count', 'error_message', 'error_type', 'updated_at'])
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=RuntimeError('Campaign workflow step failed.'), countdown=60 * (2 ** self.request.retries))
+        with transaction.atomic():
+            execution = CampaignExecution.objects.select_for_update(of=('self',)).get(pk=execution.pk)
+            execution.status = 'failed'
+            execution.completed_at = timezone.now()
+            if not execution.execution_data.get('failure_counted'):
+                Campaign.objects.filter(pk=campaign.pk).update(
+                    failure_count=F('failure_count') + 1,
+                    last_error='Campaign execution failed; inspect execution error type.',
+                )
+                execution.execution_data = {**execution.execution_data, 'failure_counted': True}
+            execution.save(update_fields=['status', 'completed_at', 'execution_data', 'updated_at'])
         from content.services.notification_service import NotificationService
         NotificationService.create_notification(
             user=campaign.owner,
             notification_type='campaign_execution_failure',
             title=f'Campaign "{campaign.name}" execution failed',
-            message=f'Campaign execution failed: {str(e)}',
+            message=f'Campaign execution {execution.pk} failed. Inspect its error type and retry status.',
             campaign=campaign,
-            send_email=True
+            send_email=True,
         )
-        
-        # Retry with exponential backoff for transient failures
-        if self.request.retries < self.max_retries:
-            raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
-        
-        return {
-            'success': False,
-            'error': str(e),
-            'error_type': type(e).__name__,
-            'execution_id': execution.id if execution.id else None
-        }
+        return {'success': False, 'error': 'Campaign execution failed during a workflow step.', 'error_type': type(exc).__name__, 'execution_id': execution.pk}
+
+
+@shared_task(max_retries=0)
+def submit_to_buffer_task(execution_id):
+    """One-shot submit; ambiguous outcomes are recorded and must not be retried blindly."""
+    from content.services.automated_post_orchestration import AutomatedPostOrchestrationService
+    return AutomatedPostOrchestrationService.submit_to_buffer(execution_id)
 
 
 @shared_task
 def schedule_due_campaigns():
-    """
-    Find active campaigns due for execution and queue them.
-    
-    Runs every minute via Celery Beat. Creates execution records
-    and queues execute_campaign_task for each due campaign.
-    """
     from content.models import Campaign
-    
+
     now = timezone.now()
-    
-    due_campaigns = Campaign.objects.filter(
-        status='active',
-        next_execution__lte=now
-    )
-    
-    queued_count = 0
-    for campaign in due_campaigns:
-        # Atomic claim: set next_execution to future to prevent duplicate queuing
+    queued = 0
+    for candidate in Campaign.objects.filter(status='active', next_execution__lte=now):
         with transaction.atomic():
-            campaign = Campaign.objects.select_for_update().get(id=campaign.id)
-            if campaign.next_execution and campaign.next_execution <= now:
-                # Queue task
-                execute_campaign_task.delay(campaign.id)
-                
-                # Temporarily set next_execution to prevent re-queuing
-                # Will be recalculated after successful execution
-                campaign.next_execution = now + timedelta(days=1)
-                campaign.save(update_fields=['next_execution', 'updated_at'])
-                
-                queued_count += 1
-    
-    return {'queued': queued_count}
+            campaign = Campaign.objects.select_for_update().get(pk=candidate.pk)
+            due_at = campaign.next_execution
+            if not due_at or due_at > now:
+                continue
+            key = f"scheduled:{campaign.pk}:{due_at.isoformat()}"
+            execute_campaign_task.delay(campaign.pk, execution_key=key)
+            campaign.next_execution = now + timedelta(days=1)
+            campaign.save(update_fields=['next_execution', 'updated_at'])
+            queued += 1
+    return {'queued': queued}
 
 
 def _schedule_next_execution(campaign):
-    """Calculate and set next execution time based on frequency."""
     from content.models import Campaign
-    
     if not campaign.start_date:
         return
-    
-    now = timezone.now()
-    
-    # Calculate next execution based on frequency
-    frequency_map = {
-        'daily': timedelta(days=1),
-        'weekly': timedelta(weeks=1),
-        'biweekly': timedelta(weeks=2),
-        'monthly': timedelta(days=30),
-    }
-    
-    delta = frequency_map.get(campaign.frequency, timedelta(weeks=1))
-    next_execution = now + delta
-    
-    # Check if past end_date
-    if campaign.end_date and next_execution.date() > campaign.end_date:
-        campaign.status = 'completed'
-        campaign.next_execution = None
-    else:
-        campaign.next_execution = next_execution
-    
-    campaign.save(update_fields=['status', 'next_execution', 'updated_at'])
+    with transaction.atomic():
+        campaign = Campaign.objects.select_for_update().get(pk=campaign.pk)
+        if campaign.status != 'active':
+            return
+        delta = {
+            'daily': timedelta(days=1),
+            'weekly': timedelta(weeks=1),
+            'biweekly': timedelta(weeks=2),
+            'monthly': timedelta(days=30),
+        }.get(campaign.frequency, timedelta(weeks=1))
+        next_execution = timezone.now() + delta
+        if campaign.end_date and next_execution.date() > campaign.end_date:
+            campaign.status = 'completed'
+            campaign.next_execution = None
+        else:
+            campaign.next_execution = next_execution
+        campaign.save(update_fields=['status', 'next_execution', 'updated_at'])
