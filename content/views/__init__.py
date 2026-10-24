@@ -136,6 +136,10 @@ def content_detail(request, pk):
         and content.lifecycle_state in ['approved', 'ready_to_publish']
     )
 
+    # Get associated media records
+    from content.models import Media
+    media_records = Media.objects.filter(content=content).order_by('-created_at')
+
     return render(request, 'content/detail.html', {
         'content': content,
         'current_version': current_version,
@@ -155,6 +159,7 @@ def content_detail(request, pk):
         'buffer_profiles': buffer_profiles,
         'publications': publications,
         'can_publish': can_publish,
+        'media_records': media_records,
     })
 
 
@@ -399,8 +404,24 @@ def content_transition(request, pk):
                 import json
                 data = json.loads(request.body)
                 new_state = data.get('target_state') or data.get('new_state')
-            except Exception:
+            except (ValueError, TypeError):
                 pass
+
+        # Gracefully handle clients/forms that submit the transition endpoint
+        # without a button value. Infer only when the state machine has one
+        # unambiguous next state; never guess when multiple transitions exist.
+        if not new_state:
+            available_transitions = content._get_available_transitions()
+            if len(available_transitions) == 1:
+                new_state = available_transitions[0]
+
+        if not new_state:
+            error = 'Choose a valid workflow action before submitting.'
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                from django.http import JsonResponse
+                return JsonResponse({'success': False, 'error': error}, status=400)
+            messages.error(request, error)
+            return redirect('content:detail', pk=content.pk)
 
         from content.services.workflow_orchestrator import WorkflowOrchestratorService
         result = WorkflowOrchestratorService.execute_state_transition(

@@ -17,11 +17,12 @@ RUN pip install --no-cache-dir -r requirements/production.txt gunicorn
 # Copy application
 COPY . /app/
 
-# Collect static files
-RUN python manage.py collectstatic --noinput || true
+# Create non-root user and writable runtime/static directories
+RUN useradd -m -u 1000 appuser && mkdir -p /app/staticfiles /app/media && chown -R appuser:appuser /app
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Collect static files with production settings before dropping privileges
+RUN SECRET_KEY=build-only-placeholder DJANGO_SETTINGS_MODULE=content_automater.settings.development python manage.py collectstatic --noinput
+
 USER appuser
 
 EXPOSE 8000

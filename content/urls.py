@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import campaign_views, notification_views, media_views, analytics_views
+from .views import campaign_views, notification_views, media_views, analytics_views, image_generation_views
 
 app_name = 'content'
 
@@ -19,6 +19,7 @@ urlpatterns = [
     path('<int:pk>/prepare-publishing/', views.content_prepare_publishing, name='prepare_publishing'),
     path('<int:pk>/publish/', views.content_publish, name='publish'),
     path('<int:pk>/publications/<int:pub_id>/reconcile/', views.content_reconcile_publication, name='reconcile_publication'),
+    path('<int:pk>/generate-image/', image_generation_views.generate_image_for_content, name='generate_image'),
 
     # Campaigns
     path('campaigns/', campaign_views.campaign_list, name='campaign_list'),

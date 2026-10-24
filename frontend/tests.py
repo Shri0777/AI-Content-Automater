@@ -30,6 +30,22 @@ class FrontendPresentationTests(TestCase):
         Content.objects.create(owner=self.other_user, title="Other user's content")
         ResearchProfile.get_or_create_for_user(self.user)
 
+    def test_root_route_resolves_to_dashboard(self):
+        """Verify that the root URL '/' resolves to the frontend dashboard."""
+        self.client.force_login(self.user)
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Your content workspace")
+        # Verify it's the same as the dashboard URL
+        dashboard_response = self.client.get(reverse("frontend:dashboard"))
+        self.assertEqual(response.status_code, dashboard_response.status_code)
+
+    def test_root_route_redirects_anonymous_users_to_login(self):
+        """Verify that anonymous users are redirected from root to login."""
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("users:login"), response.url)
+
     def test_dashboard_requires_authentication(self):
         response = self.client.get(reverse("frontend:dashboard"))
         self.assertEqual(response.status_code, 302)

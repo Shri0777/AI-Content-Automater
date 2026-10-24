@@ -307,6 +307,87 @@
 {% endif %}
 {% endif %}
 
+{# Image Generation Section #}
+<div class="section-card">
+    <div class="section-card-header">
+        <h3>AI Image Generation</h3>
+        <span style="font-size: var(--text-sm); color: var(--color-muted);">Generate promotional images using NVIDIA FLUX</span>
+    </div>
+
+    {% if content.owner == request.user %}
+    <form method="post" action="{% url 'content:generate_image' content.pk %}" id="image-generation-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="image_prompt">Image Generation Prompt *</label>
+            <textarea
+                name="prompt"
+                id="image_prompt"
+                rows="3"
+                placeholder="Describe the promotional image you want to generate, e.g., 'A modern tech workspace with clean design and blue accents'"
+                required
+            ></textarea>
+            <small style="color: var(--color-muted);">Provide a detailed description of the image you want to generate.</small>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="image_size">Size</label>
+                <select name="size" id="image_size">
+                    <option value="1024x1024" selected>1024×1024 (Square)</option>
+                    <option value="1792x1024">1792×1024 (Landscape)</option>
+                    <option value="1024x1792">1024×1792 (Portrait)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="image_quality">Quality</label>
+                <select name="quality" id="image_quality">
+                    <option value="standard" selected>Standard</option>
+                    <option value="hd">HD (Higher Quality)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="image_style">Style</label>
+                <select name="style" id="image_style">
+                    <option value="vivid" selected>Vivid</option>
+                    <option value="natural">Natural</option>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="button">
+            🎨 Generate Image
+        </button>
+    </form>
+    {% else %}
+    <p style="color: var(--color-muted); font-style: italic;">Only the content owner can generate images.</p>
+    {% endif %}
+
+    {% if media_records %}
+    <div style="margin-top: var(--space-4);">
+        <h4>Associated Media</h4>
+        <div class="media-grid">
+            {% for media in media_records %}
+            <div class="media-item">
+                {% if media.file %}
+                <a href="{{ media.file.url }}" target="_blank">
+                    <img src="{{ media.file.url }}" alt="{{ media.file_name }}" style="max-width: 200px; border-radius: 4px;">
+                </a>
+                {% endif %}
+                <div style="font-size: var(--text-sm); color: var(--color-muted); margin-top: var(--space-1);">
+                    {{ media.file_name }}
+                    {% if media.width and media.height %}
+                    <br>{{ media.width }}×{{ media.height }}px
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
 {# Phase 5: Publishing Preparation & Final Validation Gate (FR-011, BR-004, BR-005) #}
 <div class="section-card" style="border-left: 4px solid var(--color-success);">
     <div class="section-card-header">

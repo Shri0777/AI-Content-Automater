@@ -36,6 +36,16 @@ services:
       - DJANGO_SETTINGS_MODULE=content_automater.settings.production
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY}
+      - TEXT_API_KEY=${TEXT_API_KEY}
+      - TEXT_PROVIDER=${TEXT_PROVIDER:-auto}
+      - IMAGE_API_KEY=${IMAGE_API_KEY:-}
+      - IMAGE_PROVIDER=${IMAGE_PROVIDER:-auto}
+      - BUFFER_ACCESS_TOKEN=${BUFFER_ACCESS_TOKEN:-}
+      - GNEWS_API_KEY=${GNEWS_API_KEY:-}
+      - SECURE_SSL_REDIRECT=false
+      - SESSION_COOKIE_SECURE=false
+      - CSRF_COOKIE_SECURE=false
       - DB_NAME=ai_content_automater_prod
       - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
@@ -56,6 +66,17 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=content_automater.settings.production
       - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY}
+      - TEXT_API_KEY=${TEXT_API_KEY}
+      - TEXT_PROVIDER=${TEXT_PROVIDER:-auto}
+      - IMAGE_API_KEY=${IMAGE_API_KEY:-}
+      - IMAGE_PROVIDER=${IMAGE_PROVIDER:-auto}
+      - BUFFER_ACCESS_TOKEN=${BUFFER_ACCESS_TOKEN:-}
+      - GNEWS_API_KEY=${GNEWS_API_KEY:-}
+      - SECURE_SSL_REDIRECT=false
+      - SESSION_COOKIE_SECURE=false
+      - CSRF_COOKIE_SECURE=false
       - DB_NAME=ai_content_automater_prod
       - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
@@ -72,6 +93,17 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=content_automater.settings.production
       - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY}
+      - TEXT_API_KEY=${TEXT_API_KEY}
+      - TEXT_PROVIDER=${TEXT_PROVIDER:-auto}
+      - IMAGE_API_KEY=${IMAGE_API_KEY:-}
+      - IMAGE_PROVIDER=${IMAGE_PROVIDER:-auto}
+      - BUFFER_ACCESS_TOKEN=${BUFFER_ACCESS_TOKEN:-}
+      - GNEWS_API_KEY=${GNEWS_API_KEY:-}
+      - SECURE_SSL_REDIRECT=false
+      - SESSION_COOKIE_SECURE=false
+      - CSRF_COOKIE_SECURE=false
       - DB_NAME=ai_content_automater_prod
       - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}

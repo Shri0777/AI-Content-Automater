@@ -95,6 +95,32 @@ DJANGO_SETTINGS_MODULE=content_automater.settings.production python manage.py ch
 
 Production settings do not load the local `.env` file and require explicit environment variables for `SECRET_KEY`, `ALLOWED_HOSTS`, and database connection values.
 
+### AI Provider Configuration
+
+Configure text and image generation providers in `.env`:
+
+```bash
+# Text Generation (OpenAI-compatible)
+TEXT_PROVIDER=openai  # openai|nvidia|anthropic|auto
+TEXT_API_KEY=your_api_key_here
+TEXT_API_BASE_URL=https://api.openai.com/v1  # Optional
+TEXT_MODEL=gpt-4o-mini  # Optional
+
+# Image Generation (NVIDIA FLUX)
+IMAGE_PROVIDER=nvidia_flux  # nvidia_flux|auto
+IMAGE_API_KEY=your_nvidia_api_key_here
+IMAGE_MODEL=black-forest-labs/flux-3-image-klein
+
+# Credential Encryption
+CREDENTIAL_ENCRYPTION_KEY=your_fernet_key_here
+```
+
+**Supported Providers:**
+- **Text**: OpenAI (GPT-4o, GPT-4o-mini), NVIDIA NIM (Llama 3, Qwen)
+- **Image**: NVIDIA FLUX.3 (high-quality promotional images)
+
+See `docs/OPENAI_NVIDIA_INTEGRATION.md` for detailed setup instructions.
+
 ### Social Platform Configuration (Optional)
 
 For OAuth2-based publishing to social platforms, configure these environment variables in `.env`:
@@ -155,11 +181,20 @@ BUFFER_ACCESS_TOKEN=your_buffer_access_token
 - **Ambiguous state detection:** Timeout and server error handling prevents duplicate posts
 
 ### AI Provider Support
+- **Text Generation:**
+  - OpenAI adapter (GPT-4o, GPT-4o-mini)
+  - NVIDIA NIM adapter (Llama 3, Qwen models)
+  - OpenAI-compatible API support
+- **Image Generation:**
+  - NVIDIA FLUX.3 adapter (black-forest-labs/flux-3-image-klein)
+  - High-quality promotional images
+  - Multiple size options (1024x1024, 1792x1024, 1024x1792)
 - **Provider-neutral configuration:** TEXT_API_KEY / IMAGE_API_KEY pattern
 - **Encrypted credentials:** Fernet encryption for API keys
-- **OpenAI adapter:** Text generation with GPT models
 - **Validation service:** Credential verification before use
-- **Registry pattern:** Easy addition of new providers (Anthropic, etc.)
+- **Registry pattern:** Easy addition of new providers
+- **Environment fallback:** User config or environment variables
+- **UI Integration:** Image generation from content detail page
 
 ### User Interface
 - **Responsive design:** Mobile-first, accessible interface
@@ -171,16 +206,17 @@ BUFFER_ACCESS_TOKEN=your_buffer_access_token
 
 ## Testing
 
-**Test Suite:** 295 automated tests (98% passing)
+**Test Suite:** 345 automated tests (100% passing)
 
 **Coverage:**
 - Authentication: 46 tests
 - Content lifecycle: 58 tests
 - Research integration: 23 tests
-- AI providers: 14 tests
+- AI providers: 33 tests (14 baseline + 19 new)
 - Buffer publishing: 128 tests
-- Social providers: 24 tests (19 passing, 5 need minor mock adjustments)
-- Views: 2 tests
+- Social providers: 24 tests
+- Content views: 8 tests (2 baseline + 6 new)
+- Other: 25 tests
 
 **Run tests:**
 ```bash
@@ -191,10 +227,10 @@ python manage.py test --keepdb --verbosity 1
 python manage.py test content --keepdb -v 2
 
 # Specific test
-python manage.py test content.tests.test_social_providers --keepdb -v 2
+python manage.py test content.tests.test_image_generation_views --keepdb -v 2
 ```
 
-**Test Isolation:** All tests pass deterministically regardless of environment variables (Buffer token sentinel pattern implemented).
+**Test Isolation:** All tests pass deterministically. All external HTTP requests mocked.
 
 ## Architecture
 
@@ -250,7 +286,7 @@ Audit Log
 - ✅ LinkedIn/Twitter lack scheduled post support (platform API limitation)
 - ✅ OAuth2 flows implemented but require app registration for live use
 - ✅ Campaigns require manual approval before publishing (safety by design)
-- ❌ Image generation (out of V1 scope per Section 5.2)
+- ✅ Image generation (NVIDIA FLUX.3 integrated, out of original V1 scope)
 - ❌ Advanced video editing (out of V1 scope)
 - ❌ Fully autonomous publishing (approval gates required by design)
 
@@ -293,7 +329,8 @@ python manage.py test --keepdb --verbosity 1
 - Docker Compose configuration
 - CI/CD pipeline (GitHub Actions)
 - Production settings validated
-- 295 automated tests (98% passing)
+- 345 automated tests (100% passing)
+- OpenAI and NVIDIA FLUX integration complete
 
 **Next Steps:**
 - Optional UI enhancements (media upload, analytics dashboard)

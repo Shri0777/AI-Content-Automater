@@ -56,6 +56,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -115,7 +116,8 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Authentication settings
@@ -123,10 +125,16 @@ LOGIN_URL = "/auth/login/"
 LOGIN_REDIRECT_URL = "/"
 
 # AI Services Canonical Configuration (Phase 3)
+# AI Provider Configuration (Phase 3)
 TEXT_API_KEY = os.getenv("TEXT_API_KEY", "")
-TEXT_PROVIDER = os.getenv("TEXT_PROVIDER", "auto")
+TEXT_PROVIDER = os.getenv("TEXT_PROVIDER", "auto")  # openai, nvidia, anthropic, or auto
+TEXT_API_BASE_URL = os.getenv("TEXT_API_BASE_URL", "")  # Optional custom endpoint
+TEXT_MODEL = os.getenv("TEXT_MODEL", "")  # Optional model override
+
 IMAGE_API_KEY = os.getenv("IMAGE_API_KEY", "")
-IMAGE_PROVIDER = os.getenv("IMAGE_PROVIDER", "auto")
+IMAGE_PROVIDER = os.getenv("IMAGE_PROVIDER", "auto")  # nvidia_flux or auto
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "black-forest-labs/flux-3-image-klein")
+
 CREDENTIAL_ENCRYPTION_KEY = os.getenv("CREDENTIAL_ENCRYPTION_KEY", None)
 FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY", CREDENTIAL_ENCRYPTION_KEY)
 

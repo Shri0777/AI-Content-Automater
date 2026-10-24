@@ -30,8 +30,8 @@ if not CREDENTIAL_ENCRYPTION_KEY:
         'CREDENTIAL_ENCRYPTION_KEY (or FIELD_ENCRYPTION_KEY) must be set in production.'
     )
 
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = get_env('SESSION_COOKIE_SECURE', 'true').lower() in {'1', 'true', 'yes', 'on'}
+CSRF_COOKIE_SECURE = get_env('CSRF_COOKIE_SECURE', 'true').lower() in {'1', 'true', 'yes', 'on'}
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'same-origin'
