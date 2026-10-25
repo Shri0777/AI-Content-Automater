@@ -518,3 +518,75 @@ Added a "Learning Guide" section to `README.md` with links to both new documenta
 - No detailed documentation for the `frontend/` and `frontend_ui/` apps beyond what's in the learning guide's file reference map.
 - No runbook for production deployment beyond `docker-compose.yml` and `Dockerfile`.
 - No troubleshooting guide for Celery worker/beat-specific issues beyond the table in the learning guide.
+
+---
+
+## UX Redesign: Brief-First Social Post Workflow (2026-10-24)
+
+This section documents the brief-first UX redesign implemented per `docs/development/POST-CREATION-UX-REDESIGN-PLAN.md`.
+
+### What changed
+
+The content creation workflow was redesigned from a technical, multi-panel CMS interface to a brief-first social post experience:
+
+**Before:** User fills title/topic/body manually, writes image prompts, picks dimensions, navigates separate version/review/correction/image/publishing panels.
+
+**After:** User enters "What would you like to post?" (short brief), selects connected Buffer channels, and the system auto-generates copy + poster variants. One unified workspace replaces the technical detail page.
+
+### New files
+
+- `docs/development/POST-CREATION-UX-REDESIGN-PLAN.md` — full design plan
+- `docs/development/POST-CREATION-UX-REDESIGN-IMPLEMENTATION.md` — implementation status (this section's source)
+- `content/services/platform_formats.py` — centralized platform→format mapping
+- `content/services/brief_generation_service.py` — brief-based copy generation + review
+- `content/tasks/brief_tasks.py` — Celery task chaining text→review→posters
+- `content/templates/content/generation_status.html` — Page B generation status
+- `content/tests/test_platform_formats.py` — 17 tests
+- `content/tests/test_brief_generation.py` — 4 tests
+- `content/tests/test_image_variants.py` — 7 tests
+
+### Modified files
+
+- `content/models.py` — Added `brief`, `target_channels`, `generation_status` to `Content`; `platforms`, `generation_state` to `Media`
+- `content/migrations/0009_*.py` — Additive migration for Content fields
+- `content/migrations/0010_*.py` — Additive migration for Media fields
+- `content/services/image_generation_service.py` — Added `generate_poster_variants`, `retry_poster_variant`, `_build_poster_prompt`
+- `content/views/__init__.py` — Brief-first create view, generation status view, retry views, unified detail context, dashboard list context
+- `content/urls.py` — Added generation_status, generate_retry, retry_poster routes
+- `content/templates/content/create.html` — Replaced with brief-first form
+- `content/templates/content/detail.html` — Unified workspace (removed `Current Version (v1)` section)
+- `content/templates/content/list.html` — Dashboard with status, next action, thumbnail
+- `frontend/static/frontend/css/detail.css` — Workspace grid layout
+
+### Preserved (no deletion)
+
+- All version history, `ContentVersion`, `ContentReview`, `PublishingPreparation`, `ContentPublication`, `WorkflowAuditLog`, `Media` records
+- All mandatory approval gates: human approval, passing AI review, lifecycle state, channel authorization, public media URL
+- Existing research-driven generation path (`ContentGenerationService.generate_draft_for_request`)
+- Existing direct platform providers (LinkedIn, Facebook, Twitter)
+- Existing Buffer publishing orchestrator with idempotency and partial-failure handling
+
+### Schema changes (additive only, applied)
+
+| Model | Field | Type |
+|-------|-------|------|
+| Content | brief | TextField(null=True, blank=True) |
+| Content | target_channels | JSONField(default=list, blank=True) |
+| Content | generation_status | CharField(choices, default='idle') |
+| Media | platforms | JSONField(default=list, blank=True) |
+| Media | generation_state | CharField(choices, default='pending') |
+
+### Verification
+
+- `manage.py check`: No issues
+- `manage.py makemigrations --check --dry-run`: No changes detected
+- `manage.py test --keepdb --verbosity 1`: **409 tests, all passing** (381 original + 28 new)
+- `git diff --check`: Passed
+- No live Buffer or NVIDIA calls made during testing (all mocked)
+
+### Known limitations
+
+- Buffer uses a single shared `BUFFER_ACCESS_TOKEN` (account-level, not per-user OAuth)
+- Without Cloudflare R2 public storage, local `/media/` URLs are rejected by Buffer's public-URL check — the UI communicates this clearly
+- FLUX image model is not verified to render exact text reliably; no exact-text poster promise
+- No live external publishing during implementation

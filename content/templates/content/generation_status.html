@@ -1,0 +1,75 @@
+{% extends "content/base.html" %}
+
+{% block title %}Generation status | AI Content Automater{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <h1>Your post is being prepared</h1>
+        <p>We’re generating copy and posters from your brief. This page updates as each step completes.</p>
+    </div>
+    <a class="button button-secondary" href="{% url 'content:list' %}">Back to your posts</a>
+</section>
+
+{% if content.generation_status == 'failed' %}
+    <div class="alert alert-error" role="alert">
+        <strong>We couldn’t generate your post.</strong> {{ content.brief|default:'' }}
+        <form method="post" action="{% url 'content:generate_retry' content.pk %}" style="display: inline; margin-left: var(--space-3);">
+            {% csrf_token %}
+            <button type="submit" class="button btn-success button-small">Try again</button>
+        </form>
+        <a class="button button-secondary" href="{% url 'content:detail' content.pk %}">Edit brief</a>
+    </div>
+{% endif %}
+
+<section class="panel">
+    <h2>Status</h2>
+    <div class="status-badge status-{{ content.generation_status }}">
+        {{ content.generation_status|replace:"_"," "|title }}
+    </div>
+    <p class="section-intro">{{ status_message }}</p>
+</section>
+
+{% if current_version %}
+<section class="panel">
+    <h2>Generated copy</h2>
+    <div class="content-text">{{ current_version.content_text|linebreaks }}</div>
+    {% if latest_review %}
+        <div class="review-card" style="margin-top: var(--space-4);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
+                <strong>AI quality review</strong>
+                <span class="badge-{{ latest_review.status }}">{{ latest_review.get_status_display }}</span>
+            </div>
+            <p style="font-size: var(--text-sm); margin: 0;">{{ latest_review.summary }}</p>
+        </div>
+    {% else %}
+        <p style="color: var(--color-muted); font-size: var(--text-sm);">Quality review has not run yet.</p>
+    {% endif %}
+</section>
+{% endif %}
+
+{% if media_records %}
+<section class="panel">
+    <h2>Posters</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-3);">
+        {% for media in media_records %}
+        <div class="panel" style="padding: var(--space-3);">
+            {% if media.file %}
+                <img src="{{ media.file.url }}" alt="{{ media.file_name }}" style="width: 100%; height: auto; border-radius: var(--radius-sm); display: block; margin-bottom: var(--space-2);">
+            {% endif %}
+            <div style="font-size: var(--text-xs); color: var(--color-muted);">{{ media.file_name }}</div>
+            <div style="font-size: var(--text-xs); font-weight: 700;">{{ media.width }}×{{ media.height }}px</div>
+            <div style="font-size: var(--text-xs); color: var(--color-muted);">{{ media.platforms|join:", " }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if complete and current_version %}
+<div class="form-actions" style="margin-top: var(--space-6);">
+    <a class="button" href="{% url 'content:detail' content.pk %}">Review your post</a>
+</div>
+{% endif %}
+
+{% endblock %}

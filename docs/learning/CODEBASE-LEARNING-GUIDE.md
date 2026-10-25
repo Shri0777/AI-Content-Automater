@@ -500,6 +500,58 @@ Then calls `BufferPublishingService.create_update()` which sends a GraphQL mutat
 
 **Publishing is ALLOWED only when ALL gates pass.**
 
+### E.5 Brief-First Workflow (new UX)
+
+The application also offers a brief-first creation path designed for quick social posts:
+
+```
+1. User enters "What would you like to post?" (short brief)
+   ↓
+2. User selects connected Buffer channels
+   ↓
+3. Content draft created with brief + target_channels (draft state)
+   ↓
+4. Celery task generates:
+   a. Post copy from brief (AI text provider)
+   b. Quality review (QualityReviewService)
+   c. Poster variants per platform format (NVIDIA FLUX)
+   ↓
+5. User reviews copy, posters, and destinations in one workspace
+   ↓
+6. User approves (human approval gate)
+   ↓
+7. User publishes or schedules via Buffer
+```
+
+**Files:**
+
+| Step | File | Function/Class |
+|------|------|---------------|
+| Create brief | `content/views/__init__.py` | `content_create` |
+| Copy + review | `content/services/brief_generation_service.py` | `BriefGenerationService.generate_post_from_brief` |
+| Posters | `content/services/image_generation_service.py` | `ImageGenerationService.generate_poster_variants` |
+| Format mapping | `content/services/platform_formats.py` | `get_required_variants`, `get_format_for_service` |
+| Celery task | `content/tasks/brief_tasks.py` | `generate_post_from_brief_task` |
+| Unified workspace | `content/views/__init__.py` | `content_detail` |
+| Publishing | `content/services/publishing_orchestrator.py` | `BufferPublishingOrchestrator.execute_publishing` |
+
+**Key model fields:**
+
+| Model | Field | Purpose |
+|-------|-------|---------|
+| Content | `brief` | The user's short post description |
+| Content | `target_channels` | Selected Buffer channel IDs |
+| Content | `generation_status` | Workflow state (queued, generating_text, complete, etc.) |
+| Media | `platforms` | Which destinations a poster variant is for |
+| Media | `generation_state` | Poster variant state (pending, generated, failed) |
+
+**What stays the same:**
+
+- The existing research-driven campaign workflow is unchanged.
+- All mandatory approval gates remain (human approval, passing AI review, lifecycle state, channel authorization, public media URL).
+- Version immutability is preserved — every edit creates a new `ContentVersion`.
+- Historical versions remain available via the History panel.
+
 ---
 
 ## F. Database Guide

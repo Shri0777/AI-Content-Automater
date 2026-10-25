@@ -4,26 +4,97 @@
 
 {% block content %}
 <section class="page-heading">
-    <div><h1>Content Studio</h1><p>Create, review, and prepare the content you own without losing sight of its lifecycle.</p></div>
-    <a class="button button-primary" href="{% url 'content:create' %}">+ Create content</a>
+    <div>
+        <h1>Content Studio</h1>
+        <p>Your posts at a glance: status, destinations, and the next action for each.</p>
+    </div>
+    <a class="button button-primary" href="{% url 'content:create' %}">+ Create post</a>
 </section>
 
 <section class="panel">
     <form class="filter-bar" method="get" aria-label="Filter content">
-        <div><label class="sr-only" for="content-search">Search content</label><input id="content-search" type="search" name="q" value="{{ query }}" placeholder="Search title or topic"></div>
-        <div><label class="sr-only" for="content-state">Lifecycle state</label><select id="content-state" name="state"><option value="">All states</option>{% for value, label in lifecycle_choices %}<option value="{{ value }}"{% if selected_state == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="sr-only" for="content-search">Search content</label><input id="content-search" type="search" name="q" value="{{ query }}" placeholder="Search title or brief"></div>
+        <div><label class="sr-only" for="content-state">Status</label><select id="content-state" name="state"><option value="">All statuses</option>{% for value, label in lifecycle_choices %}<option value="{{ value }}"{% if selected_state == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
         <div><label class="sr-only" for="content-sort">Sort content</label><select id="content-sort" name="sort"><option value="updated"{% if sort == 'updated' %} selected{% endif %}>Recently updated</option><option value="created"{% if sort == 'created' %} selected{% endif %}>Recently created</option></select></div>
         <button class="button button-secondary" type="submit">Apply</button>
     </form>
 </section>
 
 <section class="panel table-panel">
-    <div class="panel-header"><div><h2>Your content</h2><p>{% if query or selected_state %}Filtered results{% else %}All content you own{% endif %}</p></div></div>
-    {% if contents %}
-    <div class="table-wrap"><table><thead><tr><th scope="col">Title</th><th scope="col">State</th><th scope="col">Updated</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>
-        {% for content in contents %}<tr><td><a class="table-title" href="{% url 'content:detail' content.pk %}">{{ content.title }}</a>{% if content.topic %}<span class="table-subtitle">{{ content.topic }}</span>{% endif %}</td><td>{% include "frontend/components/status_badge.html" with value=content.lifecycle_state label=content.get_lifecycle_state_display %}</td><td>{{ content.updated_at|date:"M j, Y" }}</td><td><a class="table-action" href="{% url 'content:detail' content.pk %}">Open<span class="sr-only"> {{ content.title }}</span></a></td></tr>{% endfor %}
-    </tbody></table></div>
-    {% if page_obj.has_other_pages %}<nav class="pagination" aria-label="Content pagination">{% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&state={{ selected_state|urlencode }}&sort={{ sort }}&page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&state={{ selected_state|urlencode }}&sort={{ sort }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
-    {% else %}{% if query or selected_state %}{% include "frontend/components/empty_state.html" with title="No matching content" description="Try another title, topic, or lifecycle state." %}{% else %}{% include "frontend/components/empty_state.html" with title="Create your first content item" description="Start with the topic and body, then let the existing lifecycle guide review and publishing preparation." action_url="/content/create/" action_label="Create content" %}{% endif %}{% endif %}
+    <div class="panel-header"><div><h2>Your posts</h2><p>{% if query or selected_state %}Filtered results{% else %}All content you own{% endif %}</p></div></div>
+
+    {% if content_rows %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col" style="width: 60px;">&nbsp;</th>
+                    <th scope="col">Post</th>
+                    <th scope="col">Brief</th>
+                    <th scope="col">Destinations</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Next action</th>
+                    <th scope="col" style="width: 150px;">Scheduled</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in content_rows %}
+                <tr>
+                    <td style="width: 60px;">
+                        {% if row.thumbnail %}
+                            <img src="{{ row.thumbnail }}" alt="Poster" style="width: 56px; height: 56px; border-radius: var(--radius-sm); object-fit: cover;">
+                        {% else %}
+                            <div style="width: 56px; height: 56px; background: var(--color-canvas); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: var(--color-muted); font-size: var(--text-xs);">—</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a class="table-title" href="{% url 'content:detail' row.content.pk %}">{{ row.content.title }}</a>
+                        {% if row.content.topic %}<span class="table-subtitle">{{ row.content.topic }}</span>{% endif %}
+                    </td>
+                    <td style="color: var(--color-muted); font-size: var(--text-sm);">{{ row.brief_excerpt }}</td>
+                    <td style="font-size: var(--text-sm);">
+                        {% if row.channel_count > 0 %}
+                            <span class="status-badge">{{ row.channel_count }} channel{% if row.channel_count != 1 %}s{% endif %}</span>
+                        {% else %}
+                            <span style="color: var(--color-muted);">None</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="status-badge status-{{ row.status_label|lower|slice:":12" }}">
+                            {{ row.status_label }}
+                        </span>
+                    </td>
+                    <td>
+                        <a class="button button-small" href="{% url 'content:detail' row.content.pk %}">{{ row.next_action }}</a>
+                    </td>
+                    <td style="font-size: var(--text-sm); color: var(--color-muted);">
+                        {% if row.scheduled_at %}
+                            {{ row.scheduled_at|date:"M j, H:i" }}
+                        {% elif row.publish_status == 'published' %}
+                            Published {{ row.latest_pub.published_at|date:"M j, H:i" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <nav class="pagination" aria-label="Content pagination">
+        {% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&state={{ selected_state|urlencode }}&sort={{ sort }}&page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&state={{ selected_state|urlencode }}&sort={{ sort }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+    </nav>
+    {% endif %}
+    {% else %}
+    {% if query or selected_state %}
+    {% include "frontend/components/empty_state.html" with title="No matching content" description="Try another title, brief, or status." %}
+    {% else %}
+    {% include "frontend/components/empty_state.html" with title="Create your first post" description="Start with a short brief and we’ll generate the copy and posters for you." action_url="/content/create/" action_label="Create post" %}
+    {% endif %}
+    {% endif %}
 </section>
+
 {% endblock %}

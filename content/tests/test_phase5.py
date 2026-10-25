@@ -499,7 +499,7 @@ class Phase5ViewAndSecurityTests(TestCase):
         self.assertIn('Illegal transition', data['error'])
 
     def test_detail_view_renders_pipeline_and_audit_trail(self):
-        """Detail view renders pipeline stepper, publishing prep card, and audit log."""
+        """Detail view renders workspace sections: brief, copy, posters, approval, publish."""
         self.client.login(username='owner@example.com', password='testpass123')
 
         # Add audit log
@@ -515,10 +515,13 @@ class Phase5ViewAndSecurityTests(TestCase):
 
         response = self.client.get(reverse('content:detail', kwargs={'pk': self.content.pk}))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "End-to-End Workflow Pipeline")
-        self.assertContains(response, "Publishing Preparation &amp; Multi-Platform Payloads")
-        self.assertContains(response, "Workflow Audit Trail")
-        self.assertContains(response, "Quality review completed.")
+        self.assertContains(response, "Your brief")
+        self.assertContains(response, "Post copy")
+        self.assertContains(response, "Destinations")
+        self.assertContains(response, "Posters")
+        self.assertContains(response, "Review &amp; approve")
+        self.assertContains(response, "Publish")
+        self.assertContains(response, "Post approved")
 
     def test_unauthenticated_requests_redirect(self):
         """Unauthenticated requests to prepare or transition redirect to login."""

@@ -466,7 +466,7 @@ class Phase4ViewTests(TestCase):
         self.assertFalse(new_version.is_approved)
 
     def test_detail_view_renders_evidence_and_review(self):
-        """Content detail view renders evidence associations and review info."""
+        """Content detail view renders brief, copy, review, and approval sections."""
         self.client.login(username='owner@example.com', password='testpass123')
         ContentReview.objects.create(
             content_version=self.v1,
@@ -479,11 +479,11 @@ class Phase4ViewTests(TestCase):
 
         response = self.client.get(reverse('content:detail', kwargs={'pk': self.content.pk}))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Research Evidence &amp; Grounding")
-        self.assertContains(response, "AI Engineering Fundamentals")
-        self.assertContains(response, "AI Quality Review")
-        self.assertContains(response, "Bounded AI Correction")
-        self.assertContains(response, "Revisions Used: 0 / 2")
+        self.assertContains(response, "Your brief")
+        self.assertContains(response, "Post copy")
+        self.assertContains(response, "Review &amp; approve")
+        self.assertContains(response, "Initial draft [1] regarding AI systems.")
+        self.assertContains(response, "Approve post")
 
     @patch('content.services.generation_service.ContentGenerationService.generate_draft_for_request')
     def test_request_generate_content_failure_redirects(self, mock_generate):

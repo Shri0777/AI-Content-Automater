@@ -14,6 +14,10 @@ from django.utils import timezone
 from ai_providers.services.base_adapter import ProviderCapability
 from ai_providers.services.validation_service import CredentialValidationService
 from content.models import Content, Media
+from content.services.platform_formats import (
+    get_required_variants,
+    is_supported_size,
+)
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -195,3 +199,249 @@ class ImageGenerationService:
                 }
         
         return {'valid': True}
+
+    @staticmethod
+    def generate_poster_variants(
+        content: Content,
+        user: Any,
+        brief: str,
+        copy: str,
+        destinations: list,
+        brand_context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate poster variants for the selected destinations.
+
+        One variant is generated per unique image format group, so destinations
+        that safely share a format produce a single asset. Each variant is
+        stored as a Media record tagged with its intended platforms.
+
+        Args:
+            content: Content record to associate variants with.
+            user: Authenticated content owner.
+            brief: Original user brief.
+            copy: Generated post copy.
+            destinations: list of Buffer profile dicts (id + service).
+            brand_context: Optional extra business context.
+
+        Returns:
+            Dict with 'success', list of 'variants', and any 'error'.
+        """
+        if not destinations:
+            return {
+                'success': False,
+                'error': 'No destinations selected. Cannot generate poster variants.',
+                'error_type': 'missing_destinations'
+            }
+
+        variants = get_required_variants(destinations)
+        if not variants:
+            return {
+                'success': False,
+                'error': 'No image formats could be resolved for the selected destinations.',
+                'error_type': 'no_formats'
+            }
+
+        results = []
+        for fmt in variants:
+            size = fmt.size
+            if not is_supported_size(size):
+                results.append({
+                    'format': fmt,
+                    'success': False,
+                    'error': f'Unsupported size {size}.',
+                    'error_type': 'unsupported_size'
+                })
+                continue
+
+            prompt = ImageGenerationService._build_poster_prompt(
+                brief=brief,
+                copy=copy,
+                service=fmt.service,
+                orientation=fmt.orientation,
+                brand_context=brand_context,
+            )
+
+            try:
+                gen_result = ImageGenerationService.generate_image_for_content(
+                    content_id=content.pk,
+                    user=user,
+                    prompt=prompt,
+                    size=size,
+                    quality='standard',
+                    style='natural',
+                )
+
+                if not gen_result.get('success', False):
+                    results.append({
+                        'format': fmt,
+                        'media': None,
+                        'success': False,
+                        'error': gen_result.get('error', 'Image generation failed.'),
+                        'error_type': gen_result.get('error_type', 'generation_failed')
+                    })
+                    continue
+
+                generated_media = gen_result.get('media')
+                if generated_media:
+                    generated_media.platforms = [fmt.service]
+                    generated_media.generation_state = 'generated'
+                    generated_media.save(update_fields=['platforms', 'generation_state'])
+                    results.append({
+                        'format': fmt,
+                        'media': generated_media,
+                        'success': True,
+                    })
+                else:
+                    results.append({
+                        'format': fmt,
+                        'media': None,
+                        'success': False,
+                        'error': 'No image data returned.',
+                        'error_type': 'malformed_response'
+                    })
+
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error('Poster variant generation failed for %s: %s', size, exc)
+                results.append({
+                    'format': fmt,
+                    'media': None,
+                    'success': False,
+                    'error': 'Image generation failed.',
+                    'error_type': 'unexpected_error'
+                })
+
+        any_success = any(r.get('success') for r in results)
+        return {
+            'success': any_success,
+            'variants': results,
+            'total': len(results),
+            'successful_count': sum(1 for r in results if r.get('success')),
+        }
+
+    @staticmethod
+    def retry_poster_variant(media: Media, user: Any) -> Dict[str, Any]:
+        """
+        Retry a single failed poster variant without touching other variants.
+
+        Args:
+            media: Media record in 'failed' state.
+            user: Authenticated content owner.
+
+        Returns:
+            Dict with 'success' plus updated media or error details.
+        """
+        if media.generation_state != 'failed':
+            return {
+                'success': False,
+                'error': 'Only failed poster variants can be retried.',
+                'error_type': 'not_failed'
+            }
+
+        content = media.content
+        brief = (content.brief or '').strip()
+        copy = (content.current_version.content_text or '').strip() if content.current_version else ''
+
+        from content.services.platform_formats import get_format_for_service
+        svc = (media.platforms or ['unknown'])[0]
+        fmt = get_format_for_service(svc)
+        size = fmt.size
+
+        if not is_supported_size(size):
+            return {
+                'success': False,
+                'error': f'Unsupported size {size}.',
+                'error_type': 'unsupported_size'
+            }
+
+        prompt = ImageGenerationService._build_poster_prompt(
+            brief=brief,
+            copy=copy,
+            service=fmt.service,
+            orientation=fmt.orientation,
+        )
+
+        try:
+            gen_result = ImageGenerationService.generate_image_for_content(
+                content_id=content.pk,
+                user=user,
+                prompt=prompt,
+                size=size,
+                quality='standard',
+                style='natural',
+            )
+
+            if not gen_result.get('success', False):
+                media.generation_state = 'failed'
+                media.save(update_fields=['generation_state'])
+                return {
+                    'success': False,
+                    'error': gen_result.get('error', 'Image generation failed.'),
+                    'error_type': gen_result.get('error_type', 'generation_failed')
+                }
+
+            generated_media = gen_result.get('media')
+            if generated_media:
+                # Mark the old failed record and use the newly generated one.
+                media.generation_state = 'failed'
+                media.save(update_fields=['generation_state'])
+                generated_media.platforms = media.platforms or [fmt.service]
+                generated_media.generation_state = 'generated'
+                generated_media.save(update_fields=['platforms', 'generation_state'])
+                return {
+                    'success': True,
+                    'media': generated_media,
+                    'format': fmt,
+                }
+
+            media.generation_state = 'failed'
+            media.save(update_fields=['generation_state'])
+            return {
+                'success': False,
+                'error': 'No image data returned.',
+                'error_type': 'malformed_response'
+            }
+
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error('Poster variant retry failed for media %s: %s', media.pk, exc)
+            media.generation_state = 'failed'
+            media.save(update_fields=['generation_state'])
+            return {
+                'success': False,
+                'error': 'Image generation retry failed.',
+                'error_type': 'unexpected_error'
+            }
+
+    @staticmethod
+    def _build_poster_prompt(
+        brief: str,
+        copy: str,
+        service: str,
+        orientation: str,
+        brand_context: Optional[str] = None
+    ) -> str:
+        """
+        Derive an image-generation prompt from brief, copy, and format.
+
+        The prompt is descriptive (scene/composition only) and does not attempt
+        to render exact copy text, because the FLUX model is not verified to
+        reproduce exact text reliably.
+        """
+        orientation_guide = {
+            'square': 'square 1:1 composition',
+            'landscape': 'wide landscape 16:9 composition',
+            'portrait': 'tall portrait 9:16 composition',
+        }.get(orientation, 'square 1:1 composition')
+
+        prompt = (
+            f"Professional social media poster for {service}, {orientation_guide}. "
+            f"Based on the brief: {brief}. "
+            f"Post message: {copy[:200]}. "
+        )
+        if brand_context:
+            prompt += f"Brand context: {brand_context}. "
+        prompt += (
+            "Clean promotional visual, modern design, ample negative space for "
+            "text overlay, high quality, no watermark, no legible text."
+        )
+        return prompt

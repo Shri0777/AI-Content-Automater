@@ -128,6 +128,6 @@ class FrontendPresentationTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("content:detail", kwargs={"pk": self.content.pk}))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "End-to-End Workflow Pipeline")
+        self.assertContains(response, "Your brief")
+        self.assertContains(response, "Post copy")
         self.assertContains(response, "Review this content")
-        self.assertContains(response, "Current Version")

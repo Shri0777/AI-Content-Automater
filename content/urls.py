@@ -8,6 +8,9 @@ urlpatterns = [
     # Content management
     path('', views.content_list, name='list'),
     path('create/', views.content_create, name='create'),
+    path('<int:pk>/generation-status/', views.content_generation_status, name='generation_status'),
+    path('<int:pk>/generate-retry/', views.content_generate_retry, name='generate_retry'),
+    path('<int:pk>/retry-poster/<int:media_id>/', views.content_retry_poster, name='retry_poster'),
     path('<int:pk>/', views.content_detail, name='detail'),
     path('<int:pk>/edit/', views.content_edit, name='edit'),
     path('<int:pk>/delete/', views.content_delete, name='delete'),

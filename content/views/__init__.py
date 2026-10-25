@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -6,10 +7,13 @@ from django.views.decorators.http import require_http_methods
 from django.db import transaction
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.utils import timezone
 
-from content.models import Content, ContentVersion
+from content.models import Content, ContentVersion, Media
 from content.forms import ContentForm, ContentVersionForm
 from content.authorization import user_owns_content
+from content.services.buffer_service import BufferPublishingService
+from content.tasks.brief_tasks import generate_post_from_brief_task
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +21,10 @@ logger = logging.getLogger(__name__)
 @login_required
 def content_list(request):
     """
-    List all content owned by the current user.
+    Dashboard / content list (Page D).
+
+    Shows each content item with thumbnail, brief excerpt, selected channels,
+    plain-language status, and the next available action.
     """
     contents = Content.objects.filter(owner=request.user)
     query = request.GET.get("q", "").strip()
@@ -27,15 +34,47 @@ def content_list(request):
     valid_sorts = {"updated": "-updated_at", "created": "-created_at"}
 
     if query:
-        contents = contents.filter(Q(title__icontains=query) | Q(topic__icontains=query))
+        contents = contents.filter(Q(title__icontains=query) | Q(topic__icontains=query) | Q(brief__icontains=query))
     if selected_state in valid_states:
         contents = contents.filter(lifecycle_state=selected_state)
 
     contents = contents.order_by(valid_sorts.get(sort, valid_sorts["updated"]))
     page_obj = Paginator(contents, 12).get_page(request.GET.get("page"))
-    # Support .count() call on contents for compatibility with QuerySet tests
     page_obj.count = lambda *args, **kwargs: page_obj.paginator.count
+
+    # Build dashboard row data with plain-language status and next action.
+    content_rows = []
+    for content in page_obj:
+        latest_pub = content.publications.order_by('-created_at').first()
+        first_media = content.media.filter(generation_state='generated').first()
+
+        # Plain-language status from actual model state.
+        status_label, next_action = _dashboard_status(content, latest_pub)
+
+        # Brief excerpt.
+        brief_excerpt = (content.brief or content.title or '')[:120]
+
+        # Selected channels (names only, from persisted selection).
+        channel_names = []
+        if content.target_channels:
+            # We don't have Buffer profiles here without an API call; show count.
+            channel_names = [f"{len(content.target_channels)} channel(s)"]
+
+        content_rows.append({
+            'content': content,
+            'thumbnail': first_media.file.url if first_media and first_media.file else None,
+            'brief_excerpt': brief_excerpt,
+            'channel_names': channel_names,
+            'channel_count': len(content.target_channels or []),
+            'status_label': status_label,
+            'next_action': next_action,
+            'scheduled_at': latest_pub.scheduled_at if latest_pub else None,
+            'publish_status': latest_pub.status if latest_pub else None,
+            'latest_pub': latest_pub,
+        })
+
     return render(request, 'content/list.html', {
+        'content_rows': content_rows,
         'contents': page_obj,
         'page_obj': page_obj,
         'query': query,
@@ -45,44 +84,235 @@ def content_list(request):
     })
 
 
+def _dashboard_status(content, latest_pub):
+    """
+    Derive a plain-language status label and next action from model state.
+
+    Never invents 'Published' just because a request was submitted; relies on
+    ContentPublication.status and Content.generation_status.
+    """
+    # Generation not yet complete
+    gen_status = content.generation_status
+    if gen_status == 'failed':
+        return "Failed", "Retry generation"
+    if gen_status in ('queued', 'generating_text', 'reviewing', 'generating_posters'):
+        return "Generating", "Wait for generation"
+
+    # No copy yet
+    if not content.current_version:
+        return "Draft", "Generate post"
+
+    # Generation complete but not approved
+    if gen_status in ('complete', 'partial') and not content.current_version.is_approved:
+        if content.current_version.reviews.filter(status='passed').exists():
+            return "Ready for review", "Approve post"
+        return "Needs changes", "Review generated text"
+
+    # Approved but not published
+    if content.current_version.is_approved:
+        if latest_pub:
+            if latest_pub.status == 'published':
+                return "Published", "View post"
+            if latest_pub.status == 'scheduled':
+                return "Scheduled", "View post"
+            if latest_pub.status == 'failed':
+                return "Failed", "Retry publishing"
+            if latest_pub.status == 'ambiguous':
+                return "Outcome unknown", "Reconcile publishing"
+            if latest_pub.status == 'partial':
+                return "Partially published", "Retry failed channels"
+        return "Approved", "Publish post"
+
+    return "Draft", "Generate post"
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def content_create(request):
     """
-    Create new content with initial version.
+    Brief-first content creation (Page A).
+
+    The user enters a short brief ("What would you like to post?"), selects
+    connected Buffer channels, and submits. The view persists a draft and
+    redirects to the generation-status page (Page B).
     """
-    if request.method == 'POST':
-        content_form = ContentForm(request.POST)
-        version_form = ContentVersionForm(request.POST)
+    # Fetch genuine connected Buffer channels for the destination selector.
+    buffer_service = BufferPublishingService()
+    buffer_status = buffer_service.get_connection_status()
+    buffer_profiles = []
+    if buffer_status.get("connected"):
+        try:
+            buffer_profiles = buffer_service.get_profiles()
+        except Exception:
+            logger.warning("Buffer destinations unavailable on create page.")
+            buffer_status = {
+                **buffer_status,
+                "connected": False,
+                "status": "error",
+                "error": "Could not load Buffer channels.",
+            }
 
-        if content_form.is_valid() and version_form.is_valid():
-            with transaction.atomic():
-                # Create content
-                content = content_form.save(commit=False)
-                content.owner = request.user
-                content.save()
+    if request.method == "POST":
+        return _handle_brief_create(request, buffer_profiles)
 
-                # Create initial version
-                version = version_form.save(commit=False)
-                version.content = content
-                version.version_number = 1
-                version.created_by = request.user
-                version.save()
-
-                # Set current version
-                content.current_version = version
-                content.save(update_fields=['current_version'])
-
-                messages.success(request, f'Content "{content.title}" created successfully.')
-                return redirect('content:detail', pk=content.pk)
-    else:
-        content_form = ContentForm()
-        version_form = ContentVersionForm()
-
-    return render(request, 'content/create.html', {
-        'content_form': content_form,
-        'version_form': version_form
+    return render(request, "content/create.html", {
+        "buffer_status": buffer_status,
+        "buffer_profiles": buffer_profiles,
     })
+
+
+def _handle_brief_create(request, buffer_profiles):
+    """Validate and persist a brief-first content draft."""
+    brief = (request.POST.get("brief") or "").strip()
+    target_channels = request.POST.getlist("target_channels")
+    context_notes = (request.POST.get("context_notes") or "").strip()
+
+    errors = {}
+    if not brief:
+        errors["brief"] = "Please describe what you'd like to post."
+    elif len(brief) > 1000:
+        errors["brief"] = "Brief is too long (maximum 1,000 characters)."
+
+    # Validate every selected channel against the currently authorized set.
+    authorized_ids = {str(p.get("id")) for p in buffer_profiles if p.get("id")}
+    invalid_channels = [c for c in target_channels if c and c not in authorized_ids]
+    if invalid_channels:
+        errors["target_channels"] = (
+            "One or more selected channels are not authorized destinations."
+        )
+
+    if errors:
+        return render(request, "content/create.html", {
+            "buffer_status": buffer_status,
+            "buffer_profiles": buffer_profiles,
+            "errors": errors,
+            "brief": brief,
+            "context_notes": context_notes,
+            "target_channels": target_channels,
+        })
+
+    # Duplicate prevention: reuse a recent draft with the same brief instead of
+    # starting a second generation job.
+    recent_cutoff = timezone.now() - timedelta(minutes=10)
+    existing = (
+        Content.objects
+        .filter(owner=request.user, brief=brief,
+                generation_status__in=["idle", "queued"],
+                created_at__gte=recent_cutoff)
+        .order_by("-created_at")
+        .first()
+    )
+    if existing:
+        return redirect("content:generation_status", pk=existing.pk)
+
+    content = Content.objects.create(
+        owner=request.user,
+        title=brief[:200],
+        brief=brief,
+        description=context_notes or None,
+        target_channels=target_channels,
+        lifecycle_state="draft",
+        generation_status="queued",
+    )
+
+    # Enqueue generation via Celery when a worker is available. If not, the
+    # draft stays in 'queued' and the user can retry from the status page.
+    try:
+        generate_post_from_brief_task.delay(content.pk)
+    except Exception:
+        logger.warning("Could not enqueue generation task for content %s", content.pk)
+
+    return redirect("content:generation_status", pk=content.pk)
+
+
+@login_required
+@user_owns_content
+def content_generation_status(request, pk):
+    """
+    Page B: generation in progress / status.
+
+    Reads the persisted Content record (generation_status, version, review,
+    media) and renders the appropriate state. No simulated progress.
+    """
+    content = get_object_or_404(Content, pk=pk)
+
+    current_version = content.current_version
+    reviews = list(current_version.reviews.order_by("stage", "-created_at")) if current_version else []
+    latest_review = reviews[0] if reviews else None
+
+    # Poster variants for this content, grouped by format.
+    media_records = list(content.media.all().order_by("-created_at"))
+
+    # Determine whether generation is effectively complete.
+    status = content.generation_status
+    complete = status in ("complete", "partial")
+    failed = status == "failed"
+
+    status_messages = {
+        "idle": "Generation has not started yet.",
+        "queued": "Your post is queued for generation.",
+        "generating_text": "Writing your post copy from the brief.",
+        "reviewing": "Running the AI quality review on your copy.",
+        "generating_posters": "Creating poster variants for your selected channels.",
+        "complete": "Copy and posters are ready for review.",
+        "partial": "Copy is ready; some posters could not be generated.",
+        "failed": "Generation failed. You can try again.",
+    }
+    status_message = status_messages.get(status, "Generation status: " + status)
+
+    return render(request, "content/generation_status.html", {
+        "content": content,
+        "current_version": current_version,
+        "reviews": reviews,
+        "latest_review": latest_review,
+        "media_records": media_records,
+        "complete": complete,
+        "failed": failed,
+        "status_message": status_message,
+    })
+
+
+@login_required
+@user_owns_content
+@require_http_methods(["POST"])
+def content_generate_retry(request, pk):
+    """Re-enqueue generation for a failed or partial draft."""
+    content = get_object_or_404(Content, pk=pk)
+
+    if content.generation_status not in ("failed", "partial"):
+        messages.info(request, "Nothing to retry.")
+        return redirect("content:generation_status", pk=content.pk)
+
+    content.generation_status = "queued"
+    content.save(update_fields=["generation_status", "updated_at"])
+
+    try:
+        generate_post_from_brief_task.delay(content.pk)
+        messages.success(request, "Generation restarted.")
+    except Exception:
+        logger.warning("Could not re-enqueue generation for content %s", content.pk)
+        messages.error(request, "Could not restart generation. Please try again later.")
+
+    return redirect("content:generation_status", pk=content.pk)
+
+
+@login_required
+@user_owns_content
+@require_http_methods(["POST"])
+def content_retry_poster(request, pk, media_id):
+    """Retry a single failed poster variant."""
+    content = get_object_or_404(Content, pk=pk)
+    media = get_object_or_404(Media, pk=media_id, content=content)
+
+    from content.services.image_generation_service import ImageGenerationService
+    result = ImageGenerationService.retry_poster_variant(media=media, user=request.user)
+
+    if result.get("success"):
+        messages.success(request, "Poster regenerated successfully.")
+    else:
+        messages.error(request, result.get("error", "Could not regenerate the poster."))
+
+    return redirect("content:detail", pk=content.pk)
 
 
 @login_required
@@ -140,6 +370,61 @@ def content_detail(request, pk):
     from content.models import Media
     media_records = Media.objects.filter(content=content).order_by('-created_at')
 
+    # Resolve selected target channels to profile info (service, handle, avatar).
+    selected_channels = []
+    if content.target_channels:
+        id_to_profile = {str(p.get('id')): p for p in buffer_profiles if p.get('id')}
+        for cid in content.target_channels:
+            profile = id_to_profile.get(cid, {})
+            selected_channels.append({
+                'id': cid,
+                'service': profile.get('service', 'unknown'),
+                'formatted_username': profile.get('formatted_username', cid),
+                'avatar': profile.get('avatar'),
+                'disabled': profile.get('disabled', False),
+            })
+
+    # Group media variants by format for the poster gallery.
+    from content.services.platform_formats import get_format_for_service
+    poster_variants = []
+    for media in media_records:
+        svc = (media.platforms or ['unknown'])[0] if media.platforms else 'unknown'
+        fmt = get_format_for_service(svc)
+        poster_variants.append({
+            'media': media,
+            'format': fmt,
+            'state': media.generation_state,
+        })
+
+    # Plain-language blocker messages for the workspace.
+    blockers = []
+    if not content.brief:
+        blockers.append("Add a brief to get started.")
+    if not current_version:
+        blockers.append("Generate post copy before reviewing.")
+    elif not current_version.is_approved:
+        if latest_review and latest_review.status == 'passed':
+            blockers.append("Approve the post before publishing.")
+        else:
+            blockers.append("Review the generated text before publishing.")
+    if not content.target_channels:
+        blockers.append("Select at least one destination channel.")
+    if buffer_status.get('status') != 'connected':
+        blockers.append("Buffer is not connected. Configure the Buffer connection before publishing.")
+
+    # Publishing eligibility.
+    can_publish = (
+        current_version is not None
+        and current_version.is_approved
+        and content.lifecycle_state in ['approved', 'ready_to_publish']
+        and content.target_channels
+        and buffer_status.get('connected')
+    )
+
+    # History: all versions except the current one, for the collapsed panel.
+    all_versions = list(content.versions.all())
+    history_versions = [v for v in all_versions if v.pk != (current_version.pk if current_version else None)]
+
     return render(request, 'content/detail.html', {
         'content': content,
         'current_version': current_version,
@@ -157,9 +442,14 @@ def content_detail(request, pk):
         'recent_audit_logs': workflow_summary['recent_audit_logs'],
         'buffer_status': buffer_status,
         'buffer_profiles': buffer_profiles,
+        'selected_channels': selected_channels,
         'publications': publications,
         'can_publish': can_publish,
         'media_records': media_records,
+        'poster_variants': poster_variants,
+        'blockers': blockers,
+        'history_versions': history_versions,
+        'generation_status': content.generation_status,
     })
 
 

@@ -60,3 +60,23 @@
 .text-muted { color: var(--color-muted); }
 .text-xs { font-size: var(--text-xs); }
 .text-danger { color: var(--color-danger); }
+
+/* ── Unified review workspace ────────────────────────────────── */
+.workspace-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+}
+.workspace-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+/* Mobile: stack columns */
+@media (max-width: 768px) {
+    .workspace-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-5);
+    }
+}

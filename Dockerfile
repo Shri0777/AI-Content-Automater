@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y postgresql-client gcc && rm -rf /var/li
 WORKDIR /app
 
 # Install Python dependencies
-COPY requirements/ requirements/
-RUN pip install --no-cache-dir -r requirements/production.txt gunicorn
+COPY requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy application
 COPY . /app/

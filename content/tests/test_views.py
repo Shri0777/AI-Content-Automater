@@ -331,19 +331,17 @@ class ContentCreateTest(TestCase):
         response = self.client.post(
             reverse('content:create'),
             {
-                'title': 'New Content',
-                'topic': 'Testing',
-                'description': 'Test description',
-                'content_text': 'Initial content text',
+                'brief': 'Announce our new AI automation service for small businesses.',
+                'target_channels': [],
             }
         )
 
-        # Should redirect on success
+        # Should redirect to the generation-status page on success
         self.assertEqual(response.status_code, 302)
 
-        # Verify content ownership
-        content = Content.objects.get(title='New Content')
+        # Verify content ownership and brief persistence
+        content = Content.objects.get(title='Announce our new AI automation service for small businesses.')
         self.assertEqual(content.owner, self.user)
-
-        # Verify initial version creator
-        self.assertEqual(content.current_version.created_by, self.user)
+        self.assertEqual(content.brief, 'Announce our new AI automation service for small businesses.')
+        self.assertEqual(content.target_channels, [])
+        self.assertEqual(content.generation_status, 'queued')

@@ -1,19 +1,127 @@
-{% extends 'content/base.html' %}
-{% block title %}Create Content | AI Content Automater{% endblock %}
+{% extends "content/base.html" %}
+
+{% block title %}Create post | AI Content Automater{% endblock %}
+
 {% block content %}
-<section class="page-heading"><div><h1>Create content</h1><p>Start a manual draft. Creating an item does not generate AI content or publish anything.</p></div></section>
+<section class="page-heading">
+    <div>
+        <h1>Create post</h1>
+        <p>Describe what you want to share. We’ll draft the copy and create poster variants for your chosen channels.</p>
+    </div>
+    <a class="button button-secondary" href="{% url 'content:list' %}">Cancel</a>
+</section>
+
+{% if errors %}
+    <div class="message-stack">
+        {% if errors.brief %}
+            <div class="alert alert-error" role="alert">{{ errors.brief }}</div>
+        {% endif %}
+        {% if errors.target_channels %}
+            <div class="alert alert-error" role="alert">{{ errors.target_channels }}</div>
+        {% endif %}
+    </div>
+{% endif %}
+
 <form method="post" novalidate class="editor-form">
     {% csrf_token %}
-    {% if content_form.non_field_errors or version_form.non_field_errors %}<div class="alert alert-error" role="alert">{{ content_form.non_field_errors }}{{ version_form.non_field_errors }}</div>{% endif %}
-    <section class="panel"><h2>Content details</h2><p class="section-intro">Use a clear title and optional working context for your own workflow.</p>
-        <div class="form-group"><label for="{{ content_form.title.id_for_label }}">Title <span aria-hidden="true">*</span></label>{{ content_form.title }}{{ content_form.title.errors }}</div>
-        <div class="form-group"><label for="{{ content_form.topic.id_for_label }}">Topic</label>{{ content_form.topic }}{{ content_form.topic.errors }}<small>Optional theme or subject area.</small></div>
-        <div class="form-group"><label for="{{ content_form.description.id_for_label }}">Internal notes</label>{{ content_form.description }}{{ content_form.description.errors }}<small>These notes remain part of this content record.</small></div>
+
+    <section class="panel">
+        <h2>What would you like to post?</h2>
+        <p class="section-intro">A short description of your message, announcement, offer, or idea (max 1,000 characters).</p>
+        <div class="form-group">
+            <label for="id_brief">Brief <span style="color:var(--color-danger);">*</span></label>
+            <textarea name="brief" id="id_brief" rows="4" required
+                      placeholder="e.g. Announce our new AI automation service for small businesses.">{{ brief|default:'' }}</textarea>
+            <small class="help-text">Maximum 1,000 characters. We’ll turn this into post copy and posters automatically.</small>
+        </div>
     </section>
-    <section class="panel"><h2>Initial version</h2><p class="section-intro">Add the content body you want to review and refine.</p>
-        <div class="form-group"><label for="{{ version_form.content_text.id_for_label }}">Content body</label>{{ version_form.content_text }}{{ version_form.content_text.errors }}</div>
-        <div class="form-group"><label for="{{ version_form.change_summary.id_for_label }}">Version note</label>{{ version_form.change_summary }}{{ version_form.change_summary.errors }}<small>Optional context about this first version.</small></div>
+
+    <section class="panel">
+        <h2>Where should this post go?</h2>
+        <p class="section-intro">Select your connected Buffer channels. At least one destination is required for publishing.</p>
+
+        {% if not buffer_status.connected %}
+            <div class="alert {% if buffer_status.status == 'unconfigured' %}alert-error{% else %}alert-warning{% endif %}" role="alert">
+                {% if buffer_status.status == 'unconfigured' %}
+                    <strong>Buffer is not connected.</strong> Set <code>BUFFER_ACCESS_TOKEN</code> in your environment to discover your channels.
+                {% elif buffer_status.status == 'unauthorized' %}
+                    <strong>Buffer credentials are invalid or expired.</strong> Refresh your Buffer access token and try again.
+                {% else %}
+                    <strong>Could not load Buffer channels:</strong> {{ buffer_status.error|default:'Unable to reach Buffer.' }}
+                {% endif %}
+                <br><small>You can still save the brief, but publishing will be blocked until channels are available.</small>
+            </div>
+        {% elif not buffer_profiles %}
+            <div class="alert alert-warning" role="alert">
+                <strong>No connected channels found.</strong> Your Buffer account has no active social channels.
+                <br><small>Connect channels in Buffer, then return here.</small>
+            </div>
+        {% else %}
+            <div class="form-group">
+                <label>Select channels</label>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3);">
+                    {% for profile in buffer_profiles %}
+                    <label class="social-profile-label" style="cursor: pointer; border: 1px solid var(--color-border);">
+                        <input type="checkbox" name="target_channels" value="{{ profile.id }}"
+                               {% if profile.id in target_channels %}checked{% endif %}
+                               style="margin: 0; width: auto;">
+                        <div style="display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-3);">
+                            {% if profile.avatar %}
+                                <img src="{{ profile.avatar }}" alt="{{ profile.formatted_username }}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;">
+                            {% else %}
+                                <div class="avatar" style="width: 28px; height: 28px; font-size: var(--text-xs);">{{ profile.service|slice:":1"|upper }}</div>
+                            {% endif %}
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-weight: 700; font-size: var(--text-sm); color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    {{ profile.service|title }}
+                                </div>
+                                <div style="font-size: var(--text-xs); color: var(--color-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ profile.formatted_username }}</div>
+                                {% if profile.disabled %}
+                                    <span style="font-size: var(--text-xs); color: var(--color-muted);">Queue paused</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+                <small class="help-text">Selected channels are validated on the server before publishing. Unauthorized selections are rejected.</small>
+            </div>
+        {% endif %}
     </section>
-    <div class="form-actions"><button type="submit" class="button button-primary">Create content</button><a href="{% url 'content:list' %}" class="button button-secondary">Cancel</a></div>
+
+    <section class="panel">
+        <h2>Add context (optional)</h2>
+        <p class="section-intro">Optional reference image or extra business context. Not required.</p>
+        <div class="form-group">
+            <label for="id_context_notes">Additional context</label>
+            <textarea name="context_notes" id="id_context_notes" rows="3">{{ context_notes|default:'' }}</textarea>
+            <small class="help-text">Any extra details that should shape the post (audience, tone, offer details).</small>
+        </div>
+    </section>
+
+    <div class="form-actions">
+        <button type="submit" class="button" id="generate-btn">🚀 Generate post</button>
+        <a class="button button-secondary" href="{% url 'content:list' %}">Cancel</a>
+    </div>
 </form>
+
+{% block extra_js %}
+<script>
+(function() {
+    var briefField = document.getElementById('id_brief');
+    var generateBtn = document.getElementById('generate-btn');
+    if (!briefField || !generateBtn) return;
+
+    function updateButton() {
+        var text = (briefField.value || '').trim();
+        generateBtn.disabled = text.length === 0 || text.length > 1000;
+    }
+
+    briefField.addEventListener('input', updateButton);
+    briefField.addEventListener('change', updateButton);
+    updateButton();
+})();
+</script>
+{% endblock %}
+
 {% endblock %}

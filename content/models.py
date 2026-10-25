@@ -31,6 +31,38 @@ class Content(models.Model):
         blank=True,
         help_text='Internal notes or instructions for this content'
     )
+    # Original user-provided brief for the brief-first creation workflow.
+    # Kept distinct from `description` (internal notes) and from generated copy.
+    brief = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The user's short post brief (e.g. 'Announce our new AI automation service')."
+    )
+    # Buffer channel/profile IDs selected by the user for this draft, persisted
+    # so the selection survives page reloads. Validated against the authorized
+    # channel set before publishing.
+    target_channels = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Selected Buffer channel/profile IDs for this draft."
+    )
+    # Tracks the brief-first generation workflow state for the status page.
+    GENERATION_STATUS_CHOICES = [
+        ('idle', 'Idle'),
+        ('queued', 'Queued'),
+        ('generating_text', 'Generating Text'),
+        ('reviewing', 'Reviewing'),
+        ('generating_posters', 'Generating Posters'),
+        ('complete', 'Complete'),
+        ('partial', 'Partial'),
+        ('failed', 'Failed'),
+    ]
+    generation_status = models.CharField(
+        max_length=50,
+        choices=GENERATION_STATUS_CHOICES,
+        default='idle',
+        db_index=True,
+    )
     lifecycle_state = models.CharField(
         max_length=50,
         choices=LIFECYCLE_CHOICES,
@@ -648,6 +680,29 @@ class Media(models.Model):
     # Image metadata (from PIL/Pillow if image)
     width = models.IntegerField(null=True, blank=True)
     height = models.IntegerField(null=True, blank=True)
+
+    # Destination platform(s) this media variant is intended for (e.g.
+    # ['instagram', 'linkedin']). Used to group poster variants and to retry
+    # failed variants independently without regenerating successful ones.
+    platforms = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Destination platform(s) this media variant is intended for."
+    )
+
+    # Tracks poster-variant generation state so a failed variant can be retried
+    # independently without regenerating successful variants.
+    GENERATION_STATE_CHOICES = [
+        ('pending', 'Pending'),
+        ('generated', 'Generated'),
+        ('failed', 'Failed'),
+    ]
+    generation_state = models.CharField(
+        max_length=50,
+        choices=GENERATION_STATE_CHOICES,
+        default='pending',
+        db_index=True,
+    )
 
     APPROVAL_STATUS_CHOICES = [
         ('not_required', 'Not required'),

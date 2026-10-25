@@ -734,8 +734,10 @@ class BufferViewsAndDashboardTests(TestCase):
     @patch.object(BufferPublishingService, 'get_connection_status')
     @patch.object(BufferPublishingService, 'get_profiles')
     def test_detail_view_renders_buffer_card(self, mock_profiles, mock_status):
-        """Detail view displays Buffer card with profiles and publication history."""
+        """Detail view displays Buffer destinations and publish controls."""
         self.client.login(username='dashboard_author@example.com', password='testpass123')
+        self.content.target_channels = ['chan_1']
+        self.content.save(update_fields=['target_channels'])
         mock_status.return_value = {
             'configured': True,
             'connected': True,
@@ -750,8 +752,8 @@ class BufferViewsAndDashboardTests(TestCase):
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Buffer Social Publishing &amp; Scheduling')
-        self.assertContains(response, 'Buffer Connected')
+        self.assertContains(response, 'Destinations')
+        self.assertContains(response, 'Twitter')
         self.assertContains(response, '@tester')
         self.assertContains(response, 'Send to Buffer')
 
@@ -772,7 +774,7 @@ class BufferViewsAndDashboardTests(TestCase):
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Publishing Locked')
+        self.assertContains(response, "Publishing is blocked")
         self.assertNotContains(response, 'Send to Buffer')
 
     @patch.object(BufferPublishingOrchestrator, 'execute_publishing')
