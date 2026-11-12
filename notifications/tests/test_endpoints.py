@@ -123,4 +123,4 @@ def test_me_summary_shows_the_unread_count(api_client, user):
 
     response = api_client.get("/api/v1/me/summary/")
 
-    assert response.json() == {"unread_notifications": 1}
+    assert response.json()["unread_notifications"] == 1

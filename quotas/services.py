@@ -2,8 +2,8 @@
 
 Two kinds of limits exist:
 - "total" limits are about how many things exist right now, for example
-  3 active plans. The feature that owns those things counts them and calls
-  check_total_limit() before creating a new one.
+  3 active plans. count_total_items() counts them, and the feature that
+  owns them calls check_total_limit() before creating a new one.
 - "day" limits are counters that start again at midnight in the user's own
   timezone, for example 6 posts per day. Call use_daily_quota() when the
   thing being limited actually happens.
@@ -16,7 +16,9 @@ from django.db.models import F
 from django.utils import timezone
 
 from core.errors import AppError
+from planning.models import ContentPlan
 from quotas.models import QuotaOverride, QuotaPolicy, QuotaUsage
+from social.models import SocialAccount
 
 
 class QuotaExceeded(AppError):
@@ -69,6 +71,26 @@ def check_total_limit(user, resource, current_count):
         )
 
 
+def count_total_items(user, resource):
+    """Return how many of an account-wide "total" resource the user has now."""
+    if resource == "active_plans":
+        return ContentPlan.objects.filter(user=user, paused=False).count()
+    if resource == "social_accounts":
+        return SocialAccount.objects.filter(user=user).count()
+    # Poster storage is measured when retention arrives in Phase 9.
+    return 0
+
+
+def check_count_allowed(user, resource, wanted_count):
+    """Raise QuotaExceeded if wanted_count is more than the user's limit.
+
+    Use it when several items are created at once, for example a plan with
+    four topics. Having wanted_count items is fine when wanted_count - 1
+    items still leave room for one more.
+    """
+    check_total_limit(user, resource, wanted_count - 1)
+
+
 def get_daily_used(user, resource, scope=""):
     """Return how much of a daily limit the user has used today."""
     usage = QuotaUsage.objects.filter(
@@ -111,9 +133,7 @@ def describe_usage(user, policy):
         used = get_daily_used(user, policy.resource)
         resets_at = next_reset_time(user).isoformat()
     if policy.applies_to == "account" and policy.period == "total":
-        # Features count their own items as they are built (for example the
-        # plans feature counts active plans). Until then the count is zero.
-        used = 0
+        used = count_total_items(user, policy.resource)
     return {
         "resource": policy.resource,
         "description": policy.description,

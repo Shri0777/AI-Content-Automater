@@ -4,6 +4,8 @@
 #       docker compose up -d db redis
 #   The whole app (web server, worker and scheduler too):
 #       docker compose up --build
+#   The same, in the background, returning once the API is ready:
+#       docker compose up -d --build --wait
 #   Stop everything:
 #       docker compose down
 #
@@ -47,13 +49,23 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
+    volumes:
+      - media-files:/app/media
+    # Healthy once the tables exist and the API answers, so
+    # "docker compose up --wait" returns only when the app is ready.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # Runs background jobs.
+  # Runs background jobs. It saves posters into the same media volume the
+  # web server reads them from.
   worker:
     build: .
     command: celery -A config worker --loglevel=info
@@ -62,6 +74,8 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       CELERY_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - media-files:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -83,3 +97,5 @@ services:
 
 volumes:
   postgres-data:
+  # Generated poster images, shared by the web server and the worker.
+  media-files:

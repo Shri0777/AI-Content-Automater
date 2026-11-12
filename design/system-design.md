@@ -367,7 +367,7 @@ The architecture is the same, but each part is written in the Beginner Subset ([
 - **Plain data over frameworks:** the status table is a dict, the schedule is rows, the quota limits are rows, the topic presets are data.
 - **Libraries are wrapped once:** LiteLLM, Pillow, trafilatura and cryptography each live in one file behind one obviously named function.
 - **Small stages:** each pipeline stage is a service function of 20 lines or fewer, wrapped by a Celery task of 10 lines or fewer.
-- **Three isolated exceptions** to "no advanced syntax" (dispatcher `skip_locked`, atomic quota update, encryption helpers), each commented with why it exists.
+- **Four isolated exceptions** to the standard (dispatcher `skip_locked`, atomic quota update, encryption helpers, and the post tasks' catch-and-re-raise so a crash marks the post `failed`), each commented with why it exists.
 
 ### 18.2 Demo mode (ADR-014)
 `DEMO_MODE=true` replaces every external provider with a built-in fake so the full pipeline runs with **no API keys and no network**:

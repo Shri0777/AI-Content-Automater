@@ -36,6 +36,11 @@ INSTALLED_APPS = [
     "quotas",
     "notifications",
     "credentials",
+    "social",
+    "newsroom",
+    "planning",
+    "studio",
+    "publishing",
 ]
 
 MIDDLEWARE = [
@@ -125,6 +130,13 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Finds news, makes posters with AI, reviews them and posts them.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Several tables have a "status" field with different choices. These
+    # give each set of choices its own clear name in the API description.
+    "ENUM_NAME_OVERRIDES": {
+        "PostStatusEnum": "studio.models.STATUS_CHOICES",
+        "PublicationStatusEnum": "publishing.models.STATUS_CHOICES",
+        "SocialAccountStatusEnum": "social.models.STATUS_CHOICES",
+    },
 }
 
 # Login tokens. The short-lived access token travels in the Authorization

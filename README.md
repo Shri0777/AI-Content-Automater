@@ -5,11 +5,35 @@ AI model you choose, reviews and corrects them, and posts them on a schedule.
 It is a rebuild of an earlier version; see [plan.md](plan.md) for the plan and
 progress.
 
-**Status:** Phase 1 (foundation) is being built: accounts with invite-only
-registration, cookie-based login, free-tier limits, in-app notifications,
-CI and Docker. The content pipeline itself arrives in later phases.
+**Status:** Phases 1 and 2 are built. The foundation (invite-only
+accounts, cookie-based login, free-tier limits, in-app notifications, CI,
+Docker) plus a **walking skeleton** of the whole product: save provider
+keys, link a social account, create a plan, generate a post with a poster,
+review it, approve it and publish it. Today that path runs on built-in
+**fake providers** (demo mode). Real AI models, news sources and social
+networks arrive in Phases 3, 4 and 6.
 
-## Quickstart
+## Try the demo (no API keys needed)
+
+You need Docker and Python 3.
+
+```bash
+docker compose up -d --build --wait
+docker compose exec web python manage.py create_invite_codes 1
+python3 scripts/demo_walkthrough.py --invite-code <the code printed above>
+```
+
+The script registers a user, saves demo keys, links a demo account, creates
+a plan, makes a post (in the background worker), saves its poster to
+`demo-poster.png`, approves it and checks it was published. CI runs these
+same three commands on every push.
+
+**Demo content is canned, not real AI output.** In demo mode, fake
+providers (see [demo/](demo/README.md)) stand in for the AI models, the news
+sources and the social network. Every article is fictional and links to
+example.com, and every post is marked `demo_mode: true` in the API.
+
+## Quickstart (development)
 
 You need [uv](https://docs.astral.sh/uv/) and Docker.
 

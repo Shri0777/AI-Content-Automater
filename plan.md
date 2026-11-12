@@ -1,6 +1,6 @@
 # AI Content Automator: Backend Build Plan (V4)
 
-Status: **Design complete, awaiting your go-ahead. No code has been written and the old codebase has not been touched.**
+Status: **Phases 0, 1 and 2 are built and verified** (V3 preserved under the `legacy-v3` tag). Next: Phase 3, real AI providers.
 Scope: backend only (REST API + workers). The frontend is planned separately.
 
 **Decided so far**
@@ -47,7 +47,7 @@ You authorised deleting the whole codebase. V4 is rebuilt around your requiremen
 - **Flow:** views call services, services call models and adapters, tasks call services. No business logic anywhere else.
 - **Same layout in every app:** `models.py`, `serializers.py`, `views.py`, `urls.py`, `services.py`, `tasks.py`, `tests/`, `README.md`.
 - **Enforced by:** Ruff rules, `scripts/check_readability.py`, a fresh-eyes review at the end of each phase, and a `docs/CODE-TOUR.md` that must match the code.
-- **Three named exceptions** to "no advanced syntax", each isolated in one commented function: the dispatcher's `skip_locked`, the quota counter's atomic update, and the encryption helper.
+- **Four named exceptions** to the standard, each isolated and commented: the dispatcher's `skip_locked`, the quota counter's atomic update, the encryption helper, and the post tasks' catch-and-re-raise that marks a crashed post `failed` instead of leaving it stuck.
 
 ## Free launch model (decided)
 - **No billing, no payment code.** Users bring their own AI keys, so quotas protect only the operator's compute, storage, shared news budget and outbound posting volume. Limits are configurable data (`QuotaPolicy`), so paid tiers can be added later without a redesign.

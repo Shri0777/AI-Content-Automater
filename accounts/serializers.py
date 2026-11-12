@@ -106,6 +106,8 @@ class SummarySerializer(serializers.Serializer):
     """A small overview the frontend polls to show badges."""
 
     unread_notifications = serializers.IntegerField()
+    posts_awaiting_approval = serializers.IntegerField()
+    accounts_needing_attention = serializers.IntegerField()
 
 
 class MeUpdateSerializer(serializers.ModelSerializer):

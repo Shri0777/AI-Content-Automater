@@ -119,3 +119,24 @@ jobs:
           -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5433
           -e CELERY_BROKER_URL=redis://localhost:6380/0
           ai-content-automator python scripts/smoke_check.py
+
+  # The demo promise in the README: a clean checkout runs the whole product
+  # with no API keys in three commands. This job runs exactly those commands
+  # against the real web server, worker, database and Redis.
+  demo-walkthrough:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the whole app
+        run: docker compose up -d --build --wait
+
+      - name: Run the demo walkthrough
+        run: |
+          code=$(docker compose exec -T web python manage.py create_invite_codes 1 | tail -n 1)
+          python3 scripts/demo_walkthrough.py --invite-code "$code"
+
+      - name: Show the logs if anything failed
+        if: failure()
+        run: docker compose logs --tail=200

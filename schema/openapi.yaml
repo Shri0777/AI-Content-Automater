@@ -347,8 +347,301 @@ paths:
               schema:
                 $ref: '#/components/schemas/UnreadCount'
           description: ''
+  /api/v1/plans/:
+    get:
+      operationId: plans_list
+      description: Return the user's plans.
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+          description: ''
+    post:
+      operationId: plans_create
+      description: Create a plan with its topics and target accounts.
+      tags:
+      - plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlanCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlanCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+  /api/v1/plans/{plan_id}/:
+    get:
+      operationId: plans_retrieve
+      description: Return one of the user's plans.
+      parameters:
+      - in: path
+        name: plan_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+    delete:
+      operationId: plans_destroy
+      description: Delete the plan and every post made for it.
+      parameters:
+      - in: path
+        name: plan_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/plans/{plan_id}/generate-now/:
+    post:
+      operationId: plans_generate_now_create
+      description: Start making a post. Poll the post until it waits for approval.
+      parameters:
+      - in: path
+        name: plan_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+          description: ''
+  /api/v1/posts/:
+    get:
+      operationId: posts_list
+      description: Return one page of posts; add ?status=... to filter.
+      parameters:
+      - in: query
+        name: status
+        schema:
+          type: string
+      tags:
+      - posts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Post'
+          description: ''
+  /api/v1/posts/{post_id}/:
+    get:
+      operationId: posts_retrieve
+      description: Return everything about one post.
+      parameters:
+      - in: path
+        name: post_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - posts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+          description: ''
+  /api/v1/posts/{post_id}/approve/:
+    post:
+      operationId: posts_approve_create
+      description: Approve the post and start publishing it.
+      parameters:
+      - in: path
+        name: post_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - posts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+          description: ''
+  /api/v1/posts/{post_id}/poster/:
+    get:
+      operationId: posts_poster_retrieve
+      description: Return the newest poster as a PNG image.
+      parameters:
+      - in: path
+        name: post_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - posts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/posts/{post_id}/reject/:
+    post:
+      operationId: posts_reject_create
+      description: Reject the post.
+      parameters:
+      - in: path
+        name: post_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - posts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+          description: ''
+  /api/v1/social/accounts/:
+    get:
+      operationId: social_accounts_list
+      description: Return every account the user has linked.
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SocialAccount'
+          description: ''
+  /api/v1/social/accounts/{account_id}/:
+    delete:
+      operationId: social_accounts_destroy
+      description: Remove the account if it belongs to the user.
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/social/link/demo/:
+    post:
+      operationId: social_link_demo_create
+      description: Create a demo account straight away; there is no login page.
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialAccount'
+          description: ''
 components:
   schemas:
+    ApprovalModeEnum:
+      enum:
+      - manual
+      type: string
+      description: '* `manual` - I approve every post'
+    ArticleSummary:
+      type: object
+      description: 'The article a post is based on: enough to credit and check it.'
+      properties:
+        title:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        source_name:
+          type: string
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - published_at
+      - source_name
+      - title
+      - url
     Credential:
       type: object
       description: A saved credential. The API key is accepted but never sent back.
@@ -398,6 +691,32 @@ components:
         * `text` - Text model
         * `image` - Image model
         * `news` - News source
+    GenerationStep:
+      type: object
+      description: One stage run of the pipeline.
+      properties:
+        stage:
+          type: string
+          readOnly: true
+        succeeded:
+          type: boolean
+          readOnly: true
+        duration_ms:
+          type: integer
+          readOnly: true
+        error:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - duration_ms
+      - error
+      - stage
+      - succeeded
     Health:
       type: object
       description: The answer from the health check endpoint.
@@ -544,6 +863,330 @@ components:
         timezone:
           type: string
           maxLength: 64
+    Plan:
+      type: object
+      description: A plan as the API shows it, with its topics and accounts.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        requirements:
+          type: string
+          readOnly: true
+        approval_mode:
+          allOf:
+          - $ref: '#/components/schemas/ApprovalModeEnum'
+          readOnly: true
+        ai_label_enabled:
+          type: boolean
+          readOnly: true
+        ai_label_text:
+          type: string
+          readOnly: true
+        paused:
+          type: boolean
+          readOnly: true
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+          readOnly: true
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialAccount'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - accounts
+      - ai_label_enabled
+      - ai_label_text
+      - approval_mode
+      - created_at
+      - id
+      - name
+      - paused
+      - requirements
+      - topics
+    PlanCreate:
+      type: object
+      description: The details needed to create a plan.
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        requirements:
+          type: string
+          default: ''
+        approval_mode:
+          allOf:
+          - $ref: '#/components/schemas/ApprovalModeEnum'
+          default: manual
+        ai_label_enabled:
+          type: boolean
+          default: true
+        ai_label_text:
+          type: string
+          default: Made with AI assistance.
+          maxLength: 100
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+        account_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - account_ids
+      - name
+      - topics
+    PlatformEnum:
+      enum:
+      - demo
+      type: string
+      description: '* `demo` - Demo network'
+    Post:
+      type: object
+      description: 'A post in a list: its status and where it belongs.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        plan:
+          type: string
+          format: uuid
+          readOnly: true
+        plan_name:
+          type: string
+          readOnly: true
+        topic_name:
+          type: string
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PostStatusEnum'
+          readOnly: true
+        status_reason:
+          type: string
+          readOnly: true
+        demo_mode:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - demo_mode
+      - id
+      - plan
+      - plan_name
+      - status
+      - status_reason
+      - updated_at
+    PostDetail:
+      type: object
+      description: One post with everything made for it.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        plan:
+          type: string
+          format: uuid
+          readOnly: true
+        plan_name:
+          type: string
+          readOnly: true
+        topic_name:
+          type: string
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PostStatusEnum'
+          readOnly: true
+        status_reason:
+          type: string
+          readOnly: true
+        demo_mode:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        article:
+          allOf:
+          - $ref: '#/components/schemas/ArticleSummary'
+          readOnly: true
+        poster_url:
+          type: string
+          nullable: true
+          description: Return the address of the newest poster, or None if there is
+            none.
+          readOnly: true
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostVersion'
+          readOnly: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenerationStep'
+          readOnly: true
+        publications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Publication'
+          readOnly: true
+      required:
+      - article
+      - created_at
+      - demo_mode
+      - id
+      - plan
+      - plan_name
+      - poster_url
+      - publications
+      - status
+      - status_reason
+      - steps
+      - updated_at
+      - versions
+    PostStatusEnum:
+      enum:
+      - researching
+      - drafting
+      - imaging
+      - reviewing
+      - awaiting_approval
+      - approved
+      - publishing
+      - published
+      - rejected
+      - skipped
+      - failed
+      type: string
+      description: |-
+        * `researching` - Finding an article
+        * `drafting` - Writing the caption
+        * `imaging` - Making the poster
+        * `reviewing` - Checking the post
+        * `awaiting_approval` - Waiting for your approval
+        * `approved` - Approved
+        * `publishing` - Publishing
+        * `published` - Published
+        * `rejected` - Rejected
+        * `skipped` - Skipped
+        * `failed` - Failed
+    PostVersion:
+      type: object
+      description: One version of a post's words and poster.
+      properties:
+        number:
+          type: integer
+          readOnly: true
+        headline:
+          type: string
+          readOnly: true
+        caption:
+          type: string
+          readOnly: true
+        image_prompt:
+          type: string
+          readOnly: true
+        review:
+          allOf:
+          - $ref: '#/components/schemas/Review'
+          readOnly: true
+      required:
+      - caption
+      - headline
+      - image_prompt
+      - number
+      - review
+    PresetEnum:
+      enum:
+      - job_hiring
+      - layoffs
+      - linux_tips
+      - ai_news
+      type: string
+      description: |-
+        * `job_hiring` - Job hiring
+        * `layoffs` - Layoffs
+        * `linux_tips` - Linux tips
+        * `ai_news` - AI news
+    Publication:
+      type: object
+      description: Where a post was sent and what happened.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        account_name:
+          type: string
+          readOnly: true
+        platform:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PublicationStatusEnum'
+          readOnly: true
+        external_id:
+          type: string
+          readOnly: true
+        error:
+          type: string
+          readOnly: true
+        demo_mode:
+          type: boolean
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - account_name
+      - demo_mode
+      - error
+      - external_id
+      - id
+      - platform
+      - published_at
+      - status
+    PublicationStatusEnum:
+      enum:
+      - publishing
+      - published
+      - failed
+      type: string
+      description: |-
+        * `publishing` - Publishing
+        * `published` - Published
+        * `failed` - Failed
     Recover:
       type: object
       description: The fields needed to reset a forgotten password with a recovery
@@ -631,14 +1274,92 @@ components:
       - recovery_codes
       - tier
       - timezone
+    Review:
+      type: object
+      description: The AI review of a version and its verdict.
+      properties:
+        scores:
+          readOnly: true
+        issues:
+          readOnly: true
+        verdict:
+          allOf:
+          - $ref: '#/components/schemas/VerdictEnum'
+          readOnly: true
+      required:
+      - issues
+      - scores
+      - verdict
+    SocialAccount:
+      type: object
+      description: A linked social account, without its token.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        platform:
+          allOf:
+          - $ref: '#/components/schemas/PlatformEnum'
+          readOnly: true
+        display_name:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SocialAccountStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - display_name
+      - id
+      - platform
+      - status
+    SocialAccountStatusEnum:
+      enum:
+      - active
+      - needs_reauth
+      - revoked
+      type: string
+      description: |-
+        * `active` - Active
+        * `needs_reauth` - Needs to be reconnected
+        * `revoked` - Revoked
     Summary:
       type: object
       description: A small overview the frontend polls to show badges.
       properties:
         unread_notifications:
           type: integer
+        posts_awaiting_approval:
+          type: integer
+        accounts_needing_attention:
+          type: integer
       required:
+      - accounts_needing_attention
+      - posts_awaiting_approval
       - unread_notifications
+    Topic:
+      type: object
+      description: One topic of a plan.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        preset:
+          $ref: '#/components/schemas/PresetEnum'
+      required:
+      - id
+      - name
+      - preset
     UnreadCount:
       type: object
       description: How many notifications are unread.
@@ -688,6 +1409,16 @@ components:
       - id
       - tier
       - timezone
+    VerdictEnum:
+      enum:
+      - pass
+      - revise
+      - reject
+      type: string
+      description: |-
+        * `pass` - Pass
+        * `revise` - Needs changes
+        * `reject` - Reject
   securitySchemes:
     jwtAuth:
       type: http

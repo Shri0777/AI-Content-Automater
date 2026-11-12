@@ -7,6 +7,7 @@ from quotas.models import QuotaOverride
 from quotas.services import (
     QuotaExceeded,
     UnknownQuotaResource,
+    check_count_allowed,
     check_total_limit,
     get_limit,
 )
@@ -47,3 +48,12 @@ def test_total_limit_refuses_when_the_limit_is_already_reached(user):
     assert error.value.extra["resource"] == "active_plans"
     assert error.value.extra["limit"] == 3
     assert "3" in error.value.detail
+
+
+def test_creating_exactly_the_limit_at_once_is_allowed(user):
+    check_count_allowed(user, "topics_per_plan", wanted_count=6)
+
+
+def test_creating_more_than_the_limit_at_once_is_refused(user):
+    with pytest.raises(QuotaExceeded):
+        check_count_allowed(user, "topics_per_plan", wanted_count=7)

@@ -67,3 +67,11 @@ def problem_details_handler(error, context):
     if response is None:
         return None
     return convert_framework_error(error, response)
+
+
+class ProviderError(Exception):
+    """An outside service (AI model, news source or social network) failed.
+
+    Provider classes raise it with a message that is safe to show the user:
+    it must never contain an API key or token.
+    """

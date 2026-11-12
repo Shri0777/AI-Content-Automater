@@ -20,8 +20,11 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY . .
 
 # Run as a normal user instead of root. (V3's containers ran as root and
-# left root-owned files in the project folder.)
-RUN useradd --create-home appuser
+# left root-owned files in the project folder.) The media folder holds
+# generated posters, so that user must be able to write to it.
+RUN useradd --create-home appuser \
+    && mkdir -p /app/media \
+    && chown appuser /app/media
 USER appuser
 
 EXPOSE 8000

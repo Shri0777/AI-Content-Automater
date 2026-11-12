@@ -28,6 +28,8 @@ from accounts.serializers import (
 )
 from core.errors import AppError
 from notifications.services import count_unread
+from social.services import count_accounts_needing_attention
+from studio.services import count_awaiting_approval
 
 
 class MissingRequiredHeader(AppError):
@@ -187,9 +189,15 @@ class MeView(APIView):
 
 
 class MeSummaryView(APIView):
-    """A small overview for badges. Later features add their own counts."""
+    """A small overview for badges, cheap enough to poll often."""
 
     @extend_schema(responses=SummarySerializer)
     def get(self, request):
         """Return the counts the frontend shows as badges."""
-        return Response({"unread_notifications": count_unread(request.user)})
+        user = request.user
+        summary = {
+            "unread_notifications": count_unread(user),
+            "posts_awaiting_approval": count_awaiting_approval(user),
+            "accounts_needing_attention": count_accounts_needing_attention(user),
+        }
+        return Response(summary)

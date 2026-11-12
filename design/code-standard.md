@@ -43,6 +43,7 @@ Related: [system-design.md](system-design.md), [decisions.md](decisions.md) (ADR
 1. The dispatcher's `select_for_update(skip_locked=True)`: lets several dispatchers share work without double-claiming a slot.
 2. The quota counter's conditional `update(used=F("used") + 1)`: makes "use the last allowed unit" safe when two requests arrive together.
 3. The encryption helpers wrap `cryptography`'s `Fernet`. Callers only ever see `encrypt_text(text)` and `decrypt_text(token)`.
+4. The post tasks (`studio/tasks.py`, `publishing/tasks.py`) catch any `Exception`, mark the post `failed` with `fail_after_crash()`, then **raise it again**. Without this, a bug would leave a post stuck in a working status with no message for the user, which is how V3 failed. Nothing is hidden: the worker still logs the full error.
 
 ## 4. Shape rules (enforced by tooling)
 | Rule | Limit |
@@ -95,7 +96,7 @@ README.md        10-line orientation
 If a new pattern seems necessary, we first try to avoid it. If it is truly needed, it is added to this list and to the code tour in the same change.
 
 ## 9. Errors
-- Raise our own simple exceptions. Catch **specific** exceptions only. No bare `except:`.
+- Raise our own simple exceptions. Catch **specific** exceptions only. No bare `except:`. (The one exception is named exception 4 above, which re-raises.)
 - Messages are plain English sentences a user could read: "You have reached your limit of 3 active plans."
 - A failure in a stage is recorded on the `GenerationStep` and shown through the post's `status` and `skip_reason`.
 
