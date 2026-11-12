@@ -1,7 +1,0 @@
-{% extends "base.html" %}
-{% block title %}Research Profile | AI Content Automater{% endblock %}
-{% block content %}
-<section class="page-heading"><div><h1>Research Profile</h1><p>These saved defaults are copied into each new request, where they can be overridden without changing this profile.</p></div><a href="{% url 'research:profile_edit' %}" class="button button-primary">Edit preferences</a></section>
-<section class="panel preference-grid"><div><span class="preference-label">Research topics</span><p>{{ topics_display }}</p></div><div><span class="preference-label">Target audience</span><p>{{ profile.audience }}</p></div><div><span class="preference-label">Content goal</span><p>{{ profile.content_goal }}</p></div><div><span class="preference-label">Freshness</span><p>Prefer the last {{ profile.freshness_days }} days{% if profile.allow_older_sources %}; older context allowed{% endif %}.</p></div><div><span class="preference-label">Language</span><p>{{ profile.language|upper }}</p></div><div><span class="preference-label">Source categories</span><p>{{ source_categories_display }}</p></div></section>
-<div class="form-actions"><a class="button button-primary" href="{% url 'research:request_new' %}">Create research request</a><a class="button button-secondary" href="{% url 'research:request_list' %}">View requests</a></div>
-{% endblock %}
