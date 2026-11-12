@@ -46,6 +46,48 @@ class RegisterSerializer(serializers.Serializer):
         return data
 
 
+class RegisterResultSerializer(UserSerializer):
+    """What registration sends back: the new user plus recovery codes."""
+
+    recovery_codes = serializers.ListField(child=serializers.CharField())
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ["recovery_codes"]
+        read_only_fields = fields
+
+
+class RecoverSerializer(serializers.Serializer):
+    """The fields needed to reset a forgotten password with a recovery code."""
+
+    email = serializers.EmailField()
+    recovery_code = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        """Check the new password with Django's password rules."""
+        account = User(email=data["email"])
+        try:
+            validate_password(data["new_password"], user=account)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(
+                {"new_password": error.messages}
+            ) from None
+        return data
+
+
+class RecoverResultSerializer(serializers.Serializer):
+    """What a successful recovery sends back."""
+
+    detail = serializers.CharField()
+    recovery_codes_left = serializers.IntegerField()
+
+
+class RecoveryCodesSerializer(serializers.Serializer):
+    """A new set of recovery codes, shown once."""
+
+    recovery_codes = serializers.ListField(child=serializers.CharField())
+
+
 class LoginSerializer(serializers.Serializer):
     """The fields needed to log in."""
 

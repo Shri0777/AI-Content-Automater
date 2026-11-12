@@ -18,6 +18,10 @@ from accounts.serializers import (
     LoginResultSerializer,
     LoginSerializer,
     MeUpdateSerializer,
+    RecoverResultSerializer,
+    RecoverSerializer,
+    RecoveryCodesSerializer,
+    RegisterResultSerializer,
     RegisterSerializer,
     SummarySerializer,
     UserSerializer,
@@ -67,17 +71,48 @@ class PublicAuthView(APIView):
 class RegisterView(PublicAuthView):
     """Create a new account (needs an invite code in invite mode)."""
 
-    @extend_schema(request=RegisterSerializer, responses={201: UserSerializer})
+    @extend_schema(
+        request=RegisterSerializer, responses={201: RegisterResultSerializer}
+    )
     def post(self, request):
-        """Check the details, create the user and return their public details."""
+        """Create the user; return their details and recovery codes (shown once)."""
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = services.register_user(
+        result = services.register_user(
             email=serializer.validated_data["email"],
             password=serializer.validated_data["password"],
             invite_code=serializer.validated_data.get("invite_code"),
         )
-        return Response(UserSerializer(user).data, status=201)
+        body = dict(UserSerializer(result["user"]).data)
+        body["recovery_codes"] = result["recovery_codes"]
+        return Response(body, status=201)
+
+
+class RecoverView(PublicAuthView):
+    """Reset a forgotten password with a recovery code."""
+
+    @extend_schema(request=RecoverSerializer, responses=RecoverResultSerializer)
+    def post(self, request):
+        """Use one recovery code to set a new password."""
+        serializer = RecoverSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        codes_left = services.recover_account(
+            email=serializer.validated_data["email"],
+            typed_code=serializer.validated_data["recovery_code"],
+            new_password=serializer.validated_data["new_password"],
+        )
+        detail = "Password changed. Log in with your new password."
+        return Response({"detail": detail, "recovery_codes_left": codes_left})
+
+
+class NewRecoveryCodesView(APIView):
+    """Make a fresh set of recovery codes. The old ones stop working."""
+
+    @extend_schema(request=None, responses={201: RecoveryCodesSerializer})
+    def post(self, request):
+        """Replace the user's recovery codes and show the new ones once."""
+        codes = services.create_recovery_codes(request.user)
+        return Response({"recovery_codes": codes}, status=201)
 
 
 class LoginView(PublicAuthView):

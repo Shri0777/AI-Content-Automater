@@ -177,7 +177,7 @@ Unit, integration (real Postgres, Redis and Celery worker), contract (OpenAPI sn
 - Developer app registration (and app review where needed) for LinkedIn, X and Meta.
 - Real text and image model keys and a Buffer token for live checks. A paid news key is optional and off by default.
 - Until then, live generation, linking and publishing are verified **only against stubs and fakes**, and docs mark them **unverified-live**.
-- The **auto-post gate policy body** (Phase 8) is a short function that encodes your editorial risk tolerance. I'll leave it as a `TODO(human)` for you.
+- The **auto-post gate policy** (Phase 8) encodes editorial risk tolerance. I will build it myself with a safe, closed-by-default policy, and list it in the review notes so you can read it and adjust the thresholds after the build.
 - Deployment and hosting choices, when you are ready.
 
 ## 11. Open questions

@@ -32,19 +32,20 @@ SKIPPED_FOLDERS = [
 STAR_ARGUMENTS_ALLOWED_IN = ["handle"]
 
 
-def is_skipped(path, root_folder):
-    """Return True if the file is inside a folder we do not check."""
-    for part in path.relative_to(root_folder).parts:
-        if part in SKIPPED_FOLDERS:
-            return True
-    return False
+def find_python_files(folder):
+    """Return every Python file under folder that we wrote ourselves.
 
-
-def find_python_files(root_folder):
-    """Return every Python file under root_folder that we wrote ourselves."""
+    Skipped folders (such as virtual environments, with thousands of files)
+    are never opened. For each sub-folder, the function calls itself to
+    collect that folder's files too.
+    """
     python_files = []
-    for path in sorted(root_folder.rglob("*.py")):
-        if not is_skipped(path, root_folder):
+    for path in sorted(folder.iterdir()):
+        if path.name in SKIPPED_FOLDERS:
+            continue
+        if path.is_dir():
+            python_files = python_files + find_python_files(path)
+        elif path.suffix == ".py":
             python_files.append(path)
     return python_files
 

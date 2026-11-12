@@ -7,6 +7,8 @@ from accounts.views import (
     LogoutView,
     MeSummaryView,
     MeView,
+    NewRecoveryCodesView,
+    RecoverView,
     RefreshView,
     RegisterView,
 )
@@ -16,6 +18,12 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/refresh/", RefreshView.as_view(), name="refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
+    path("auth/recover/", RecoverView.as_view(), name="recover"),
+    path(
+        "auth/recovery-codes/",
+        NewRecoveryCodesView.as_view(),
+        name="new-recovery-codes",
+    ),
     path("me/", MeView.as_view(), name="me"),
     path("me/summary/", MeSummaryView.as_view(), name="me-summary"),
 ]

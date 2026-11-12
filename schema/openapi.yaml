@@ -42,6 +42,48 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/auth/recover/:
+    post:
+      operationId: auth_recover_create
+      description: Use one recovery code to set a new password.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Recover'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Recover'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Recover'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoverResult'
+          description: ''
+  /api/v1/auth/recovery-codes/:
+    post:
+      operationId: auth_recovery_codes_create
+      description: Replace the user's recovery codes and show the new ones once.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
   /api/v1/auth/refresh/:
     post:
       operationId: auth_refresh_create
@@ -60,7 +102,8 @@ paths:
   /api/v1/auth/register/:
     post:
       operationId: auth_register_create
-      description: Check the details, create the user and return their public details.
+      description: Create the user; return their details and recovery codes (shown
+        once).
       tags:
       - auth
       requestBody:
@@ -82,7 +125,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/RegisterResult'
           description: ''
   /api/v1/health/:
     get:
@@ -391,6 +434,44 @@ components:
         timezone:
           type: string
           maxLength: 64
+    Recover:
+      type: object
+      description: The fields needed to reset a forgotten password with a recovery
+        code.
+      properties:
+        email:
+          type: string
+          format: email
+        recovery_code:
+          type: string
+        new_password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - new_password
+      - recovery_code
+    RecoverResult:
+      type: object
+      description: What a successful recovery sends back.
+      properties:
+        detail:
+          type: string
+        recovery_codes_left:
+          type: integer
+      required:
+      - detail
+      - recovery_codes_left
+    RecoveryCodes:
+      type: object
+      description: A new set of recovery codes, shown once.
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+      required:
+      - recovery_codes
     Register:
       type: object
       description: The fields needed to create an account.
@@ -407,6 +488,39 @@ components:
       required:
       - email
       - password
+    RegisterResult:
+      type: object
+      description: 'What registration sends back: the new user plus recovery codes.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        timezone:
+          type: string
+          readOnly: true
+        tier:
+          type: string
+          readOnly: true
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+        recovery_codes:
+          type: array
+          items:
+            type: string
+      required:
+      - date_joined
+      - email
+      - id
+      - recovery_codes
+      - tier
+      - timezone
     Summary:
       type: object
       description: A small overview the frontend polls to show badges.

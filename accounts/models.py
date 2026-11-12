@@ -69,3 +69,25 @@ class InviteCode(models.Model):
         if self.used_by is None:
             return f"Unused invite created {self.created_at:%Y-%m-%d}"
         return f"Invite used by {self.used_by}"
+
+
+class RecoveryCode(models.Model):
+    """A one-time code that lets a user reset a forgotten password.
+
+    There is no email, so these codes are the way back into an account.
+    Codes are stored with Django's slow, salted password hashing, so a copy
+    of the database does not reveal them.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="recovery_codes"
+    )
+    code_hash = models.CharField(max_length=128)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        if self.used_at is None:
+            return f"Unused recovery code for {self.user}"
+        return f"Used recovery code for {self.user}"
