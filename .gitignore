@@ -3,11 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtual environments
+# Virtual environments (including the preserved V3 one)
 venv/
 .venv/
+.venv-legacy-v3/
 env/
 ENV/
+
+# Old V3 caches owned by root (safe to delete with sudo)
+/frontend/
+/frontend_ui/
 
 # Django
 *.log

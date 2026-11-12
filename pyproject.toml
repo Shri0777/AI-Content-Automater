@@ -1,0 +1,68 @@
+[project]
+name = "ai-content-automator"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "celery>=5.7.0",
+    "cryptography>=50.0.2",
+    "django>=6.1.3",
+    "django-cors-headers>=4.9.0",
+    "djangorestframework>=3.18.3",
+    "djangorestframework-simplejwt>=5.5.1",
+    "drf-spectacular>=0.30.0",
+    "psycopg[binary]>=3.3.9",
+    "redis>=8.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "freezegun>=1.5.5",
+    "pip-audit>=2.10.1",
+    "pytest>=9.2.0",
+    "pytest-django>=4.14.0",
+    "ruff>=0.17.4",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+
+# Ruff checks style AND the beginner-readable rules from design/code-standard.md.
+[tool.ruff]
+line-length = 88
+extend-exclude = ["**/migrations/**", ".venv-legacy-v3", "venv"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",    # common errors and style
+    "I",              # sorted imports
+    "B",              # likely bugs
+    "C90",            # function complexity
+    "PLR0912",        # too many branches in one function
+    "PLR0913",        # too many function parameters
+    "PLR0915",        # too many statements in one function
+    "D100", "D101", "D102", "D103",  # docstrings on modules, classes, functions
+    "TID251",         # imports we have decided not to use
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test names are full sentences, so tests do not need docstrings.
+"**/tests/**" = ["D"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 7
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-branches = 8
+max-statements = 25
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"asyncio".msg = "Use plain functions; background work belongs in Celery tasks."
+"functools".msg = "Write the logic out plainly (design/code-standard.md)."
+"itertools".msg = "Write an ordinary for loop instead (design/code-standard.md)."
+"inspect".msg = "Avoid reflection; write explicit code (design/code-standard.md)."
+"importlib".msg = "Avoid dynamic imports; import modules normally."

@@ -1,0 +1,34 @@
+# Services the project needs while you develop and test.
+#   Start them:  docker compose up -d db redis
+#   Stop them:   docker compose down
+# Ports are 5433 and 6380 so they never clash with a database or Redis
+# that may already be installed on your computer.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ai_content_automator
+      POSTGRES_USER: automator
+      POSTGRES_PASSWORD: automator-dev-password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U automator -d ai_content_automator"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
