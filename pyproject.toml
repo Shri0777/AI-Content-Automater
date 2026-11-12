@@ -33,6 +33,9 @@ addopts = "-q --strict-markers"
 # Ruff checks style AND the beginner-readable rules from design/code-standard.md.
 [tool.ruff]
 line-length = 88
+# Format and lint as if for Python 3.12 so Ruff keeps familiar syntax, for
+# example "except (A, B):" instead of the newer "except A, B:".
+target-version = "py312"
 extend-exclude = ["**/migrations/**", ".venv-legacy-v3", "venv"]
 
 [tool.ruff.lint]

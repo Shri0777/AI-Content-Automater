@@ -48,3 +48,24 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class InviteCode(models.Model):
+    """A single-use code that lets one new person create an account.
+
+    Only a fingerprint (hash) of the code is stored, so someone who reads
+    the database cannot use the codes.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        if self.used_by is None:
+            return f"Unused invite created {self.created_at:%Y-%m-%d}"
+        return f"Invite used by {self.used_by}"
