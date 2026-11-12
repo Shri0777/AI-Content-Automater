@@ -8,7 +8,7 @@ makes this test fail.
 from pathlib import Path
 
 PROJECT_FOLDER = Path(__file__).resolve().parent.parent
-APPS = ["core", "accounts", "quotas", "notifications"]
+APPS = ["core", "accounts", "quotas", "notifications", "credentials"]
 
 
 def files_that_need_describing(app_folder):

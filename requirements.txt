@@ -60,6 +60,8 @@ kombu==5.7.0
     # via celery
 packaging==26.3
     # via kombu
+pillow==13.0.0
+    # via ai-content-automator
 prompt-toolkit==3.0.53
     # via click-repl
 psycopg==3.3.9

@@ -15,6 +15,12 @@ def clear_cache_between_tests():
     cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def temporary_media_folder(settings, tmp_path):
+    """Save generated files (such as posters) in a throwaway folder."""
+    settings.MEDIA_ROOT = tmp_path / "media"
+
+
 @pytest.fixture
 def api_client():
     """Return a client that can call the API like a browser or app would."""

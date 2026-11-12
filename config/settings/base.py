@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "accounts",
     "quotas",
     "notifications",
+    "credentials",
 ]
 
 MIDDLEWARE = [
@@ -96,6 +97,15 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Uploaded and generated files, such as poster images.
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# Demo mode swaps every outside service (AI models, news sources and social
+# media) for built-in fakes, so the whole pipeline runs with no API keys.
+# Everything made in demo mode is labelled demo_mode: true (ADR-014).
+DEMO_MODE = read_bool("DEMO_MODE", False)
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # The REST API. Every endpoint needs a logged-in user unless it says otherwise.

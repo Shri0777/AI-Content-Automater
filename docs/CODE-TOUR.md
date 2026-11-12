@@ -25,6 +25,7 @@ Run the tests with `uv run pytest`.
 4. `accounts/`: users, invite codes, login with a cookie.
 5. `quotas/`: free-tier limits.
 6. `notifications/`: in-app messages.
+7. `credentials/`: each user's own AI and news keys, stored encrypted.
 
 Each app folder has a `README.md` that describes every file in it.
 
