@@ -9,6 +9,8 @@ real values.
 from datetime import timedelta
 from pathlib import Path
 
+from celery.schedules import crontab
+
 from config.env import read_bool, read_int, read_list, read_text
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -32,6 +34,7 @@ INSTALLED_APPS = [
     "core",
     "accounts",
     "quotas",
+    "notifications",
 ]
 
 MIDDLEWARE = [
@@ -160,4 +163,12 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = "UTC"
-CELERY_BEAT_SCHEDULE = {}
+
+# Jobs that run on a timetable. Every "task" must name a registered task;
+# tests/test_celery_setup.py checks this.
+CELERY_BEAT_SCHEDULE = {
+    "delete-old-notifications": {
+        "task": "notifications.tasks.delete_old_notifications_task",
+        "schedule": crontab(hour=3, minute=0),
+    },
+}

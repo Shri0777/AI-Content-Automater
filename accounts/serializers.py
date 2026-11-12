@@ -60,6 +60,12 @@ class LoginResultSerializer(serializers.Serializer):
     user = UserSerializer(required=False)
 
 
+class SummarySerializer(serializers.Serializer):
+    """A small overview the frontend polls to show badges."""
+
+    unread_notifications = serializers.IntegerField()
+
+
 class MeUpdateSerializer(serializers.ModelSerializer):
     """The details users may change about themselves."""
 

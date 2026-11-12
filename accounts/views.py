@@ -19,9 +19,11 @@ from accounts.serializers import (
     LoginSerializer,
     MeUpdateSerializer,
     RegisterSerializer,
+    SummarySerializer,
     UserSerializer,
 )
 from core.errors import AppError
+from notifications.services import count_unread
 
 
 class MissingRequiredHeader(AppError):
@@ -147,3 +149,12 @@ class MeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(UserSerializer(request.user).data)
+
+
+class MeSummaryView(APIView):
+    """A small overview for badges. Later features add their own counts."""
+
+    @extend_schema(responses=SummarySerializer)
+    def get(self, request):
+        """Return the counts the frontend shows as badges."""
+        return Response({"unread_notifications": count_unread(request.user)})

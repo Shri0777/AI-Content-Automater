@@ -5,6 +5,7 @@ from django.urls import path
 from accounts.views import (
     LoginView,
     LogoutView,
+    MeSummaryView,
     MeView,
     RefreshView,
     RegisterView,
@@ -16,4 +17,5 @@ urlpatterns = [
     path("auth/refresh/", RefreshView.as_view(), name="refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("me/", MeView.as_view(), name="me"),
+    path("me/summary/", MeSummaryView.as_view(), name="me-summary"),
 ]
