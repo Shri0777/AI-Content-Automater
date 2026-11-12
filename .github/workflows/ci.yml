@@ -41,6 +41,13 @@ jobs:
       - name: Install Python and the exact package versions
         run: uv sync --locked
 
+      # requirements.txt is generated from uv.lock for people who use pip.
+      # This fails if someone changed one without regenerating the other.
+      - name: requirements.txt matches uv.lock
+        run: |
+          uv export --frozen --no-dev --no-hashes --no-emit-project --format requirements-txt -o requirements.txt
+          git diff --exit-code requirements.txt
+
       - name: Lint (Ruff)
         run: uv run ruff check .
 

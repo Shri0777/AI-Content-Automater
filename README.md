@@ -23,6 +23,20 @@ uv run python manage.py runserver
 
 Then open http://localhost:8000/api/v1/docs/ to explore the API.
 
+**Prefer pip?** `requirements.txt` lists the same exact versions (production
+packages only), generated from `uv.lock`:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+After changing dependencies with `uv add` or `uv remove`, regenerate it:
+
+```bash
+uv export --frozen --no-dev --no-hashes --no-emit-project --format requirements-txt -o requirements.txt
+```
+
 To run everything in Docker instead (web server, worker and scheduler):
 
 ```bash
