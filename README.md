@@ -1,19 +1,49 @@
 # AI Content Automator (V4 rebuild in progress)
 
-This branch is a clean rebuild of the AI Content Automator backend.
+A backend that finds high-quality news, writes social media posters with any
+AI model you choose, reviews and corrects them, and posts them on a schedule.
+It is a rebuild of an earlier version; see [plan.md](plan.md) for the plan and
+progress.
 
-**Where to start reading**
-1. [plan.md](plan.md) is the build plan: what we are building, in which order, and how each phase is checked.
-2. [design/system-design.md](design/system-design.md) explains how the system works.
-3. [design/code-standard.md](design/code-standard.md) explains the rule that every file must be readable by a beginner.
+**Status:** Phase 1 (foundation) is being built: accounts with invite-only
+registration, cookie-based login, free-tier limits, in-app notifications,
+CI and Docker. The content pipeline itself arrives in later phases.
 
-**Where the old version went**
-The previous version (V3) is preserved in git under the tag `legacy-v3`.
-To look at it without changing anything:
+## Quickstart
 
+You need [uv](https://docs.astral.sh/uv/) and Docker.
+
+```bash
+uv sync                                 # install the exact package versions
+docker compose up -d db redis           # Postgres on 5433, Redis on 6380
+uv run python manage.py migrate         # create the database tables
+uv run python manage.py create_invite_codes 1
+uv run python manage.py runserver
 ```
-git show legacy-v3 --stat
-git switch --detach legacy-v3
+
+Then open http://localhost:8000/api/v1/docs/ to explore the API.
+
+To run everything in Docker instead (web server, worker and scheduler):
+
+```bash
+docker compose up --build
 ```
 
-A full README, with a quickstart and a no-API-key demo, arrives in a later phase.
+## Checks
+
+```bash
+uv run pytest                           # tests
+uv run ruff check . && uv run ruff format --check .
+uv run python scripts/check_readability.py   # beginner-readable code rules
+docker compose run --rm worker python scripts/smoke_check.py
+```
+
+## Where to start reading
+
+1. [docs/CODE-TOUR.md](docs/CODE-TOUR.md): a guided path through the code.
+2. [plan.md](plan.md): what is being built, in which order.
+3. [design/](design/): system design, decision records, test strategy and the
+   [code standard](design/code-standard.md) that keeps every file readable by
+   a beginner.
+
+The previous version (V3) is preserved under the git tag `legacy-v3`.

@@ -99,8 +99,10 @@ Why each limit exists, how it is enforced atomically, and the retention rules ar
 ## 4. Layout
 ```
 config/            settings (base/dev/prod via django-environ), celery.py, urls.py
-core/              encrypt_text/decrypt_text, safe web client, quota functions, notify(), base models
-accounts/          User, auth, recovery codes, invite codes
+core/              encrypt_text/decrypt_text, the error format, health check (safe web client later)
+accounts/          User, auth, recovery codes, invite codes, /me
+quotas/            free-tier limits as data, race-safe daily counters, /me/usage
+notifications/     notify(), in-app notification endpoints, nightly cleanup
 credentials/       ProviderCredential, connection tests
 social/            SocialAccount, base publisher + one subclass per platform (buffer, linkedin, x, meta)
 planning/          ContentPlan, Topic, ScheduleRule, PostSlot, slot materialiser, dispatcher
@@ -109,7 +111,8 @@ studio/            ask_text_model, image providers, poster renderer, drafting, r
 publishing/        Publication, idempotent publish, reconcile, token refresh
 demo/              fake text, image, news and social providers plus seed data (used by DEMO_MODE and tests)
 docs/CODE-TOUR.md  reading order, glossary, the 8 patterns, one request followed end to end
-scripts/           check_readability.py, demo_walkthrough.py
+scripts/           check_readability.py, smoke_check.py, demo_walkthrough.py (Phase 2)
+schema/            openapi.yaml, the saved API contract checked by a test
 ```
 Every app contains the same files: `models.py`, `serializers.py`, `views.py`, `urls.py`, `services.py`, `tasks.py`, `tests/`, `README.md`.
 

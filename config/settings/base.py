@@ -81,12 +81,12 @@ DATABASES = {
 # Users log in with their email address (see accounts/models.py).
 AUTH_USER_MODEL = "accounts.User"
 
-PASSWORD_RULES = "django.contrib.auth.password_validation."
+VALIDATORS_MODULE = "django.contrib.auth.password_validation."
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": PASSWORD_RULES + "UserAttributeSimilarityValidator"},
-    {"NAME": PASSWORD_RULES + "MinimumLengthValidator"},
-    {"NAME": PASSWORD_RULES + "CommonPasswordValidator"},
-    {"NAME": PASSWORD_RULES + "NumericPasswordValidator"},
+    {"NAME": VALIDATORS_MODULE + "UserAttributeSimilarityValidator"},
+    {"NAME": VALIDATORS_MODULE + "MinimumLengthValidator"},
+    {"NAME": VALIDATORS_MODULE + "CommonPasswordValidator"},
+    {"NAME": VALIDATORS_MODULE + "NumericPasswordValidator"},
 ]
 
 LANGUAGE_CODE = "en-us"

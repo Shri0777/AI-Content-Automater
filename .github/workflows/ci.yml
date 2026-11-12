@@ -1,0 +1,114 @@
+# Runs every check on each push and pull request. The commands are the same
+# ones you run on your own computer (see docs/CODE-TOUR.md).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    # The same database and Redis as docker-compose.yml, on the same ports,
+    # so the default development settings work without changes.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: ai_content_automator
+          POSTGRES_USER: automator
+          POSTGRES_PASSWORD: automator-dev-password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U automator -d ai_content_automator"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Python and the exact package versions
+        run: uv sync --locked
+
+      - name: Lint (Ruff)
+        run: uv run ruff check .
+
+      - name: Formatting (Ruff)
+        run: uv run ruff format --check .
+
+      - name: Beginner readability rules
+        run: uv run python scripts/check_readability.py
+
+      - name: Database migrations are up to date
+        run: uv run python manage.py makemigrations --check --dry-run
+
+      - name: API description has no warnings
+        run: uv run python manage.py spectacular --validate --fail-on-warn --file /tmp/openapi.yaml
+
+      - name: Production settings pass Django's deployment checks
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          # CI-only values. They protect nothing real.
+          DJANGO_SECRET_KEY: ci-only-not-secret-3f9a7c1e5b2d8a6f4c0e9b7d5a3f1c8e6b4d2a0f
+          ENCRYPTION_KEY: 4kuHz3t5x4cXJ0G6Lq8V9pWmRbN2sYfT7aDcEgHiJkM=
+          DJANGO_ALLOWED_HOSTS: api.example.com
+        run: uv run python manage.py check --deploy --fail-level WARNING
+
+      - name: Tests
+        run: uv run pytest
+
+      - name: Security scan of our code (Bandit)
+        run: uv run bandit -c pyproject.toml -r . -q
+
+      - name: Known vulnerabilities in packages (pip-audit)
+        run: uv run pip-audit
+
+  # Unit tests run with development tools installed, which can hide a package
+  # that production needs. This job builds the real image (production
+  # packages only) and checks it can reach the database and the broker.
+  production-image:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: ai_content_automator
+          POSTGRES_USER: automator
+          POSTGRES_PASSWORD: automator-dev-password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U automator -d ai_content_automator"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the production image
+        run: docker build -t ai-content-automator .
+
+      - name: Smoke check inside the image
+        run: >-
+          docker run --rm --network host
+          -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5433
+          -e CELERY_BROKER_URL=redis://localhost:6380/0
+          ai-content-automator python scripts/smoke_check.py

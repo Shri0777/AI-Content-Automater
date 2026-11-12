@@ -1,8 +1,14 @@
-# Services the project needs while you develop and test.
-#   Start them:  docker compose up -d db redis
-#   Stop them:   docker compose down
-# Ports are 5433 and 6380 so they never clash with a database or Redis
-# that may already be installed on your computer.
+# Everything the project needs, run with Docker.
+#
+#   Only the database and Redis (when you run Django yourself with uv):
+#       docker compose up -d db redis
+#   The whole app (web server, worker and scheduler too):
+#       docker compose up --build
+#   Stop everything:
+#       docker compose down
+#
+# Ports 5433 and 6380 are used on your computer so they never clash with a
+# database or Redis you may already have installed.
 services:
   db:
     image: postgres:17-alpine
@@ -29,6 +35,51 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # The API. It updates the database tables, then starts the web server.
+  web:
+    build: .
+    command: sh -c "python manage.py migrate && gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 2"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Runs background jobs.
+  worker:
+    build: .
+    command: celery -A config worker --loglevel=info
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Starts scheduled jobs at the right times (the timetable is in settings).
+  beat:
+    build: .
+    command: celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres-data:

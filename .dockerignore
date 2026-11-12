@@ -1,0 +1,13 @@
+# Files Docker should not copy into the image.
+.git
+.env
+.env.*
+.venv
+.venv-legacy-v3
+venv
+**/__pycache__
+.pytest_cache
+.ruff_cache
+media
+frontend
+frontend_ui

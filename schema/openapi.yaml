@@ -1,0 +1,471 @@
+openapi: 3.0.3
+info:
+  title: AI Content Automator API
+  version: 1.0.0
+  description: Finds news, makes posters with AI, reviews them and posts them.
+paths:
+  /api/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: Return an access token and set the refresh cookie.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: Cancel the refresh token (if any) and delete the cookie.
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: Return a new access token and replace the refresh cookie.
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: Check the details, create the user and return their public details.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/health/:
+    get:
+      operationId: health_retrieve
+      description: Return "ok" when the database answers, otherwise a 503 error.
+      tags:
+      - health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+  /api/v1/me/:
+    get:
+      operationId: me_retrieve
+      description: Show the logged-in user's details.
+      tags:
+      - me
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: me_partial_update
+      description: Change the details users may change (currently their timezone).
+      tags:
+      - me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdate'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/me/summary/:
+    get:
+      operationId: me_summary_retrieve
+      description: Return the counts the frontend shows as badges.
+      tags:
+      - me
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Summary'
+          description: ''
+  /api/v1/me/usage/:
+    get:
+      operationId: me_usage_retrieve
+      description: Return the logged-in user's limits and usage.
+      tags:
+      - me
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usage'
+          description: ''
+  /api/v1/notifications/:
+    get:
+      operationId: notifications_list
+      description: Return one page of notifications; add ?unread=true for unread only.
+      parameters:
+      - in: query
+        name: unread
+        schema:
+          type: boolean
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/v1/notifications/{notification_id}/read/:
+    post:
+      operationId: notifications_read_create
+      description: Mark the notification as read and return it.
+      parameters:
+      - in: path
+        name: notification_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/v1/notifications/read-all/:
+    post:
+      operationId: notifications_read_all_create
+      description: Mark everything read and say how many changed.
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkedRead'
+          description: ''
+  /api/v1/notifications/unread-count/:
+    get:
+      operationId: notifications_unread_count_retrieve
+      description: Return the number of unread notifications.
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadCount'
+          description: ''
+components:
+  schemas:
+    Health:
+      type: object
+      description: The answer from the health check endpoint.
+      properties:
+        status:
+          type: string
+        database:
+          type: string
+      required:
+      - database
+      - status
+    KindEnum:
+      enum:
+      - post_awaiting_approval
+      - post_published
+      - post_failed
+      - post_skipped
+      - post_expired
+      - account_needs_reauth
+      - credential_invalid
+      - quota_reached
+      - plan_paused
+      - outage_missed_slots
+      type: string
+      description: |-
+        * `post_awaiting_approval` - A post is waiting for your approval
+        * `post_published` - Post published
+        * `post_failed` - A post could not be made
+        * `post_skipped` - A post was skipped
+        * `post_expired` - A post expired before it was approved
+        * `account_needs_reauth` - Reconnect a social account
+        * `credential_invalid` - An API key stopped working
+        * `quota_reached` - You reached a free-tier limit
+        * `plan_paused` - A content plan was paused
+        * `outage_missed_slots` - Some scheduled posts were missed
+    LimitUsage:
+      type: object
+      description: One limit and how much of it is used.
+      properties:
+        resource:
+          type: string
+        description:
+          type: string
+        period:
+          type: string
+        applies_to:
+          type: string
+        limit:
+          type: integer
+        used:
+          type: integer
+          nullable: true
+        resets_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - applies_to
+      - description
+      - limit
+      - period
+      - resets_at
+      - resource
+      - used
+    Login:
+      type: object
+      description: The fields needed to log in.
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+    LoginResult:
+      type: object
+      description: What a successful login or refresh sends back.
+      properties:
+        access:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+      - access
+    MarkedRead:
+      type: object
+      description: How many notifications were just marked as read.
+      properties:
+        marked_read:
+          type: integer
+      required:
+      - marked_read
+    Notification:
+      type: object
+      description: One notification as the frontend sees it.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/KindEnum'
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        message:
+          type: string
+          readOnly: true
+        related_type:
+          type: string
+          readOnly: true
+        related_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        read_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - created_at
+      - id
+      - kind
+      - message
+      - read_at
+      - related_id
+      - related_type
+      - title
+    PatchedMeUpdate:
+      type: object
+      description: The details users may change about themselves.
+      properties:
+        timezone:
+          type: string
+          maxLength: 64
+    Register:
+      type: object
+      description: The fields needed to create an account.
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+        invite_code:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+    Summary:
+      type: object
+      description: A small overview the frontend polls to show badges.
+      properties:
+        unread_notifications:
+          type: integer
+      required:
+      - unread_notifications
+    UnreadCount:
+      type: object
+      description: How many notifications are unread.
+      properties:
+        unread:
+          type: integer
+      required:
+      - unread
+    Usage:
+      type: object
+      description: All of a user's limits.
+      properties:
+        tier:
+          type: string
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/LimitUsage'
+      required:
+      - limits
+      - tier
+    User:
+      type: object
+      description: The details of a user that the API shows. Never includes the password.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        timezone:
+          type: string
+          readOnly: true
+        tier:
+          type: string
+          readOnly: true
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - date_joined
+      - email
+      - id
+      - tier
+      - timezone
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
