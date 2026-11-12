@@ -5,15 +5,24 @@
 {% block content %}
 <section class="page-heading">
     <div>
+        {% if failed %}
+        <h1>Generation didn’t finish</h1>
+        <p>We couldn’t prepare this post. You can try again below.</p>
+        {% elif complete %}
+        <h1>Your post is ready</h1>
+        <p>The generated copy and posters from your brief are ready for review.</p>
+        {% else %}
         <h1>Your post is being prepared</h1>
-        <p>We’re generating copy and posters from your brief. This page updates as each step completes.</p>
+        <p>We’re generating copy and posters from your brief. Reload this page to see the latest progress.</p>
+        {% endif %}
     </div>
     <a class="button button-secondary" href="{% url 'content:list' %}">Back to your posts</a>
 </section>
 
 {% if content.generation_status == 'failed' %}
     <div class="alert alert-error" role="alert">
-        <strong>We couldn’t generate your post.</strong> {{ content.brief|default:'' }}
+        <strong>We couldn’t generate your post.</strong>
+        <p style="margin: var(--space-2) 0;">Your brief: {{ content.brief|default:'' }}</p>
         <form method="post" action="{% url 'content:generate_retry' content.pk %}" style="display: inline; margin-left: var(--space-3);">
             {% csrf_token %}
             <button type="submit" class="button btn-success button-small">Try again</button>
@@ -25,7 +34,7 @@
 <section class="panel">
     <h2>Status</h2>
     <div class="status-badge status-{{ content.generation_status }}">
-        {{ content.generation_status|replace:"_"," "|title }}
+        {{ status_label }}
     </div>
     <p class="section-intro">{{ status_message }}</p>
 </section>

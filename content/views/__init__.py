@@ -153,7 +153,7 @@ def content_create(request):
             }
 
     if request.method == "POST":
-        return _handle_brief_create(request, buffer_profiles)
+        return _handle_brief_create(request, buffer_profiles, buffer_status)
 
     return render(request, "content/create.html", {
         "buffer_status": buffer_status,
@@ -161,7 +161,7 @@ def content_create(request):
     })
 
 
-def _handle_brief_create(request, buffer_profiles):
+def _handle_brief_create(request, buffer_profiles, buffer_status):
     """Validate and persist a brief-first content draft."""
     brief = (request.POST.get("brief") or "").strip()
     target_channels = request.POST.getlist("target_channels")
@@ -215,12 +215,20 @@ def _handle_brief_create(request, buffer_profiles):
         generation_status="queued",
     )
 
-    # Enqueue generation via Celery when a worker is available. If not, the
-    # draft stays in 'queued' and the user can retry from the status page.
+    # Enqueue generation via Celery. If the broker/worker is unavailable,
+    # mark the draft as failed so the status page offers its working
+    # "Try again" action (the retry view only retries failed/partial
+    # content — a draft left in 'queued' would be stuck with no retry).
     try:
         generate_post_from_brief_task.delay(content.pk)
     except Exception:
         logger.warning("Could not enqueue generation task for content %s", content.pk)
+        content.generation_status = "failed"
+        content.save(update_fields=["generation_status", "updated_at"])
+        messages.error(
+            request,
+            "Could not start generation. You can try again from the status page."
+        )
 
     return redirect("content:generation_status", pk=content.pk)
 
@@ -248,6 +256,14 @@ def content_generation_status(request, pk):
     complete = status in ("complete", "partial")
     failed = status == "failed"
 
+    # Human-readable label for each generation status. The template cannot use
+    # the |replace filter (Django does not provide one), so we compute the
+    # label here. Known statuses use the display names from the model's
+    # choices (single source of truth); unknown statuses fall back to a
+    # sensible title-cased form.
+    choice_labels = dict(Content.GENERATION_STATUS_CHOICES)
+    status_label = choice_labels.get(status) or status.replace("_", " ").title()
+
     status_messages = {
         "idle": "Generation has not started yet.",
         "queued": "Your post is queued for generation.",
@@ -269,6 +285,7 @@ def content_generation_status(request, pk):
         "complete": complete,
         "failed": failed,
         "status_message": status_message,
+        "status_label": status_label,
     })
 
 
@@ -290,8 +307,13 @@ def content_generate_retry(request, pk):
         generate_post_from_brief_task.delay(content.pk)
         messages.success(request, "Generation restarted.")
     except Exception:
+        # The task was not enqueued, so the draft must not stay 'queued'
+        # (that would block every further retry). Restore 'failed' and
+        # persist it, so the Try again button remains usable.
         logger.warning("Could not re-enqueue generation for content %s", content.pk)
-        messages.error(request, "Could not restart generation. Please try again later.")
+        content.generation_status = "failed"
+        content.save(update_fields=["generation_status", "updated_at"])
+        messages.error(request, "Could not restart generation. Please try again.")
 
     return redirect("content:generation_status", pk=content.pk)
 
@@ -360,11 +382,6 @@ def content_detail(request, pk):
             buffer_status = {**buffer_status, 'connected': False, 'status': 'error',
                              'error': 'Could not verify Buffer destinations. Publishing is disabled until the connection is healthy.'}
     publications = content.publications.select_related('content_version').order_by('-created_at')[:10]
-    can_publish = (
-        current_version is not None
-        and current_version.is_approved
-        and content.lifecycle_state in ['approved', 'ready_to_publish']
-    )
 
     # Get associated media records
     from content.models import Media

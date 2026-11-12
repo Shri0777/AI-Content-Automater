@@ -40,7 +40,7 @@ The default shell Python on this machine is Python 3.14, but Django 5.1 is offic
 python3.12 -m venv venv
 source venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r requirements/development.txt
+python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 

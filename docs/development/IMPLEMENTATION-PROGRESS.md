@@ -590,3 +590,105 @@ The content creation workflow was redesigned from a technical, multi-panel CMS i
 - Without Cloudflare R2 public storage, local `/media/` URLs are rejected by Buffer's public-URL check — the UI communicates this clearly
 - FLUX image model is not verified to render exact text reliably; no exact-text poster promise
 - No live external publishing during implementation
+
+---
+
+## Bug Fix: Brief-First Workflow Reliability (2026-10-25)
+
+This section documents targeted reliability fixes for the brief-first creation workflow, implemented per the bug-fix preset. No redesign was performed.
+
+### Root causes fixed
+
+1. **Invalid Django template filter `|replace`** — `content/templates/content/generation_status.html` used a non-existent `replace` filter, raising `TemplateSyntaxError: Invalid filter: 'replace'` when rendering any generation status containing an underscore (`generating_text`, `generating_posters`, etc.).
+
+2. **Undefined `buffer_status` in create-page validation helper** — `content_create()` computed `buffer_status` in its own scope but called `_handle_brief_create(request, buffer_profiles)` without passing it. On validation failure (empty brief, oversized brief, unauthorized channel), the helper re-rendered `content/create.html` referencing the undefined `buffer_status`, which would raise `NameError`.
+
+3. **Redis/Celery unavailability** — Redis is not installed/running in this environment. The enqueue path in `content_create()` catches exceptions gracefully. **(Updated 2026-10-25: the initial "stay queued" behavior was itself a bug — see the enqueue fix section below.)** No duplicate versions or unsafe publishing result.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `content/views/__init__.py` | Thread `buffer_status` into `_handle_brief_create()`; add `GENERATION_STATUS_LABELS` mapping and `status_label` context variable in `content_generation_status()`. |
+| `content/templates/content/generation_status.html` | Replace `{{ content.generation_status\|replace:"_"," "|title }}` with `{{ status_label }}`. CSS class (raw value) preserved. |
+| `content/tests/test_views.py` | Add `ContentCreateValidationTest` (empty brief, oversized brief, unauthorized channel, valid-with-no-channels redirect, cross-user 403) and `ContentGenerationStatusTest` (readable labels for underscore statuses, graceful unknown-status, retry button on failed). |
+### Verification
+
+- `manage.py check`: No issues
+- `manage.py makemigrations --check --dry-run`: No changes detected
+- `manage.py test --keepdb --verbosity 1`: **417 tests, all passing** (409 baseline + 8 new regression tests); **423 total after the enqueue-failure fix (+6 tests)**
+- `git diff --check`: Passed
+- No live Buffer or NVIDIA calls made during testing (all mocked)
+- Dev server boots successfully
+
+### Known limitations (this session)
+
+- Redis/Celery runtime end-to-end verification could not be performed (no Redis binaries installed, no Redis process, Docker services not running). Enqueue-failure handling is code-verified and covered by existing behavior; safe command for later: `docker compose up -d redis` (then start worker/beat), or run `redis-server` locally on `localhost:6379` matching `REDIS_URL=redis://localhost:6379/0`.
+- Playwright browser verification could not be performed (`playwright` Python package not installed). Equivalent page-rendering behavior is covered by Django test-client regression tests (HTTP 200, readable labels, retry button, validation errors).
+- Noted inconsistency (documented, not changed): create-page help text says "at least one destination is required," but drafts may be created with zero channels; publishing requires channels.
+- Environment (2026-10-25): the supported project environment is `venv/` (Python 3.12) per `README.md` and `Dockerfile`. Three declared dependencies missing from `venv/` (`gunicorn`, `django-storages`, `boto3`) were installed exactly from the root `requirements.txt`; `pip check` passes. The untracked `.venv/` (Python 3.14, only the first half of `requirements.txt`, Pillow out of declared range) remains unusable and was left untouched. `README.md` references a nonexistent `requirements/development.txt`.
+
+### Bug Fix: Celery Enqueue Failures Left Drafts Unretryable (2026-10-25)
+
+Re-inspection found that the enqueue-failure handling described above contained two real defects. The retry view (`content_generate_retry`) only accepts content in `failed`/`partial`, so the earlier "draft stays in `queued`" behavior made a failed enqueue permanently unretryable.
+
+**Root cause (both paths):**
+
+1. **Initial enqueue failure:** `content_create()` created the draft as `generation_status="queued"`, then called `generate_post_from_brief_task.delay()` in a `try/except` that only logged on failure. The draft stayed `queued` — no working "Try again" button, and the duplicate-submission guard (which reuses recent `idle`/`queued` drafts with the same brief) kept redirecting to the unreachable draft.
+2. **Retry enqueue failure:** `content_generate_retry()` persisted `generation_status="queued"` **before** calling `.delay()`. If enqueueing failed, the draft stayed `queued`, so the "Try again" button could never be used again — and the shown error alert contradicted the page's "Queued" status.
+
+**Fix (in `content/views/__init__.py`):**
+
+- Initial enqueue failure → persist `generation_status="failed"` and show `messages.error("Could not start generation. You can try again from the status page.")`. The draft is preserved.
+- Retry enqueue failure → restore and persist `generation_status="failed"`; message reworded to "Could not restart generation. Please try again."
+- Corrected the stale code comment in `content_create()` and the earlier claim in this section that "the draft persists with status queued and the user can retry."
+
+**Message visibility checked:** Django messages in this app render globally via `frontend/templates/frontend/components/toast_container.html` (included by `frontend/templates/frontend/base.html`), styled with `.alert-success`/`.alert-error` from `frontend/static/frontend/css/components.css`. The regression tests assert the alert text in the rendered response.
+
+**Regression tests (`content/tests/test_views.py`, new `CeleryEnqueueFailureTest`, 6 tests):**
+
+- Initial `.delay()` failure → draft persists with `generation_status="failed"`, error alert rendered.
+- Successful initial enqueue → stays `"queued"` (existing behavior intact).
+- Retry `.delay()` failure → status returns to `"failed"`.
+- Failed retry then successful retry → becomes `"queued"` (recovery path).
+- Successful retry → `"queued"` (existing behavior intact).
+- Non-owner retry → 403, content unchanged, no task enqueued (authorization intact).
+
+Two pre-existing create tests that asserted `'queued'` after an *unmocked* (i.e., actually failing) enqueue were made hermetic by mocking the task — their assertions now test a genuinely successful enqueue; no assertions were weakened.
+
+**Result:** 423 tests passing (417 earlier + 6 new). Redis availability itself remains out of scope/environments: no Redis binaries, Docker services not running.
+
+### Comprehensive Audit (2026-10-25)
+
+Full runtime, UX, security, and release-readiness audit of the brief-first workflow. Details in `docs/development/BUG-FIX-AND-RUNTIME-VERIFICATION.md` ("Comprehensive audit" section).
+
+**Confirmed defects found and fixed:**
+
+1. **Celery Beat schedule referenced unregistered task names** — `CELERY_BEAT_SCHEDULE` pointed at `content.tasks.schedule_due_campaigns` / `content.tasks.reconcile_ambiguous_publications`, but `@shared_task` registers under the full dotted module path (`content.tasks.campaign_tasks.…` / `content.tasks.publishing_tasks.…`). Beat would never have fired either job. Fixed in `content_automater/settings/base.py`; red-first regression test added (`content/tests/test_celery_config.py`).
+2. **Dead `can_publish` block** in `content_detail` (computed then unconditionally overwritten) — removed.
+3. **Duplicate status-label mapping** in the status view — now derived from `Content.GENERATION_STATUS_CHOICES` with the unknown-status fallback preserved.
+4. **Misleading progress promise** on the status page ("This page updates as each step completes" with no auto-update) — reworded to "Reload this page to see the latest progress."
+
+**Runtime verification performed (live, isolated):** disposable Redis on `127.0.0.1:6379` (removed afterwards) → worker connected and registered all 6 tasks; harmless `debug_task` enqueued and executed end-to-end; broker-down enqueue exception (`OperationalError`) demonstrated. **Beat verified live post-fix:** `schedule-due-campaigns` dispatched by Beat under its corrected registered name and executed by the worker (`{'queued': 0}` — 0 due campaigns verified beforehand); `reconcile_ambiguous_publications` executed as the expected no-op (`{'resolved': 0}`). The real content-generation task was deliberately NOT run against the live worker (would risk live NVIDIA calls). `README.md`'s nonexistent `requirements/development.txt` path was corrected to the root `requirements.txt`.
+
+**Final suite:** **424 tests, 0 failures** (423 + 1 new beat-schedule test). `manage.py check`, `makemigrations --check`, template compilation, `docker compose config`, `git diff --check` all pass.
+
+**Documented, not changed:** ambiguous-publication reconcile is a conservative no-op (no provider implements `check_post_status`); provider error strings stay internal; cosmetic view duplications; dead `frontend_ui` app.
+
+### Final quality gate (2026-10-26) — real browser UX audit
+
+Real-browser verification with the Playwright MCP (no project dependency installed). Full details, evidence tables, and screenshots paths in `docs/development/BUG-FIX-AND-RUNTIME-VERIFICATION.md` ("Final quality gate (2026-10-26)" section).
+
+**New defects found in a real browser and fixed (regression tests added):**
+
+1. **Status-page heading claimed "being prepared" for failed drafts** — now state-aware: failed → "Generation didn't finish", complete → "Your post is ready" (`generation_status.html`; `test_heading_matches_actual_state`, red-first verified).
+2. **Brief echo in the failed alert was unlabelled** — now a labelled paragraph "Your brief: …" (`test_failed_alert_labels_the_brief`).
+3. **403 denial page rendered in Quirks Mode** (bare string body, no doctype) — now a minimal full HTML document (`content/authorization.py`; `test_forbidden_response_is_a_full_html_document`) plus a new cross-user retry-POST ownership test (`test_unauthorized_user_cannot_retry_generation`).
+
+**Browser flows verified live:** login (email convention), empty/oversized brief client guards, valid brief → real `.delay()` → truthful **Queued** (task confirmed in broker queue), broker-down create → truthful **Failed** with retry controls, retry-failure → still Failed and retryable, retry after broker recovery → **"Generation restarted."** → Queued (no server restart needed), cross-user GET → 403, mobile 390px with no horizontal overflow, console clean (0 errors/warnings).
+
+**Runtime re-verified live (disposable Redis, no worker, provider env emptied):** Redis PONG, worker registry (6 tasks), `debug_task` round-trip, Beat dispatched `schedule-due-campaigns` under its corrected name (`{'queued': 0}`), broker-down `.delay()` → `OperationalError`. No live AI/Buffer call was possible or made; the generation task never executed.
+
+**Final suite: 428 tests, 0 failures.** `manage.py check`, `makemigrations --check`, `docker compose config --quiet`, `git diff --check` all pass.
+
+**Operational notes (documented, not changed):** broker-outage requests block ~20 s in a reconnect loop before failing gracefully (publish path recovers on next attempt — verified); email-login requires the `username == email` registration convention (custom backend would be future work); oversized-brief button disables silently (live character counter would help).

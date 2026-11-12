@@ -1,0 +1,19 @@
+services:
+  web:
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    environment:
+      TEXT_MODEL: ${TEXT_MODEL:-openai/gpt-oss-20b}
+  worker:
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    environment:
+      TEXT_MODEL: ${TEXT_MODEL:-openai/gpt-oss-20b}
+  beat:
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    environment:
+      TEXT_MODEL: ${TEXT_MODEL:-openai/gpt-oss-20b}

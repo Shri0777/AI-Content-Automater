@@ -381,6 +381,29 @@ Not applicable for content creation. Background tasks apply to campaign executio
 
 ---
 
+### D.1 Brief-first create flow (current implementation)
+
+The repository's current create flow is **brief-first**: the user submits a short "What would you like to post?" brief, picks connected Buffer channels, and the system generates copy and posters in the background.
+
+**A naming gotcha that bit this project** (found in the 2026-10-25 audit): `@shared_task` registers a task under the **full dotted path of the module that defines it** — e.g. `content.tasks.campaign_tasks.schedule_due_campaigns`, not `content.tasks.schedule_due_campaigns`. The periodic-task schedule in `content_automater/settings/base.py` (`CELERY_BEAT_SCHEDULE`) had used the shortened names, so Celery Beat could never find those tasks and the scheduled jobs would silently never run. The names were corrected, and `content/tests/test_celery_config.py` now asserts that every scheduled name is actually registered, so a future rename fails a test instead of failing silently in production.
+
+**How the create view works** — `content/views/__init__.py`, function `content_create`:
+
+1. **GET:** The view fetches genuine connected Buffer channels via `BufferPublishingService().get_profiles()` and renders `content/create.html` with `buffer_status` (connected/unconfigured/unauthorized/error) and `buffer_profiles`. Buffer calls are mocked in tests; no real credentials are needed.
+2. **POST:** The view delegates to `_handle_brief_create(request, buffer_profiles, buffer_status)`. Note that `buffer_status` is passed explicitly as an argument — it is **not** a global — so validation-error re-renders always have it available.
+3. **Validation:** The brief is required (whitespace-only counts as empty) and capped at 1,000 characters. Every selected channel ID is checked against the currently authorized Buffer profiles; unknown/unauthorized IDs are rejected. On any error, the form re-renders with the user's entered values preserved and plain-language error messages. No `NameError` can occur because `buffer_status` is now always supplied.
+4. **Persisting the draft:** On success, a `Content` record is created with `lifecycle_state='draft'`, `generation_status='queued'`, the `brief`, and `target_channels`. Duplicate rapid submissions are prevented by reusing a recent draft with the same brief (within 10 minutes).
+5. **Handing off to Celery:** The view calls `generate_post_from_brief_task.delay(content.pk)` and only "believes" it succeeded if the call returns without raising. `generation_status` must always match reality: if Redis/the worker is unavailable, `delay()` raises and the draft is **persisted as `"failed"`** (never left `"queued"`, because the status page's "Try again" retry only works for `failed`/`partial` — a queued draft with a failed enqueue would be permanently stuck). The user sees an error alert explaining that generation did not start. The same rule applies in the retry view: if the re-enqueue fails, the draft is restored to `"failed"` so further retries remain possible. In all cases the draft and its data are preserved with no duplicate versions and no false "complete" report.
+
+**How the generation-status template renders** — `content/generation_status.html` and view `content_generation_status`:
+
+Django does **not** provide a `|replace` template filter, so the page previously crashed with `TemplateSyntaxError: Invalid filter: 'replace'` on statuses like `generating_text`. The fix: the view computes a human-readable `status_label` from an explicit mapping (`GENERATION_STATUS_LABELS`), falling back to `status.replace("_", " ").title()` for unknown statuses, and passes it to the template. The template renders `{{ status_label }}` while keeping the CSS class `status-{{ content.generation_status }}` (underscores are fine in class names).
+
+**Buffer credentials vs. public media URLs — two separate requirements:**
+
+1. **Buffer credentials** (`BUFFER_ACCESS_TOKEN`): needed to discover channels and to publish. Invalid or expired credentials are never treated as a successful connection — `get_connection_status()` returns `connected: False, status: 'unauthorized'` on HTTP 401 / `UNAUTHENTICATED`. Publishing also validates every selected channel ID against the currently authorized set and refuses unauthorized destinations.
+2. **Public media URLs:** Buffer will only accept image URLs that are publicly reachable over HTTPS (`_is_public_https_url` + `_is_reachable_image_url` require an anonymous `HEAD` returning `200` with an `image/` content type). A local `/media/` URL is **not** publicly reachable, so Buffer image publishing is blocked unless Cloudflare R2 public storage is configured (`MEDIA_STORAGE=r2` plus the `R2_*` env vars). The UI communicates this clearly rather than silently publishing without the poster.
+
 ## E. Automated Content Workflow
 
 This is the core automated pipeline. Let's trace it step by step.
@@ -1707,3 +1730,15 @@ Documentation files created:
 All file paths, class names, function names, and commands cited in this guide were verified against the actual repository. No application code, migrations, dependencies, or tests were modified or created as part of this documentation work.
 
 No secrets or credentials appear anywhere in this documentation.
+
+## R. Lessons from the 2026-10-26 browser audit
+
+Three real-browser findings worth remembering:
+
+1. **State pages must not hardcode a progress heading.** `generation_status.html` used one `<h1>Your post is being prepared</h1>` for every generation state, so a *failed* draft was introduced as in-progress. The view already computed `failed` / `complete` flags — branch the heading on those. Rule: a page's headline should be derivable from the persisted state, never fixed.
+
+2. **Bare-string `HttpResponse*` bodies put browsers in Quirks Mode.** `user_owns_content` returned `HttpResponseForbidden("You do not have permission…")` — no `<!DOCTYPE html>`, so Firefox warned and rendered in Quirks Mode. Any hand-built response body should be a minimal full document (doctype + html/head/body).
+
+3. **Enqueue truth-failure behaviour behaves correctly under a real broker outage, but slowly.** With Redis down, a create/retry request blocks ~20 s in a reconnect loop, then persists `failed` with a truthful message; after the broker returns, the *same process* publishes successfully on the next attempt ("Generation restarted." → queued). The scary-looking `CRITICAL … must be restarted` log line comes from the reconnect monitor, not the publish path — don't confuse the two when debugging.
+
+Also: the app's login authenticates with `username == email` (registration enforces it in `users/forms.py`), so hand-created users with non-email usernames cannot log in via the email form.

@@ -22,8 +22,13 @@ def user_owns_content(view_func):
         content = get_object_or_404(Content, pk=pk)
 
         if content.owner != request.user:
+            # A full HTML document (with a doctype) keeps the browser out of
+            # Quirks Mode; a bare string body would trigger standards warnings.
             return HttpResponseForbidden(
-                "You do not have permission to access this content."
+                "<!DOCTYPE html>"
+                '<html lang="en"><head><title>403 Forbidden</title></head>'
+                "<body><p>You do not have permission to access this content."
+                "</p></body></html>"
             )
 
         return view_func(request, pk, *args, **kwargs)

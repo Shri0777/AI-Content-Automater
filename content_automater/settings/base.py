@@ -187,13 +187,16 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes max
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes soft limit
 
 # Celery Beat Schedule (Periodic Tasks)
+# NOTE: task names must be the *full dotted module path* Celery registers
+# (@shared_task names a task after the module that defines it). A shortened
+# name would make Beat fail to find the task on every tick.
 CELERY_BEAT_SCHEDULE = {
     'schedule-due-campaigns': {
-        'task': 'content.tasks.schedule_due_campaigns',
+        'task': 'content.tasks.campaign_tasks.schedule_due_campaigns',
         'schedule': 60.0,  # Every minute
     },
     'reconcile-ambiguous-publications': {
-        'task': 'content.tasks.reconcile_ambiguous_publications',
+        'task': 'content.tasks.publishing_tasks.reconcile_ambiguous_publications',
         'schedule': 300.0,  # Every 5 minutes
     },
 }
