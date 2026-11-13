@@ -18,13 +18,23 @@ KIND_CHOICES = [
     ("news", "News source"),
 ]
 
-# Which providers ("adapters") each kind of credential may use. Real
-# providers are added in Phase 3; "demo" is the built-in fake.
+# Which providers ("adapters") each kind of credential may use. "demo" is
+# the built-in fake. Real news sources arrive in Phase 6.
 ADAPTERS_BY_KIND = {
-    "text": ["demo"],
-    "image": ["demo"],
+    "text": ["demo", "openai_compatible", "anthropic"],
+    "image": ["demo", "openai_compatible", "nvidia_flux", "fal"],
     "news": ["demo"],
 }
+
+# These providers cannot work without an API key. (An OpenAI-compatible
+# server you run yourself, such as Ollama, may not need one.)
+KEY_REQUIRED_ADAPTERS = ["anthropic", "nvidia_flux", "fal"]
+
+STATUS_CHOICES = [
+    ("unverified", "Not checked yet"),
+    ("verified", "Working"),
+    ("invalid", "The provider refused the key"),
+]
 
 
 class ProviderCredential(models.Model):
@@ -39,6 +49,12 @@ class ProviderCredential(models.Model):
     encrypted_key = models.TextField(blank=True)
     # The last 4 characters of the key, so users can tell keys apart.
     key_hint = models.CharField(max_length=4, blank=True)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="unverified"
+    )
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    # Why the last check or use failed, in plain words (never the key).
+    last_error = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

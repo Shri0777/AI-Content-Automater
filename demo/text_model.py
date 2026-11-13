@@ -12,6 +12,13 @@ MAX_HEADLINE_LENGTH = 90
 class DemoTextModel(TextModel):
     """Writes and reviews posts from templates, without any AI."""
 
+    def check_connection(self):
+        """The demo model is always available."""
+
+    def describe(self):
+        """Return "demo": there is no real model behind it."""
+        return "demo"
+
     def write_post(self, article, requirements):
         """Return a headline and a caption that credits the source."""
         headline = article.title[:MAX_HEADLINE_LENGTH]

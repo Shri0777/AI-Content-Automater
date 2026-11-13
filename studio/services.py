@@ -92,8 +92,12 @@ def start_generation(user, plan_id):
     plan = get_plan(user, plan_id)
     if plan.paused:
         raise PlanCannotGenerate("This plan is paused. Resume it first.")
-    require_credential(user, "text")
-    require_credential(user, "image")
+    for kind in ["text", "image"]:
+        if require_credential(user, kind).status == "invalid":
+            raise PlanCannotGenerate(
+                f"Your {kind} provider refused its API key. "
+                "Update the key on the credentials page first."
+            )
     topic = choose_topic(plan)
     # If any limit is reached, the whole block is undone, so no use is
     # counted for a post that was never made.

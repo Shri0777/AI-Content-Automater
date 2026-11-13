@@ -182,3 +182,13 @@ def test_a_job_for_a_deleted_post_finishes_quietly(plan):
 
     assert advance_post_task.delay(post_id).get() == "deleted"
     assert publish_post_task.delay(post_id).get() == "deleted"
+
+
+def test_a_key_known_to_be_refused_stops_generation_up_front(client, user, plan):
+    user.providercredential_set.filter(kind="text").update(status="invalid")
+
+    response = generate(client, plan)
+
+    assert response.status_code == 400
+    assert "refused its API key" in response.json()["detail"]
+    assert not Post.objects.exists()

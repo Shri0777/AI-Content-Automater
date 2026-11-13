@@ -9,9 +9,13 @@ progress.
 accounts, cookie-based login, free-tier limits, in-app notifications, CI,
 Docker) plus a **walking skeleton** of the whole product: save provider
 keys, link a social account, create a plan, generate a post with a poster,
-review it, approve it and publish it. Today that path runs on built-in
-**fake providers** (demo mode). Real AI models, news sources and social
-networks arrive in Phases 3, 4 and 6.
+review it, approve it and publish it. Phase 3 adds real AI providers:
+Claude, any OpenAI-compatible service (OpenAI, OpenRouter, Groq, Gemini,
+Ollama and more), and NVIDIA FLUX or fal for images, with "test connection",
+retries and an SSRF-safe web client. These are tested against stub servers
+that answer in each provider's documented format; they have **not yet been
+run with real keys**. Real news sources and social networks arrive in
+Phases 4 and 6.
 
 ## Try the demo (no API keys needed)
 

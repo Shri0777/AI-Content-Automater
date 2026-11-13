@@ -2,9 +2,11 @@
 
 from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from credentials import services
+from credentials.checks import check_credential
 from credentials.models import ProviderCredential
 from credentials.serializers import CredentialSerializer
 
@@ -35,3 +37,17 @@ class CredentialDetailView(APIView):
         """Delete the credential if it belongs to the user."""
         services.delete_credential(request.user, credential_id)
         return Response(status=204)
+
+
+class CredentialTestView(APIView):
+    """Check that a credential works by making one small request with it."""
+
+    # Each check calls the provider, which may cost the user money.
+    throttle_classes = [UserRateThrottle, ScopedRateThrottle]
+    throttle_scope = "credential_test"
+
+    @extend_schema(request=None, responses=CredentialSerializer)
+    def post(self, request, credential_id):
+        """Run the check and return the credential with its new status."""
+        credential = check_credential(request.user, credential_id)
+        return Response(CredentialSerializer(credential).data)

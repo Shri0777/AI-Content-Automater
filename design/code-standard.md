@@ -91,7 +91,7 @@ README.md        10-line orientation
 5. **Quota check**: `check_quota(user, resource)` before the work, `use_quota(user, resource)` when it counts.
 6. **Notification helper**: `notify(user, kind, ...)`.
 7. **Plain exceptions**: our own `class QuotaExceeded(Exception)` and friends, with messages a user can read.
-8. **Wrapper for each library**: each external library (LiteLLM, Pillow, trafilatura, cryptography) is used in exactly one file behind a tiny function with an obvious name (`ask_text_model`, `draw_headline`, `extract_article_text`, `encrypt_text`). The rest of the code never sees the library.
+8. **Wrapper for each library**: each external library (httpx, anthropic, Pillow, trafilatura, cryptography) is used in exactly one file behind a tiny function or class with an obvious name (`post_json` in `core/web.py`, `AnthropicTextModel`, `render_poster`, `extract_article_text`, `encrypt_text`). The rest of the code never sees the library.
 
 If a new pattern seems necessary, we first try to avoid it. If it is truly needed, it is added to this list and to the code tour in the same change.
 

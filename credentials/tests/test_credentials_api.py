@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 
 from credentials.models import ProviderCredential
 from credentials.services import get_credential, read_api_key
+from tests.provider_stubs import add_provider_routes
 
 URL = "/api/v1/credentials/"
 
@@ -104,3 +105,146 @@ def test_a_user_can_delete_their_key(client):
 
     assert response.status_code == 204
     assert not ProviderCredential.objects.exists()
+
+
+def save_real(client, adapter, changes=None):
+    """Save a real-provider credential through the API and return the response.
+
+    changes is a dict of fields that replace the usual values.
+    """
+    data = {
+        "kind": "text",
+        "adapter": adapter,
+        "model_name": "claude-opus-5-5",
+        "api_key": "sk-secret-1234",
+    }
+    data.update(changes or {})
+    return client.post(URL, data, format="json")
+
+
+def test_a_real_provider_needs_a_model_name(client):
+    response = save_real(client, "anthropic", {"model_name": ""})
+
+    assert response.status_code == 400
+    assert "model_name" in response.json()["errors"]
+
+
+def test_providers_that_need_a_key_refuse_to_save_without_one(client):
+    response = save_real(client, "anthropic", {"api_key": ""})
+
+    assert response.status_code == 400
+    assert "api_key" in response.json()["errors"]
+
+
+def test_a_local_model_server_may_be_saved_without_a_key(client, settings):
+    settings.ALLOW_PRIVATE_PROVIDER_URLS = True
+
+    response = save_real(
+        client,
+        "openai_compatible",
+        {
+            "model_name": "llama3.2",
+            "base_url": "http://localhost:11434/v1",
+            "api_key": "",
+        },
+    )
+
+    assert response.status_code == 201
+
+
+@pytest.mark.parametrize(
+    "model_name", ["../../admin", "model name", "-flag", "name?x=1"]
+)
+def test_model_names_cannot_change_the_providers_address(client, model_name):
+    response = save_real(client, "anthropic", {"model_name": model_name})
+
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "base_url", ["http://api.example.com", "file:///etc/passwd", "https://u:p@x.com"]
+)
+def test_unsafe_custom_addresses_are_refused(client, base_url):
+    response = save_real(client, "anthropic", {"base_url": base_url})
+
+    assert response.status_code == 400
+    assert "base_url" in response.json()["errors"]
+
+
+def test_a_new_credential_starts_unchecked(client):
+    body = save_real(client, "anthropic").json()
+
+    assert body["status"] == "unverified"
+    assert body["last_checked_at"] is None
+
+
+def check(client, credential_id):
+    """Run "test connection" on a credential and return the response."""
+    return client.post(f"{URL}{credential_id}/test/")
+
+
+def test_a_working_key_is_marked_verified(client, stub_server):
+    add_provider_routes(stub_server)
+    credential_id = save_real(
+        client, "anthropic", {"base_url": stub_server.base_url}
+    ).json()["id"]
+
+    body = check(client, credential_id).json()
+
+    assert body["status"] == "verified"
+    assert body["last_checked_at"] is not None
+    assert body["last_error"] == ""
+
+
+def test_a_refused_key_is_marked_invalid(client, stub_server):
+    stub_server.set_route("GET", "/v1/models/claude-opus-5-5", {"status": 401})
+    credential_id = save_real(
+        client, "anthropic", {"base_url": stub_server.base_url}
+    ).json()["id"]
+
+    body = check(client, credential_id).json()
+
+    assert body["status"] == "invalid"
+    assert "API key" in body["last_error"]
+
+
+def test_a_provider_outage_leaves_the_key_unchecked_with_a_reason(client, stub_server):
+    stub_server.set_route("GET", "/v1/models/claude-opus-5-5", {"status": 503})
+    credential_id = save_real(
+        client, "anthropic", {"base_url": stub_server.base_url}
+    ).json()["id"]
+
+    body = check(client, credential_id).json()
+
+    assert body["status"] == "unverified"
+    assert "busy" in body["last_error"]
+
+
+def test_saving_a_new_key_clears_the_old_check(client, stub_server):
+    add_provider_routes(stub_server)
+    credential_id = save_real(
+        client, "anthropic", {"base_url": stub_server.base_url}
+    ).json()["id"]
+    check(client, credential_id)
+
+    body = save_real(client, "anthropic", {"base_url": stub_server.base_url}).json()
+
+    assert body["status"] == "unverified"
+
+
+def test_nobody_can_check_another_users_key(client):
+    other = make_user("grace@example.com")
+    theirs = ProviderCredential.objects.create(user=other, kind="text", adapter="demo")
+
+    assert check(client, theirs.id).status_code == 404
+
+
+def test_checking_keys_is_rate_limited(client):
+    credential_id = save(client, "text").json()["id"]
+
+    statuses = []
+    for _ in range(11):
+        statuses.append(check(client, credential_id).status_code)
+
+    assert statuses[:10] == [200] * 10
+    assert statuses[10] == 429

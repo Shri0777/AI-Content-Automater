@@ -12,7 +12,7 @@ from publishing.services import add_ai_label, publish_post
 from publishing.tasks import publish_post_task
 from social.models import SocialAccount
 from studio.models import Post
-from studio.pipeline import run_stage
+from studio.runner import run_stage
 from studio.statuses import change_status
 
 LABEL = "Made with AI assistance."

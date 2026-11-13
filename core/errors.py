@@ -73,5 +73,23 @@ class ProviderError(Exception):
     """An outside service (AI model, news source or social network) failed.
 
     Provider classes raise it with a message that is safe to show the user:
-    it must never contain an API key or token.
+    it must never contain an API key or token. This kind of failure will not
+    fix itself, so the work is not retried.
     """
+
+
+class ProviderBusy(ProviderError):
+    """The service is busy or unreachable right now (rate limit, timeout, 5xx).
+
+    These usually pass, so the work is tried again a little later.
+    """
+
+
+class ProviderKeyRejected(ProviderError):
+    """The service refused the user's API key (HTTP 401 or 403).
+
+    Retrying cannot help: the user must fix the key. The code that knows
+    which credential was used sets error.credential before raising it on.
+    """
+
+    credential = None

@@ -33,7 +33,17 @@ class GenerationStepSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GenerationStep
-        fields = ["stage", "succeeded", "duration_ms", "error", "created_at"]
+        fields = [
+            "stage",
+            "succeeded",
+            "duration_ms",
+            "error",
+            "providers",
+            "prompt_versions",
+            "input_tokens",
+            "output_tokens",
+            "created_at",
+        ]
         read_only_fields = fields
 
 

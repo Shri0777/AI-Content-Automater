@@ -67,8 +67,8 @@ Tasks call services too. Business rules never live in views or serializers.
 | **Task wrapper:** a Celery task that calls one service | `notifications/tasks.py` |
 | **Quota check:** `check_total_limit()` or `use_daily_quota()` before the work | `quotas/services.py` |
 | **Notification helper:** `notify(user, kind, message)` | `notifications/services.py` |
-| **Library wrapper:** a library used in one file behind a simple function | `core/crypto.py` (`encrypt_text`), `studio/posters.py` (Pillow) |
-| **Adapter:** one base class, one subclass per provider | `social/publishers.py` and `demo/publisher.py`; also `studio/text_models.py`, `studio/image_models.py`, `newsroom/sources.py` |
+| **Library wrapper:** a library used in one file behind a simple function | `core/crypto.py` (`encrypt_text`), `core/web.py` (httpx), `studio/anthropic_text.py` (anthropic), `studio/posters.py` (Pillow) |
+| **Adapter:** one base class, one subclass per provider | `studio/text_models.py` with `studio/openai_compatible.py`, `studio/anthropic_text.py` and `demo/text_model.py`; also image models, `social/publishers.py`, `newsroom/sources.py` |
 | **Status table:** a dict of allowed status changes | `studio/statuses.py`, `ALLOWED_TRANSITIONS` and `change_status()` |
 
 ## 5. One request, start to finish: logging in
@@ -103,8 +103,8 @@ Tasks call services too. Business rules never live in views or serializers.
    queues `advance_post_task` and the API answers `202 Accepted`.
 3. **`studio/tasks.py`, `advance_post_task`** (in the worker) calls
    `run_stage()`, then queues itself again until the post waits for the user.
-4. **`studio/pipeline.py`, `run_stage()`** looks up the stage for the post's
-   status in `STAGES` and runs it:
+4. **`studio/runner.py`, `run_stage()`** looks up the stage for the post's
+   status in `STAGES` (`studio/pipeline.py`) and runs it:
    - `research`: `newsroom.services.pick_article()` finds a fresh, unused
      article, or the post is **skipped** (never filler).
    - `draft`: the text model writes the headline and caption.
@@ -112,8 +112,14 @@ Tasks call services too. Business rules never live in views or serializers.
      makes artwork, and `render_poster()` adds the headline.
    - `review`: the text model scores the post, `decide_verdict()` applies
      fixed rules, and `notify()` tells the user it is waiting.
-   Every stage run saves a `GenerationStep`. A `ProviderError` marks the post
-   `failed` with a plain reason and notifies the user.
+   Every stage run saves a `GenerationStep` (models used, prompt versions,
+   tokens). A busy provider is retried later; a refused key marks the
+   credential `invalid`; any other `ProviderError` fails the post with a
+   plain reason. The user is told in each case.
+   Real models are called through `TextModel.ask_for_json()`
+   (`studio/text_models.py`), which fills in a prompt from
+   `studio/prompts.py`, checks the JSON answer with `studio/model_outputs.py`
+   and asks once more if it does not fit.
 5. **The user approves:** `POST /api/v1/posts/<id>/approve/` calls
    `change_status(post, "approved")`. Two clicks at once cannot both win,
    because the database update only matches the old status.
@@ -142,6 +148,8 @@ article, versions, review, steps and publications.
 | **Demo mode** | `DEMO_MODE=true`: fake providers stand in for every outside service, so no API keys are needed. |
 | **Pipeline stage** | One step of making a post (research, draft, poster, review), run as one background job. |
 | **Idempotency key** | A value that is always the same for the same action, so the action can be safely retried without happening twice. |
+| **SSRF** | Tricking a server into calling addresses inside its own network. `core/web.py` refuses private addresses. |
+| **Stub server** | A small fake web service used in tests that answers like a real provider (`tests/stub_server.py`). |
 | **OpenAPI schema** | A machine-readable description of the API, saved in `schema/openapi.yaml`. |
 
 ## 8. Guardrails that keep the code honest

@@ -1,8 +1,11 @@
-"""Save, find and remove a user's provider credentials."""
+"""Save, find and remove a user's provider credentials, and record checks."""
+
+from django.utils import timezone
 
 from core.crypto import decrypt_text, encrypt_text
 from core.errors import AppError
 from credentials.models import ProviderCredential
+from notifications.services import notify
 
 
 class CredentialNotFound(AppError):
@@ -32,6 +35,9 @@ def save_credential(user, details):
     ).first()
     if credential is None:
         credential = ProviderCredential(user=user, kind=details["kind"])
+    credential.status = "unverified"
+    credential.last_error = ""
+    credential.last_checked_at = None
     credential.adapter = details["adapter"]
     credential.model_name = details.get("model_name", "")
     credential.base_url = details.get("base_url", "")
@@ -67,9 +73,46 @@ def read_api_key(credential):
     return decrypt_text(credential.encrypted_key)
 
 
-def delete_credential(user, credential_id):
-    """Delete one of the user's credentials."""
+def get_user_credential(user, credential_id):
+    """Return one of the user's credentials, or raise CredentialNotFound."""
     credential = ProviderCredential.objects.filter(id=credential_id, user=user).first()
     if credential is None:
         raise CredentialNotFound("That credential does not exist.")
-    credential.delete()
+    return credential
+
+
+def without_key(credential, text):
+    """Return text with the credential's key removed, in case a provider echoed it."""
+    api_key = read_api_key(credential)
+    if len(api_key) >= 8:
+        text = text.replace(api_key, "[hidden]")
+    return text
+
+
+def record_check(credential, status, message=""):
+    """Save the result of using or checking a credential."""
+    credential.status = status
+    credential.last_error = without_key(credential, message)
+    credential.last_checked_at = timezone.now()
+    credential.save(update_fields=["status", "last_error", "last_checked_at"])
+
+
+def reject_credential(credential, message):
+    """Mark a credential invalid after its provider refused the key.
+
+    The user is told once; more failures while it is unread add nothing.
+    """
+    record_check(credential, "invalid", message)
+    notify(
+        credential.user,
+        "credential_invalid",
+        f"Your {credential.kind} provider refused its API key. "
+        "Update the key on the credentials page.",
+        related=credential,
+        dedupe_key=f"credential-invalid-{credential.id}",
+    )
+
+
+def delete_credential(user, credential_id):
+    """Delete one of the user's credentials."""
+    get_user_credential(user, credential_id).delete()

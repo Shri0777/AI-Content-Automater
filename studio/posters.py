@@ -9,7 +9,9 @@ image model uses it in place of a real AI image.
 import hashlib
 from io import BytesIO
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps, UnidentifiedImageError
+
+from core.errors import ProviderError
 
 WHITE = (255, 255, 255, 255)
 LIGHT_GREY = (220, 220, 220, 255)
@@ -66,10 +68,25 @@ def wrap_text(draw, text, font, max_width):
     return lines
 
 
-def render_poster(artwork_bytes, headline, source_line):
-    """Return PNG bytes of artwork with the headline and source line on top."""
-    image = Image.open(BytesIO(artwork_bytes)).convert("RGBA")
-    width, height = image.size
+def open_artwork(artwork_bytes, width, height):
+    """Return the artwork cropped and scaled to exactly width x height.
+
+    Image models return their own sizes and shapes; the middle of the
+    artwork is kept and the edges trimmed, so it is never stretched.
+    """
+    try:
+        artwork = Image.open(BytesIO(artwork_bytes))
+        artwork.load()
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError):
+        raise ProviderError(
+            "The image model sent back something that is not an image."
+        ) from None
+    return ImageOps.fit(artwork.convert("RGBA"), (width, height))
+
+
+def render_poster(artwork_bytes, headline, source_line, width, height):
+    """Return width x height PNG bytes: artwork with the headline on top."""
+    image = open_artwork(artwork_bytes, width, height)
     margin = width // 18
     shade = Image.new("RGBA", image.size, (0, 0, 0, 0))
     shade_top = height * 55 // 100

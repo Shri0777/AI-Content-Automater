@@ -122,7 +122,12 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "core.errors.problem_details_handler",
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle"],
-    "DEFAULT_THROTTLE_RATES": {"user": "120/minute", "auth": "10/minute"},
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "120/minute",
+        "auth": "10/minute",
+        # Testing a key calls the provider, which may cost the user money.
+        "credential_test": "10/minute",
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -172,6 +177,12 @@ CORS_ALLOW_HEADERS = [
 
 # Who may create an account: "invite" (default), "open" or "closed".
 REGISTRATION_MODE = read_text("REGISTRATION_MODE", "invite")
+
+# Users can point a provider at their own address (base_url). To stop that
+# being used to reach machines inside our network (SSRF), addresses that
+# lead to private, loopback or link-local IPs are refused. Turn this on only
+# to reach a model server on your own machine, such as Ollama.
+ALLOW_PRIVATE_PROVIDER_URLS = read_bool("ALLOW_PRIVATE_PROVIDER_URLS", False)
 
 # Key used to encrypt saved API keys and tokens. Development-only default;
 # production must set ENCRYPTION_KEY to its own secret key.

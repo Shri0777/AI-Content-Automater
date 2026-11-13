@@ -1,6 +1,6 @@
 # AI Content Automator: Backend Build Plan (V4)
 
-Status: **Phases 0, 1 and 2 are built and verified** (V3 preserved under the `legacy-v3` tag). Next: Phase 3, real AI providers.
+Status: **Phases 0 to 3 are built and verified against stub servers** (V3 preserved under the `legacy-v3` tag). Real providers are **unverified-live** until someone runs them with real keys. Next: Phase 4, social linking.
 Scope: backend only (REST API + workers). The frontend is planned separately.
 
 **Decided so far**
@@ -28,7 +28,7 @@ You authorised deleting the whole codebase. V4 is rebuilt around your requiremen
 | # | Requirement | Backend answer |
 |---|---|---|
 | 1 | Separate keys: image generation, and text generation (used for prompting the image model) | `ProviderCredential` with `kind = text \| image \| news`. The text key drives curation scoring, image-prompt writing and review. |
-| 2 | Any AI model | Text via LiteLLM (model string and optional `base_url`). Image via adapters (OpenAI-compatible, NVIDIA FLUX, fal/Replicate). "Test connection" on save. |
+| 2 | Any AI model | Text via two adapters: any OpenAI-compatible service, or Anthropic (model name and optional `base_url`, ADR-015). Image via adapters (OpenAI-compatible, NVIDIA FLUX, fal). "Test connection" endpoint. |
 | 3 | Link Buffer or social accounts directly, simply | One base class plus one adapter per platform. Buffer (paste a token) plus direct OAuth (LinkedIn, X, Meta). Two endpoints per link flow. |
 | 4 | Schedule: number of posts, timing, weekdays | `ScheduleRule` (days, local times, timezone) materialised into idempotent `PostSlot` rows. |
 | 5 | News API, user-friendly | **Hybrid:** shared ingest from keyless sources and curated RSS (an optional paid key is off by default), cached once per topic and budgeted per source, plus an optional user-supplied news key. |
@@ -85,7 +85,7 @@ Why each limit exists, how it is enforced atomically, and the retention rules ar
 | Auth | Email login, JWT access plus rotating refresh, CORS allowlist |
 | Database | PostgreSQL |
 | Jobs | Celery, Redis (broker only), DB-claimed schedule |
-| LLM | LiteLLM used in one file behind `ask_text_model(...)`, Pydantic-validated structured output |
+| LLM | Own adapters (ADR-015): OpenAI-compatible over httpx, Anthropic's official library; JSON answers checked with DRF serializers and one repair round |
 | Images | One base class plus one adapter per image provider, Pillow poster renderer |
 | Extraction | `trafilatura` used in one file behind `extract_article_text(...)`, over an SSRF-safe HTTP client |
 | Storage | Local volume by default, S3-compatible optional behind the same interface. Signed URLs. Retention jobs. |
@@ -158,7 +158,7 @@ Work is built as a **walking skeleton first** (Phase 2), then deepened. That giv
 | **0 Safety** | Branch `rebuild/backend-v4`. Checkpoint commit of the current tree, tag `legacy-v3`. Then delete old code, about 100 docs and tracked `.kiro/*.bak*` files. | Old code recoverable from the tag. Clean tree on the new branch. |
 | **1 Foundation** | `config/`, `core/`, `accounts/`, pinned deps, local Docker Compose, CI with the readability gate, OpenAPI snapshot, quota functions, registration modes, recovery codes, `Notification` model, `docs/CODE-TOUR.md` skeleton | Clean-checkout CI green (including readability gate). `check --deploy` green. Auth, recovery and invite flows work end to end. Quota boundary and race tests pass. Fresh-eyes review list is empty. |
 | **2 Walking skeleton (demo mode)** | One thin path using the fake providers: register, save credentials, create a plan, generate-now, poster image, manual approve, publish to the fake publisher. `scripts/demo_walkthrough.py`, Swagger UI. | A clean checkout runs the demo with **no API keys** in three commands. The scripted end-to-end test passes. |
-| **3 Credentials and models** | Real adapters: LiteLLM text, image providers, connection tests, encrypted keys | User saves keys and sees them verified against stubs. Keys never appear in responses or logs. |
+| **3 Credentials and models** | Real adapters: OpenAI-compatible and Anthropic text, OpenAI-compatible, NVIDIA FLUX and fal images, connection tests, encrypted keys, SSRF-safe web client | User saves keys and sees them verified against stubs. Keys never appear in responses or logs. |
 | **4 Social linking** | Base publisher, Buffer, then LinkedIn, X, Meta, token refresh | Link, publish, refresh, revoke against stub providers. Two-user token isolation test. |
 | **5 Planning and scheduling** | Plans, topics, rules, slot materialiser, dispatcher, `max_lateness` | Named daylight-saving test cases, dispatcher race tests, crash-lease recovery, outage simulation skips stale slots with one aggregated notification. |
 | **6 Newsroom** | Keyless sources, extraction, curation, scoring, presets (jobs, layoffs, Linux tips, AI news), per-source budgets, demand-driven ingest | Quality gates behave on fixtures. "Nothing good enough" yields `skipped`, never filler. A source stops at its daily cap and plans fall back to cache. |

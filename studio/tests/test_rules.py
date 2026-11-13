@@ -9,8 +9,8 @@ from core.errors import ProviderError
 from demo.image_model import DemoImageModel
 from notifications.models import Notification
 from studio.models import STATUS_CHOICES, Post
-from studio.pipeline import run_stage
 from studio.posters import draw_abstract_artwork, render_poster
+from studio.runner import run_stage
 from studio.statuses import (
     ALLOWED_TRANSITIONS,
     StatusChangeNotAllowed,
@@ -65,12 +65,20 @@ def test_only_one_of_two_racing_changes_wins(plan):
     assert Post.objects.get(id=post.id).status == "approved"
 
 
-def test_the_poster_keeps_the_artwork_size():
-    artwork = draw_abstract_artwork("seed", 640, 480)
+def test_any_artwork_size_is_cropped_to_the_poster_size():
+    wide_jpeg = BytesIO()
+    Image.new("RGB", (1600, 900), "navy").save(wide_jpeg, format="JPEG")
 
-    poster = render_poster(artwork, "A long headline " * 10, "Source: Demo")
+    poster = render_poster(
+        wide_jpeg.getvalue(), "A long headline " * 10, "Source: Demo", 1080, 1080
+    )
 
-    assert Image.open(BytesIO(poster)).size == (640, 480)
+    assert Image.open(BytesIO(poster)).size == (1080, 1080)
+
+
+def test_bytes_that_are_not_an_image_are_a_provider_error():
+    with pytest.raises(ProviderError, match="not an image"):
+        render_poster(b"<html>error</html>", "Headline", "Source", 100, 100)
 
 
 def test_the_same_prompt_always_draws_the_same_artwork():
@@ -84,7 +92,7 @@ def test_a_provider_failure_fails_the_post_and_tells_the_user(
     def broken_artwork(self, prompt, width, height):
         raise ProviderError("The image service is down.")
 
-    monkeypatch.setattr(DemoImageModel, "make_artwork", broken_artwork)
+    monkeypatch.setattr(DemoImageModel, "draw", broken_artwork)
 
     post_id = client.post(f"/api/v1/plans/{plan.id}/generate-now/").json()["id"]
 
@@ -105,7 +113,7 @@ def test_running_a_waiting_post_again_does_nothing(plan):
 
 
 def test_a_bug_in_a_stage_fails_the_post_instead_of_leaving_it_stuck(plan, monkeypatch):
-    def crash(artwork_bytes, headline, source_line):
+    def crash(artwork_bytes, headline, source_line, width, height):
         raise RuntimeError("A bug in the poster code.")
 
     monkeypatch.setattr("studio.pipeline.render_poster", crash)

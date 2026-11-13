@@ -188,6 +188,28 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/credentials/{credential_id}/test/:
+    post:
+      operationId: credentials_test_create
+      description: Run the check and return the credential with its new status.
+      parameters:
+      - in: path
+        name: credential_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - credentials
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credential'
+          description: ''
   /api/v1/health/:
     get:
       operationId: health_retrieve
@@ -671,6 +693,18 @@ components:
         key_hint:
           type: string
           readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CredentialStatusEnum'
+          readOnly: true
+        last_checked_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_error:
+          type: string
+          readOnly: true
         updated_at:
           type: string
           format: date-time
@@ -680,6 +714,9 @@ components:
       - id
       - key_hint
       - kind
+      - last_checked_at
+      - last_error
+      - status
       - updated_at
     CredentialKindEnum:
       enum:
@@ -691,6 +728,16 @@ components:
         * `text` - Text model
         * `image` - Image model
         * `news` - News source
+    CredentialStatusEnum:
+      enum:
+      - unverified
+      - verified
+      - invalid
+      type: string
+      description: |-
+        * `unverified` - Not checked yet
+        * `verified` - Working
+        * `invalid` - The provider refused the key
     GenerationStep:
       type: object
       description: One stage run of the pipeline.
@@ -707,6 +754,18 @@ components:
         error:
           type: string
           readOnly: true
+        providers:
+          type: string
+          readOnly: true
+        prompt_versions:
+          type: string
+          readOnly: true
+        input_tokens:
+          type: integer
+          readOnly: true
+        output_tokens:
+          type: integer
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -715,6 +774,10 @@ components:
       - created_at
       - duration_ms
       - error
+      - input_tokens
+      - output_tokens
+      - prompt_versions
+      - providers
       - stage
       - succeeded
     Health:

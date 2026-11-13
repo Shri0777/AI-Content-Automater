@@ -17,7 +17,7 @@ Users connect their own AI keys and social accounts, describe what they want pos
 | ID | Requirement |
 |---|---|
 | FR1 | Separate user-supplied API keys for **text** and **image** generation (and an optional **news** key). |
-| FR2 | Any text model (via LiteLLM model string and optional base URL). Image models via adapters. |
+| FR2 | Any text model through two adapters (OpenAI-compatible format and Anthropic), each with a model name and optional base URL (ADR-015). Image models via adapters. |
 | FR3 | Link Buffer or social accounts directly with a simple flow. |
 | FR4 | Schedule: number of posts, times, days of the week, in the user's timezone. |
 | FR5 | Connected news sources, without forcing every user to set up a news API. |
@@ -74,7 +74,7 @@ See the diagrams (architecture, pipeline sequence, post lifecycle, data model) l
 | Redis | Celery broker and short-lived caches/locks only. **Nothing durable lives only in Redis.** |
 | Object storage (S3-compatible) | Poster images. Private bucket with time-limited signed URLs. |
 
-External: LLM providers (via LiteLLM), image providers, news sources, social platforms (Buffer and direct OAuth). There is no email provider: notifications are in-app only (§17.4).
+External: LLM providers (OpenAI-compatible services and Anthropic, ADR-015), image providers, news sources, social platforms (Buffer and direct OAuth). There is no email provider: notifications are in-app only (§17.4).
 
 ## 5. Scheduling subsystem (the heart of correctness)
 
@@ -140,7 +140,7 @@ Presets are **data**, not code: source lists, freshness windows, scoring hints a
 ## 8. Studio: drafting, imaging, review, correction
 
 ### 8.1 LLM layer
-A single `LLMClient` wraps LiteLLM. It handles per-credential timeouts, structured output validated by Pydantic with bounded repair retries, token/cost accounting, and capability flags per model (structured output, vision). Prompts are versioned templates in the repo, and the template version is stored on each `GenerationStep`.
+Text models share one `TextModel` base class (ADR-015). Each provider adapter only implements `ask(system, messages)`. The base class builds prompts from versioned templates (`studio/prompts.py`), reads the JSON answer, checks it with DRF serializers (`studio/model_outputs.py`) and asks once more if it does not fit. Token counts and prompt versions are stored on each `GenerationStep`. Busy providers (429, 5xx, timeouts) are retried by the task with growing delays; a rejected key marks the credential `invalid` and notifies the user.
 
 ### 8.2 Image layer
 `ImageAdapter.generate(prompt, size, seed?) -> bytes` with adapters for OpenAI-compatible endpoints, NVIDIA FLUX, and fal/Replicate. Per-platform size comes from `platform_specs` data. The text model writes the image prompt (FR7), constrained to "no readable text in the image".
@@ -365,7 +365,7 @@ The architecture is the same, but each part is written in the Beginner Subset ([
 - **One-way flow:** views call services, services call models and adapters, tasks call services. A beginner can follow any request by reading downward through four small files.
 - **Predictable app layout:** every app has the same file names, so there is nothing to hunt for.
 - **Plain data over frameworks:** the status table is a dict, the schedule is rows, the quota limits are rows, the topic presets are data.
-- **Libraries are wrapped once:** LiteLLM, Pillow, trafilatura and cryptography each live in one file behind one obviously named function.
+- **Libraries are wrapped once:** httpx, anthropic, Pillow, trafilatura and cryptography each live in one file behind one obviously named function or class.
 - **Small stages:** each pipeline stage is a service function of 20 lines or fewer, wrapped by a Celery task of 10 lines or fewer.
 - **Four isolated exceptions** to the standard (dispatcher `skip_locked`, atomic quota update, encryption helpers, and the post tasks' catch-and-re-raise so a crash marks the post `failed`), each commented with why it exists.
 
@@ -373,7 +373,7 @@ The architecture is the same, but each part is written in the Beginner Subset ([
 `DEMO_MODE=true` replaces every external provider with a built-in fake so the full pipeline runs with **no API keys and no network**:
 | Real provider | Demo fake |
 |---|---|
-| Text model (LiteLLM) | Fake text model returning deterministic, template-based captions, image prompts and review JSON |
+| Text model (OpenAI-compatible or Anthropic) | Fake text model returning deterministic, template-based captions, image prompts and review JSON |
 | Image model | Pillow-generated artwork (gradients and shapes) so the poster renderer still runs for real |
 | News sources | Canned articles for each preset topic (jobs, layoffs, Linux tips, AI news) |
 | Buffer and social platforms | A fake publisher that records the post in the database |

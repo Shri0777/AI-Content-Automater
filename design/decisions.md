@@ -39,6 +39,8 @@ Related: [system-design.md](system-design.md).
 ---
 
 ## ADR-003: LiteLLM for text; adapter interface for images
+**Superseded for text by ADR-015** (LiteLLM was replaced before any code used it). The image half still stands.
+
 **Context.** "Accept any AI model" (FR2). Text providers largely converge on chat-completion shapes. Image APIs do not.
 
 **Decision.** Text: LiteLLM (`model` string, optional `base_url`, user key) behind our own `LLMClient` (timeouts, Pydantic-validated structured output, cost accounting, capability flags). Images: `ImageAdapter` interface with OpenAI-compatible, NVIDIA FLUX and fal/Replicate adapters.
@@ -205,3 +207,23 @@ Related: [system-design.md](system-design.md).
 | C. Hosted live demo | Low | Needs real accounts and cost | Hosting, abuse control (deployment is deferred) |
 
 **Consequences.** Easier: anyone can run and understand the project, and the pipeline is exercised the same way in demo, tests and live mode. Harder: the fakes must stay faithful to the real adapters, which contract tests enforce. A hosted demo (option C) can be reconsidered when deployment is decided.
+
+---
+
+## ADR-015: Our own small text adapters instead of LiteLLM (supersedes the text half of ADR-003)
+**Status:** Accepted (Phase 3) · **Context:** ADR-003 chose LiteLLM so that any text model works. Before adding it we checked its supply chain: LiteLLM's PyPI releases were compromised twice in 2026 (1.82.7 and 1.82.8 in March, 1.107.0 in October), each shipping a credential stealer. This app's whole job is to hold users' AI keys and decrypt them inside the worker, so a credential-stealing dependency would be the worst possible failure. LiteLLM is also large and does a lot implicitly, which works against the beginner-readable standard (ADR-013).
+
+**Decision.** Text models use one small adapter per wire format behind the `TextModel` base class:
+- `openai_compatible`: the `/chat/completions` format over our safe HTTP client (`core/web.py`). This covers OpenAI, OpenRouter, Groq, Mistral, DeepSeek, Together, Google Gemini's compatible endpoint, NVIDIA NIM, and self-hosted servers such as Ollama and vLLM.
+- `anthropic`: Claude through Anthropic's **official** Python library, used in one file (`studio/anthropic_text.py`).
+
+Prompting, JSON reading, checking (with DRF serializers, not a new library) and one repair round live once in the base class, so each adapter is only "send messages, return text". Image adapters are unchanged from ADR-003 (OpenAI-compatible, NVIDIA FLUX, fal).
+
+| Option | Supply-chain risk | Readability | Model coverage |
+|---|---|---|---|
+| A. LiteLLM | Two malicious releases in 2026 | Low (much is implicit) | Widest |
+| **B. Own adapters (OpenAI format + official Anthropic library)** | Small, well-known dependencies (httpx, anthropic) | High (each adapter is about 60 lines) | Nearly every hosted and self-hosted model |
+| C. One official library per provider | Many dependencies | Medium | Same as B, more code |
+
+**Trade-offs.** Providers with neither format (for example Bedrock or Vertex with native cloud authentication) need a gateway that speaks the OpenAI format, or a new adapter. There is no built-in price table, so steps record tokens, not money.
+**Consequences.** A new text provider that speaks either format is configuration only. A new format is one subclass with an `ask()` method plus a stub-server contract test. Dependencies stay pinned in `uv.lock` and checked by `pip-audit` in CI.

@@ -120,6 +120,12 @@ class GenerationStep(models.Model):
     succeeded = models.BooleanField()
     duration_ms = models.PositiveIntegerField()
     error = models.TextField(blank=True)
+    # Which models were used, for example "anthropic:claude-opus-5-5".
+    providers = models.CharField(max_length=300, blank=True)
+    # Which prompt wordings were used (see studio/prompts.py).
+    prompt_versions = models.CharField(max_length=200, blank=True)
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

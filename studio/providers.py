@@ -3,11 +3,26 @@
 from credentials.services import read_api_key
 from demo.image_model import DemoImageModel
 from demo.text_model import DemoTextModel
+from studio.anthropic_text import AnthropicTextModel
+from studio.image_providers import FalImageModel, NvidiaFluxImageModel
+from studio.openai_compatible import (
+    OpenAICompatibleImageModel,
+    OpenAICompatibleTextModel,
+)
 
-# Which class handles each "adapter" name saved on a credential. Real
-# providers are added here in Phase 3.
-TEXT_MODEL_CLASSES = {"demo": DemoTextModel}
-IMAGE_MODEL_CLASSES = {"demo": DemoImageModel}
+# Which class handles each "adapter" name saved on a credential. These must
+# match credentials.models.ADAPTERS_BY_KIND (a test checks that they do).
+TEXT_MODEL_CLASSES = {
+    "demo": DemoTextModel,
+    "openai_compatible": OpenAICompatibleTextModel,
+    "anthropic": AnthropicTextModel,
+}
+IMAGE_MODEL_CLASSES = {
+    "demo": DemoImageModel,
+    "openai_compatible": OpenAICompatibleImageModel,
+    "nvidia_flux": NvidiaFluxImageModel,
+    "fal": FalImageModel,
+}
 
 
 def get_text_model(credential):
@@ -20,3 +35,15 @@ def get_image_model(credential):
     """Return a ready-to-use image model for an "image" credential."""
     model_class = IMAGE_MODEL_CLASSES[credential.adapter]
     return model_class(credential, read_api_key(credential))
+
+
+def get_provider(credential):
+    """Return the model for a credential of any kind, or None for news.
+
+    News sources arrive in Phase 6; until then a news key cannot be checked.
+    """
+    if credential.kind == "text":
+        return get_text_model(credential)
+    if credential.kind == "image":
+        return get_image_model(credential)
+    return None
