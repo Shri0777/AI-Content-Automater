@@ -1,7 +1,7 @@
 """Publish approved posts to the plan's social accounts.
 
-For now an approved post is published straight away. Publishing at a
-scheduled time arrives with schedules in Phase 5.
+A "generate now" post is published as soon as it is approved. A scheduled
+post is published at its slot's time by publishing/scheduled.py.
 """
 
 import hashlib

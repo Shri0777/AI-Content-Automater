@@ -37,6 +37,18 @@ class UnsafeAddress(ProviderError):
     """Raised for an address we refuse to contact."""
 
 
+class Redirected(ProviderError):
+    """Raised when a service answers "look elsewhere"; location is where.
+
+    Redirects are never followed automatically. A caller that wants to
+    follow one sends a new request to location, which is checked again.
+    """
+
+    def __init__(self, message, location):
+        super().__init__(message)
+        self.location = location
+
+
 def check_url_format(url):
     """Return the host of url, or raise UnsafeAddress if its form is not allowed.
 
@@ -113,9 +125,13 @@ def read_limited(response):
     return bytes(content)
 
 
-def check_status(status, content, url, secrets):
-    """Raise the right error for a status code that is not a success."""
-    if status < 300:
+def check_status(status, content, url, secrets, location):
+    """Raise the right error for a status code that is not a success.
+
+    304 ("not modified") counts as a success: it only comes back when we
+    asked for a feed "only if it changed".
+    """
+    if status < 300 or status == 304:
         return
     host = urlsplit(url).hostname
     if status in KEY_REJECTED_STATUSES:
@@ -126,7 +142,9 @@ def check_status(status, content, url, secrets):
     if status in TRY_LATER_STATUSES:
         raise ProviderBusy(f"{host} is busy or having problems (HTTP {status}).")
     if status < 400:
-        raise ProviderError(f"{host} tried to redirect us, which is not allowed.")
+        raise Redirected(
+            f"{host} tried to redirect us, which is not allowed.", location
+        )
     detail = content.decode(errors="replace")[:MAX_ERROR_TEXT]
     raise ProviderError(
         f"{host} refused the request (HTTP {status}): {hide_secrets(detail, secrets)}"
@@ -168,7 +186,8 @@ def send(method, url, headers, payload=None):
     except httpx.TransportError:
         raise ProviderBusy("The service could not be reached.") from None
     secrets = find_secrets(url, headers, payload)
-    check_status(response.status_code, content, url, secrets)
+    location = response.headers.get("location", "")
+    check_status(response.status_code, content, url, secrets, location)
     return Answer(response.status_code, response.headers, content)
 
 

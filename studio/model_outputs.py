@@ -39,6 +39,22 @@ class IssueOutput(serializers.Serializer):
     fix_instruction = serializers.CharField(max_length=500, allow_blank=True)
 
 
+class ArticleScoreOutput(serializers.Serializer):
+    """The scores of one shortlisted article."""
+
+    number = serializers.IntegerField(min_value=1)
+    relevance = serializers.IntegerField(min_value=1, max_value=5)
+    credibility = serializers.IntegerField(min_value=1, max_value=5)
+    novelty = serializers.IntegerField(min_value=1, max_value=5)
+    verifiable = serializers.BooleanField()
+
+
+class ArticleScoresOutput(serializers.Serializer):
+    """The answer to ARTICLE_SCORES_PROMPT."""
+
+    scores = ArticleScoreOutput(many=True)
+
+
 class ReviewOutput(serializers.Serializer):
     """The answer to REVIEW_PROMPT."""
 

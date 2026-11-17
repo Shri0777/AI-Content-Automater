@@ -34,8 +34,10 @@ and social providers (`demo/`), so no API keys are needed.
 7. `credentials/`: each user's own AI and news keys, stored encrypted.
 8. `social/`: linked social accounts, the `Publisher` base class, one
    publisher per platform (Buffer, X, LinkedIn, Facebook) and token refresh.
-9. `planning/`: content plans and their topics.
-10. `newsroom/`: articles, topic presets and the `NewsSource` base class.
+9. `planning/`: content plans, topics and schedules: rules become slots
+   (`schedule.py`), and the dispatcher starts them on time (`dispatcher.py`).
+10. `newsroom/`: keyless news sources (RSS, Hacker News), polite fetching,
+    the shared article store and the quality gates that choose an article.
 11. `studio/`: the post pipeline, the status table, the poster renderer.
 12. `publishing/`: sending approved posts, never twice.
 13. `demo/`: the fake providers used in demo mode and by the tests.
@@ -158,6 +160,14 @@ article, versions, review, steps and publications.
 | **PKCE** | Sending a fingerprint of a secret first and the secret itself only when swapping the code, so a stolen code is useless. |
 | **Row lock** | `select_for_update()` makes a second worker wait for the first, so a once-only refresh token is never used twice (`social/tokens.py`). |
 | **Signed link** | An address that carries a signature made with our secret key, so it cannot be guessed or changed (`studio/public_links.py`). |
+| **RSS / Atom feed** | A site's machine-readable list of its newest articles (`newsroom/feeds.py`). |
+| **robots.txt** | A file where a site says which automated readers may read which pages. We obey it (`newsroom/fetching.py`). |
+| **Ingest** | Reading every source of a topic into the shared article store (`newsroom/ingest.py`). |
+| **Slot** | One planned post: when it is published (`publish_at`) and when making it starts (`generate_at`). `planning/models.py`, `PostSlot`. |
+| **Dispatcher** | The every-minute job that starts due slots (`planning/dispatcher.py`). |
+| **Lease** | A claim that runs out on its own (`claimed_until`), so a crashed worker cannot hold a slot forever. |
+| **SKIP LOCKED** | A database option that makes rows another worker has locked invisible instead of making everyone wait. |
+| **Daylight saving** | Clocks moving an hour in spring and autumn. Schedules are kept in local time, so 09:00 stays 09:00 (`planning/schedule.py`). |
 | **Stub server** | A small fake web service used in tests that answers like a real provider (`tests/stub_server.py`). |
 | **OpenAPI schema** | A machine-readable description of the API, saved in `schema/openapi.yaml`. |
 

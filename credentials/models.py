@@ -19,7 +19,8 @@ KIND_CHOICES = [
 ]
 
 # Which providers ("adapters") each kind of credential may use. "demo" is
-# the built-in fake. Real news sources arrive in Phase 6.
+# the built-in fake. The shared news sources need no key (newsroom/presets.py);
+# a user's own paid news key is an optional extra, added later.
 ADAPTERS_BY_KIND = {
     "text": ["demo", "openai_compatible", "anthropic"],
     "image": ["demo", "openai_compatible", "nvidia_flux", "fal"],

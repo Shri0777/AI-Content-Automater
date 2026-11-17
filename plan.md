@@ -1,6 +1,6 @@
 # AI Content Automator: Backend Build Plan (V4)
 
-Status: **Phases 0 to 4 are built and verified against stub servers** (V3 preserved under the `legacy-v3` tag). Real AI providers and social platforms are **unverified-live** until someone runs them with real keys and registered apps. Next: Phase 5, planning and scheduling.
+Status: **Phases 0 to 6 are built and verified against stub servers** (V3 preserved under the `legacy-v3` tag). Real AI providers and social platforms are **unverified-live** until someone runs them with real keys and registered apps. Next: Phase 7, the studio.
 Scope: backend only (REST API + workers). The frontend is planned separately.
 
 **Decided so far**
@@ -175,6 +175,21 @@ Work is built as a **walking skeleton first** (Phase 2), then deepened. That giv
 - **Refresh safety:** refreshing locks the account's row, so a single-use refresh token is never sent twice. A test proves two simultaneous workers make one refresh call.
 - **Revoke on unlink:** X's revoke call is used. LinkedIn and Meta revoke calls were not verified, so for them only our copy of the tokens is deleted.
 - **Ambiguous outcomes and `check_status`** (ADR-004's reconcile) are Phase 8 work.
+
+**Phase 5 notes (built 2026-11-17).** Schedule rules (weekdays, local times, IANA timezone) become `PostSlot` rows up to the 14-day horizon (hourly, and right after a plan or schedule changes). A dispatcher runs every minute: it skips slots that are too late, then claims due slots with `SKIP LOCKED` and a 5-minute lease and starts their posts. Approved scheduled posts publish at `publish_at`, and late approvals expire or are held depending on `on_missed_approval`. Tests cover nine named daylight-saving cases (New York, London, Sydney, Kolkata), three dispatchers racing over 20 slots, crash-lease recovery, and an outage that skips five stale slots with one notification. Decisions:
+- **`lead_time_minutes` is a plan setting, default 60 (15 minutes to 1 day).** The design's 20 minutes leaves almost no time for manual approval.
+- **Pausing removes waiting slots; resuming remakes them** and counts toward the active-plans limit again.
+- **Posting times per day are checked against `posts_per_plan_per_day`** when a schedule is saved, so a schedule cannot promise more posts than the limit allows. A slot that still hits a limit is skipped with `quota_reached` and one notification per day.
+- **Buffer still sends about 2 minutes after the slot time**, because Buffer has to download the poster first.
+
+**Phase 6 notes (built 2026-11-17).** Keyless sources: each preset reads sites' own RSS or Atom feeds and a Hacker News search (presets.py lists them). Ingest runs every 30 minutes for presets that active plans use, and on demand when the last read is over 30 minutes old. Quality gates follow §7.2 in order, ending with the user's own text model rating a shortlist of 5. Decisions:
+- **Google News RSS and VentureBeat are left out.** Both answered automated requests with HTTP 429 on 2026-11-17, and Google News links point to Google's own redirect pages, not the article.
+- **Article pages are read only where `robots.txt` allows our reader *and* the common AI crawlers** (GPTBot, ClaudeBot, anthropic-ai, Google-Extended, CCBot). Several news sites block AI crawlers, so for them only the text their own feed publishes is used.
+- **Text extraction uses Python's own HTML parser** instead of trafilatura (one fewer large dependency). defusedxml was added because feeds are untrusted XML.
+- **An article needs at least 280 characters of text.** TechCrunch's tag feeds publish one line and its pages are closed to AI readers. So layoffs and hiring also read two **broad** full-text feeds (The Register and Computerworld), keeping only items that mention the preset's keywords.
+- **Articles are stored once per address *and* preset.** A shared feed must not file a story only under whichever preset read it first. The used-article check compares addresses, so a plan never posts the same story under two topics.
+- **Live check on 2026-11-17** (Docker, real internet): AI news had 31 usable articles, Linux tips 51, job hiring 20 and layoffs 2. Layoffs is thin on free sources; on days without a qualifying story, those posts are skipped.
+- **Not yet built:** a user's own paid news key (later, with the other APIs) and the 30-day text retention job (Phase 9).
 
 Each phase also ends with the definition of done in [design/test-strategy.md](design/test-strategy.md#7-definition-of-done-per-phase): green tests, the readability gate, the fresh-eyes review, and an updated code tour, plus a review of the final diff.
 

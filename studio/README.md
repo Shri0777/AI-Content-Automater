@@ -15,17 +15,17 @@ post waits for the user's approval.
 | `model_outputs.py` | Serializers that check the text model's JSON answers, exactly like API input is checked. |
 | `models.py` | `Post`, `PostVersion`, `Review` and `GenerationStep` (one row per stage run: the audit trail). |
 | `openai_compatible.py` | Text and image models for any service that speaks OpenAI's format (OpenAI, OpenRouter, Groq, Gemini's compatible endpoint, Ollama and more). |
-| `pipeline.py` | The stages `research`, `draft`, `make_poster` and `review`. Each returns the AI models it used. |
+| `pipeline.py` | The stages `research` (the text model rates a shortlist of articles), `draft`, `make_poster` and `review`. Each returns the AI models it used. |
 | `posters.py` | `render_poster` (crops any artwork to the poster size, then adds the headline and source) and `draw_abstract_artwork`. The only file that uses Pillow. |
 | `public_links.py` | `make_public_poster_url` and `read_public_poster`: signed, login-free poster links that stop working after 7 days, for services that download images themselves (Buffer). |
 | `prompts.py` | The versioned instructions sent to the text model. Article text is always wrapped in `<article>` tags and treated as untrusted. |
 | `providers.py` | `get_text_model`, `get_image_model` and `get_provider`: the right provider class for a saved credential. |
 | `runner.py` | `run_stage()`: runs the stage for a post's status, saves a `GenerationStep` (models, prompt versions, tokens) and handles each kind of failure. |
 | `serializers.py` | What a post looks like in a list and in full detail. |
-| `services.py` | `start_generation` (generate-now), `get_posts`, `get_post`, `approve_post`, `reject_post`, `get_poster_bytes`, and `queue_post_job` (fails the post with a clear message if background jobs are down). |
+| `services.py` | `start_generation` (generate-now), `get_posts`, `get_post`, `approve_post` (a scheduled post then waits for its time), `reject_post`, `create_scheduled_post` (used by the dispatcher), `get_poster_bytes`, and `queue_post_job` (fails the post with a clear message if background jobs are down). |
 | `statuses.py` | `ALLOWED_TRANSITIONS`, the one table of allowed status changes; `change_status()`, which every change goes through; and `fail_after_crash()`. |
 | `tasks.py` | `advance_post_task`: runs one stage, then queues the next. A busy provider is retried after 30, 60 and 120 seconds. If a bug crashes it, the post is marked `failed` and the error is raised again so it is logged. |
-| `text_models.py` | `TextModel`, the base class every text provider follows. Providers only write `ask()`; prompting, reading and checking JSON, and one repair round live here. |
+| `text_models.py` | `TextModel`, the base class every text provider follows (`score_articles`, `write_post`, `write_image_prompt`, `review_post`). Providers only write `ask()`; prompting, reading and checking JSON, and one repair round live here. |
 | `urls.py` | `/api/v1/plans/<id>/generate-now/`, `/api/v1/posts/...` (list, detail, `approve/`, `reject/`, `poster/`) and `/api/v1/public/posters/<signed link>.png`. |
 | `verdicts.py` | `decide_verdict`: fixed rules turn the AI's scores and issues into pass, revise or reject. |
 | `views.py` | Thin API classes. |
@@ -34,8 +34,8 @@ post waits for the user's approval.
 
 ```
 researching -> drafting -> imaging -> reviewing -> awaiting_approval
-    |                                                   |          \
- skipped (no good article)                       approved      rejected
+    |                                                   |          \        \
+ skipped (no good article)                       approved      rejected   expired (not approved in time)
                                                      |
                                     publishing -> published (see publishing/)
 any stage -> failed (a provider failed or a key is missing)

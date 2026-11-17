@@ -13,13 +13,20 @@ studio.providers.get_text_model() picks the right one for a credential.
 import json
 
 from core.errors import ProviderError, ProviderKeyRejected
-from studio.model_outputs import DraftOutput, ImagePromptOutput, ReviewOutput
+from studio.model_outputs import (
+    ArticleScoresOutput,
+    DraftOutput,
+    ImagePromptOutput,
+    ReviewOutput,
+)
 from studio.prompts import (
+    ARTICLE_SCORES_PROMPT,
     DRAFT_PROMPT,
     IMAGE_PROMPT_PROMPT,
     MAX_ARTICLE_CHARACTERS,
     REPAIR_MESSAGE,
     REVIEW_PROMPT,
+    SCORING_ARTICLE_CHARACTERS,
 )
 
 MAX_HEADLINE_LENGTH = 90
@@ -49,6 +56,18 @@ def article_values(article):
         "source_name": article.source_name,
         "url": article.url,
     }
+
+
+def numbered_articles(articles):
+    """Return the shortlist as numbered <article> blocks for the scoring prompt."""
+    blocks = []
+    for number, article in enumerate(articles, start=1):
+        text = article.text[:SCORING_ARTICLE_CHARACTERS]
+        blocks.append(
+            f'<article number="{number}">\n{article.title}\n'
+            f"Source: {article.source_name}\n\n{text}\n</article>"
+        )
+    return "\n\n".join(blocks)
 
 
 class TextModel:
@@ -102,6 +121,19 @@ class TextModel:
                 {"role": "user", "content": REPAIR_MESSAGE.format(problem=problem)},
             ]
         raise ProviderError(f"The text model did not give a usable answer: {problem}")
+
+    def score_articles(self, articles, requirements):
+        """Return one score dict per article: number, relevance, credibility,
+        novelty and verifiable. Numbers start at 1, in the order given."""
+        values = {
+            "requirements": requirements or "(nothing specific)",
+            "articles": numbered_articles(articles),
+        }
+        result = self.ask_for_json(ARTICLE_SCORES_PROMPT, values, ArticleScoresOutput)
+        scores = []
+        for score in result["scores"]:
+            scores.append(dict(score))
+        return scores
 
     def write_post(self, article, requirements):
         """Return {"headline": ..., "caption": ...}; the caption credits the source."""

@@ -97,7 +97,7 @@ def try_to_use_one_post(user, successes):
         connection.close()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
 def test_many_requests_at_the_same_moment_never_go_over_the_limit():
     user = get_user_model().objects.create_user(
         email="racer@example.com", password="correct-horse-battery-staple"

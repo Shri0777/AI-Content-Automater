@@ -13,7 +13,12 @@ from io import BytesIO
 
 from PIL import Image
 
-from studio.prompts import DRAFT_PROMPT, IMAGE_PROMPT_PROMPT, REVIEW_PROMPT
+from studio.prompts import (
+    ARTICLE_SCORES_PROMPT,
+    DRAFT_PROMPT,
+    IMAGE_PROMPT_PROMPT,
+    REVIEW_PROMPT,
+)
 
 OPENAI_CHAT_PATH = "/v1/chat/completions"
 OPENAI_MODELS_PATH = "/v1/models"
@@ -39,6 +44,15 @@ def reply_for(system_prompt):
         }
     elif system_prompt == IMAGE_PROMPT_PROMPT["system"]:
         answer = {"prompt": "Teal waves under a soft light, no text."}
+    elif system_prompt == ARTICLE_SCORES_PROMPT["system"]:
+        score = {
+            "number": 1,
+            "relevance": 5,
+            "credibility": 4,
+            "novelty": 4,
+            "verifiable": True,
+        }
+        answer = {"scores": [score]}
     elif system_prompt == REVIEW_PROMPT["system"]:
         scores = {"grounding": 5, "relevance": 5, "clarity": 4, "tone": 5, "safety": 5}
         answer = {"scores": scores, "issues": []}

@@ -37,8 +37,8 @@ mutation CreatePost($input: CreatePostInput!) {
   }
 }
 """
+# Posts reach Buffer at their scheduled time (publishing/scheduled.py).
 # Buffer needs a moment to download the poster before the post goes out.
-# Scheduled posting (Phase 5) will send the slot's own time instead.
 SEND_AFTER = timedelta(minutes=2)
 
 

@@ -43,6 +43,8 @@ click-repl==0.4.1
     # via celery
 cryptography==50.0.2
     # via ai-content-automator
+defusedxml==0.7.1
+    # via ai-content-automator
 django==6.1.3
     # via
     #   ai-content-automator

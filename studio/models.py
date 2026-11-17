@@ -23,6 +23,7 @@ STATUS_CHOICES = [
     ("publishing", "Publishing"),
     ("published", "Published"),
     ("rejected", "Rejected"),
+    ("expired", "Expired before it was approved"),
     ("skipped", "Skipped"),
     ("failed", "Failed"),
 ]
@@ -47,6 +48,14 @@ class Post(models.Model):
     )
     article = models.ForeignKey(
         "newsroom.Article", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # The schedule slot this post was made for; empty for "generate now".
+    slot = models.OneToOneField(
+        "planning.PostSlot",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="post",
     )
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default="researching"

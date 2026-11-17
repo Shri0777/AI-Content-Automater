@@ -23,8 +23,9 @@ from studio.verdicts import decide_verdict
 POSTER_WIDTH = 1080
 POSTER_HEIGHT = 1080
 NO_ARTICLE_REASON = (
-    "No fresh, unused article was found for this topic, "
-    "so nothing was made rather than posting filler."
+    "No article was good enough for this topic (fresh, unused, with enough "
+    "text, and rated relevant and credible), so nothing was made rather "
+    "than posting filler."
 )
 
 
@@ -34,18 +35,24 @@ def text_model_for(post):
 
 
 def research(post):
-    """Choose an article for the post, or skip the post if none is good."""
+    """Choose an article for the post, or skip the post if none is good.
+
+    The owner's text model rates the shortlist (newsroom/ranking.py).
+    """
+    used = []
     if post.article is None:
-        article = pick_article(post.plan, post.topic.preset)
+        text_model = text_model_for(post)
+        used.append(text_model)
+        article = pick_article(post.plan, post.topic, text_model)
         if article is None:
             change_status(post, "skipped", NO_ARTICLE_REASON)
             notify(post.user, "post_skipped", NO_ARTICLE_REASON, related=post)
-            return []
+            return used
         record_article_use(post.plan, article)
         post.article = article
         post.save(update_fields=["article"])
     change_status(post, "drafting")
-    return []
+    return used
 
 
 def draft(post):

@@ -40,7 +40,8 @@ def get_image_model(credential):
 def get_provider(credential):
     """Return the model for a credential of any kind, or None for news.
 
-    News sources arrive in Phase 6; until then a news key cannot be checked.
+    The shared news sources need no key; a user's own news key (an optional
+    extra, added later) cannot be checked yet.
     """
     if credential.kind == "text":
         return get_text_model(credential)

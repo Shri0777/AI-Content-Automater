@@ -5,7 +5,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from planning import services
-from planning.serializers import PlanCreateSerializer, PlanSerializer
+from planning.serializers import (
+    PlanCreateSerializer,
+    PlanSerializer,
+    PostSlotSerializer,
+    ScheduleSerializer,
+)
 
 
 class PlanListView(APIView):
@@ -40,3 +45,47 @@ class PlanDetailView(APIView):
         """Delete the plan and every post made for it."""
         services.delete_plan(request.user, plan_id)
         return Response(status=204)
+
+
+class PlanScheduleView(APIView):
+    """Replace a plan's schedule."""
+
+    @extend_schema(request=ScheduleSerializer, responses=PlanSerializer)
+    def put(self, request, plan_id):
+        """Save new rules and remake the slots that have not started yet."""
+        serializer = ScheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        plan = services.replace_schedule(
+            request.user, plan_id, serializer.validated_data["schedule_rules"]
+        )
+        return Response(PlanSerializer(plan).data)
+
+
+class PausePlanView(APIView):
+    """Stop a plan from posting."""
+
+    @extend_schema(request=None, responses=PlanSerializer)
+    def post(self, request, plan_id):
+        """Pause the plan and remove its waiting slots."""
+        plan = services.pause_plan(request.user, plan_id)
+        return Response(PlanSerializer(plan).data)
+
+
+class ResumePlanView(APIView):
+    """Start a paused plan posting again."""
+
+    @extend_schema(request=None, responses=PlanSerializer)
+    def post(self, request, plan_id):
+        """Resume the plan and make its coming slots."""
+        plan = services.resume_plan(request.user, plan_id)
+        return Response(PlanSerializer(plan).data)
+
+
+class UpcomingSlotsView(APIView):
+    """The plan's coming posting times."""
+
+    @extend_schema(responses=PostSlotSerializer(many=True))
+    def get(self, request, plan_id):
+        """Return the slots from now on, soonest first."""
+        slots = services.get_upcoming_slots(request.user, plan_id)
+        return Response(PostSlotSerializer(slots, many=True).data)

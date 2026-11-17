@@ -2,10 +2,12 @@
 
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from kombu.exceptions import OperationalError
 
 from core.errors import AppError
 from credentials.services import require_credential
+from planning.models import PostSlot
 from planning.services import get_plan
 from publishing.tasks import publish_post_task
 from quotas.services import use_daily_quota
@@ -59,7 +61,7 @@ def queue_post_job(task, post):
 
 def get_posts(user, status=""):
     """Return the user's posts, optionally only those with one status."""
-    posts = Post.objects.filter(user=user).select_related("plan", "topic")
+    posts = Post.objects.filter(user=user).select_related("plan", "topic", "slot")
     if status:
         posts = posts.filter(status=status)
     return posts
@@ -112,11 +114,52 @@ def start_generation(user, plan_id):
     return get_post(user, post.id)
 
 
+class SlotAlreadyStarted(AppError):
+    """Raised when another worker started this slot first."""
+
+    status = 409
+    code = "slot_already_started"
+    title = "Already started"
+
+
+def create_scheduled_post(slot):
+    """Create the post for a claimed slot and start making it.
+
+    The quota is used and the slot marked "started" in the same transaction
+    as the post is created, so either all of it happens or none of it.
+    """
+    plan = slot.plan
+    topic = choose_topic(plan)
+    with transaction.atomic():
+        use_daily_quota(plan.user, "posts_per_day")
+        use_daily_quota(plan.user, "posts_per_plan_per_day", scope=str(plan.id))
+        post = Post.objects.create(
+            user=plan.user,
+            plan=plan,
+            topic=topic,
+            slot=slot,
+            demo_mode=settings.DEMO_MODE,
+        )
+        started = PostSlot.objects.filter(id=slot.id, status="claimed").update(
+            status="started", claimed_until=None
+        )
+        if started == 0:
+            raise SlotAlreadyStarted("Another worker started this slot first.")
+    queue_post_job(advance_post_task, post)
+    return post
+
+
 def approve_post(user, post_id):
-    """Approve a post that is waiting, and start publishing it."""
+    """Approve a post that is waiting, and publish it when its time comes.
+
+    A scheduled post whose time is still ahead is published by the
+    scheduler at that time (publishing/scheduled.py); any other post is
+    published straight away.
+    """
     post = get_post(user, post_id)
     change_status(post, "approved")
-    queue_post_job(publish_post_task, post)
+    if post.slot is None or post.slot.publish_at <= timezone.now():
+        queue_post_job(publish_post_task, post)
     return get_post(user, post.id)
 
 

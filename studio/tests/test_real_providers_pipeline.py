@@ -57,7 +57,9 @@ def test_each_step_records_its_models_prompts_and_tokens(client, plan, real_prov
     assert imaging["providers"] == (f"anthropic:claude-opus-5-5, fal:{FAL_MODEL}")
     assert imaging["prompt_versions"] == "image-prompt-v1"
     assert imaging["input_tokens"] == 120
-    assert steps[0]["providers"] == ""
+    # Research uses the text model to rate the shortlist of articles.
+    assert steps[0]["providers"] == "anthropic:claude-opus-5-5"
+    assert steps[0]["prompt_versions"] == "article-scores-v1"
 
 
 def test_a_busy_provider_is_tried_again(client, plan, real_providers):
@@ -73,8 +75,9 @@ def test_a_busy_provider_is_tried_again(client, plan, real_providers):
     post = generate(client, plan)
 
     assert post["status"] == "awaiting_approval"
-    drafting = [step for step in post["steps"] if step["stage"] == "drafting"]
-    assert [step["succeeded"] for step in drafting] == [False, True]
+    # The first text-model request is in research (rating articles).
+    research = [step for step in post["steps"] if step["stage"] == "researching"]
+    assert [step["succeeded"] for step in research] == [False, True]
 
 
 def test_a_provider_that_stays_busy_fails_the_post_in_the_end(
@@ -88,8 +91,8 @@ def test_a_provider_that_stays_busy_fails_the_post_in_the_end(
 
     assert post["status"] == "failed"
     assert "busy" in post["status_reason"]
-    drafting = [step for step in post["steps"] if step["stage"] == "drafting"]
-    assert len(drafting) == tasks.MAX_RETRIES + 1
+    research = [step for step in post["steps"] if step["stage"] == "researching"]
+    assert len(research) == tasks.MAX_RETRIES + 1
 
 
 def test_a_rejected_key_marks_the_credential_and_tells_the_user(
@@ -105,8 +108,9 @@ def test_a_rejected_key_marks_the_credential_and_tells_the_user(
     text_key = ProviderCredential.objects.get(user=user, kind="text")
     assert text_key.status == "invalid"
     assert Notification.objects.filter(user=user, kind="credential_invalid").exists()
-    drafting = [step for step in post["steps"] if step["stage"] == "drafting"]
-    assert len(drafting) == 1
+    # The text model is first used to rate articles, in the research stage.
+    researching = [step for step in post["steps"] if step["stage"] == "researching"]
+    assert len(researching) == 1
 
 
 def test_the_api_key_never_appears_in_responses_or_logs(

@@ -16,13 +16,15 @@ ALLOWED_TRANSITIONS = {
     "drafting": ["imaging", "failed"],
     "imaging": ["reviewing", "failed"],
     "reviewing": ["awaiting_approval", "failed"],
-    "awaiting_approval": ["approved", "rejected"],
+    # A scheduled post expires if nobody approves it in time.
+    "awaiting_approval": ["approved", "rejected", "expired"],
     # An approved post fails if publishing cannot even start.
     "approved": ["publishing", "failed"],
     "publishing": ["published", "failed"],
     # Finished: nothing comes after these.
     "published": [],
     "rejected": [],
+    "expired": [],
     "skipped": [],
     "failed": [],
 }

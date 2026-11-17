@@ -295,6 +295,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/Usage'
           description: ''
+  /api/v1/news/preview/:
+    get:
+      operationId: news_preview_list
+      description: Return up to five articles a post on this topic could use.
+      parameters:
+      - in: query
+        name: preset
+        schema:
+          type: string
+        required: true
+      tags:
+      - news
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ArticlePreview'
+          description: ''
   /api/v1/notifications/:
     get:
       operationId: notifications_list
@@ -472,6 +495,108 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PostDetail'
+          description: ''
+  /api/v1/plans/{plan_id}/pause/:
+    post:
+      operationId: plans_pause_create
+      description: Pause the plan and remove its waiting slots.
+      parameters:
+      - in: path
+        name: plan_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+  /api/v1/plans/{plan_id}/resume/:
+    post:
+      operationId: plans_resume_create
+      description: Resume the plan and make its coming slots.
+      parameters:
+      - in: path
+        name: plan_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+  /api/v1/plans/{plan_id}/schedule/:
+    put:
+      operationId: plans_schedule_update
+      description: Save new rules and remake the slots that have not started yet.
+      parameters:
+      - in: path
+        name: plan_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Schedule'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Schedule'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Schedule'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+  /api/v1/plans/{plan_id}/upcoming/:
+    get:
+      operationId: plans_upcoming_list
+      description: Return the slots from now on, soonest first.
+      parameters:
+      - in: path
+        name: plan_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PostSlot'
           description: ''
   /api/v1/posts/:
     get:
@@ -747,6 +872,37 @@ components:
       - manual
       type: string
       description: '* `manual` - I approve every post'
+    ArticlePreview:
+      type: object
+      description: An article in a topic preview, with where its text came from.
+      properties:
+        title:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        source_name:
+          type: string
+          readOnly: true
+        source_tier:
+          type: string
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+        text_source:
+          type: string
+          readOnly: true
+      required:
+      - published_at
+      - source_name
+      - source_tier
+      - text_source
+      - title
+      - url
     ArticleSummary:
       type: object
       description: 'The article a post is based on: enough to credit and check it.'
@@ -1060,6 +1216,14 @@ components:
         * `quota_reached` - You reached a free-tier limit
         * `plan_paused` - A content plan was paused
         * `outage_missed_slots` - Some scheduled posts were missed
+    OnMissedApprovalEnum:
+      enum:
+      - expire
+      - hold
+      type: string
+      description: |-
+        * `expire` - Drop it (old news loses its value)
+        * `hold` - Keep it; publish as soon as I approve
     PatchedMeUpdate:
       type: object
       description: The details users may change about themselves.
@@ -1069,7 +1233,7 @@ components:
           maxLength: 64
     Plan:
       type: object
-      description: A plan as the API shows it, with its topics and accounts.
+      description: A plan as the API shows it, with its topics, accounts and schedule.
       properties:
         id:
           type: string
@@ -1094,6 +1258,16 @@ components:
         paused:
           type: boolean
           readOnly: true
+        lead_time_minutes:
+          type: integer
+          readOnly: true
+        max_lateness_minutes:
+          type: integer
+          readOnly: true
+        on_missed_approval:
+          allOf:
+          - $ref: '#/components/schemas/OnMissedApprovalEnum'
+          readOnly: true
         topics:
           type: array
           items:
@@ -1103,6 +1277,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SocialAccount'
+          readOnly: true
+        schedule_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
           readOnly: true
         created_at:
           type: string
@@ -1115,9 +1294,13 @@ components:
       - approval_mode
       - created_at
       - id
+      - lead_time_minutes
+      - max_lateness_minutes
       - name
+      - on_missed_approval
       - paused
       - requirements
+      - schedule_rules
       - topics
     PlanCreate:
       type: object
@@ -1140,6 +1323,20 @@ components:
           type: string
           default: Made with AI assistance.
           maxLength: 100
+        lead_time_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 15
+          default: 60
+        max_lateness_minutes:
+          type: integer
+          maximum: 240
+          minimum: 5
+          default: 30
+        on_missed_approval:
+          allOf:
+          - $ref: '#/components/schemas/OnMissedApprovalEnum'
+          default: expire
         topics:
           type: array
           items:
@@ -1149,6 +1346,10 @@ components:
           items:
             type: string
             format: uuid
+        schedule_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
       required:
       - account_ids
       - name
@@ -1201,6 +1402,10 @@ components:
           readOnly: true
         topic_name:
           type: string
+        scheduled_for:
+          type: string
+          format: date-time
+          readOnly: true
         status:
           allOf:
           - $ref: '#/components/schemas/PostStatusEnum'
@@ -1225,6 +1430,7 @@ components:
       - id
       - plan
       - plan_name
+      - scheduled_for
       - status
       - status_reason
       - updated_at
@@ -1245,6 +1451,10 @@ components:
           readOnly: true
         topic_name:
           type: string
+        scheduled_for:
+          type: string
+          format: date-time
+          readOnly: true
         status:
           allOf:
           - $ref: '#/components/schemas/PostStatusEnum'
@@ -1297,11 +1507,54 @@ components:
       - plan_name
       - poster_url
       - publications
+      - scheduled_for
       - status
       - status_reason
       - steps
       - updated_at
       - versions
+    PostSlot:
+      type: object
+      description: 'One coming slot: when it posts, and its post once started.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        publish_at:
+          type: string
+          format: date-time
+          readOnly: true
+        generate_at:
+          type: string
+          format: date-time
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PostSlotStatusEnum'
+          readOnly: true
+        post:
+          type: string
+          format: uuid
+          readOnly: true
+      required:
+      - generate_at
+      - id
+      - post
+      - publish_at
+      - status
+    PostSlotStatusEnum:
+      enum:
+      - waiting
+      - claimed
+      - started
+      - skipped
+      type: string
+      description: |-
+        * `waiting` - Waiting for its time
+        * `claimed` - Being started by a worker
+        * `started` - Post started
+        * `skipped` - Skipped
     PostStatusEnum:
       enum:
       - researching
@@ -1313,6 +1566,7 @@ components:
       - publishing
       - published
       - rejected
+      - expired
       - skipped
       - failed
       type: string
@@ -1326,6 +1580,7 @@ components:
         * `publishing` - Publishing
         * `published` - Published
         * `rejected` - Rejected
+        * `expired` - Expired before it was approved
         * `skipped` - Skipped
         * `failed` - Failed
     PostVersion:
@@ -1520,6 +1775,44 @@ components:
       - issues
       - scores
       - verdict
+    Schedule:
+      type: object
+      description: A plan's whole schedule, for replacing it in one go.
+      properties:
+        schedule_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+      required:
+      - schedule_rules
+    ScheduleRule:
+      type: object
+      description: Some weekdays (Monday = 0 ... Sunday = 6) at some local times.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        days_of_week:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          maxItems: 7
+        times:
+          type: array
+          items:
+            type: string
+            maxLength: 5
+          maxItems: 24
+        timezone:
+          type: string
+          maxLength: 64
+      required:
+      - days_of_week
+      - id
+      - times
     SocialAccount:
       type: object
       description: A linked social account, without its tokens.

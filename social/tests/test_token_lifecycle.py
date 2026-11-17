@@ -102,7 +102,7 @@ def run_twice_at_once(account_id):
         thread.join()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
 def test_two_workers_refreshing_at_once_use_the_refresh_token_only_once(
     user, platforms
 ):

@@ -52,6 +52,10 @@ class PostSerializer(serializers.ModelSerializer):
 
     plan_name = serializers.CharField(source="plan.name", read_only=True)
     topic_name = serializers.CharField(source="topic.name", default=None)
+    # When a scheduled post is published; empty for "generate now" posts.
+    scheduled_for = serializers.DateTimeField(
+        source="slot.publish_at", default=None, read_only=True
+    )
 
     class Meta:
         model = Post
@@ -60,6 +64,7 @@ class PostSerializer(serializers.ModelSerializer):
             "plan",
             "plan_name",
             "topic_name",
+            "scheduled_for",
             "status",
             "status_reason",
             "demo_mode",

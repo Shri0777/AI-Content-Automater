@@ -19,6 +19,21 @@ class DemoTextModel(TextModel):
         """Return "demo": there is no real model behind it."""
         return "demo"
 
+    def score_articles(self, articles, requirements):
+        """Give every article the same good scores, so the best-ranked wins."""
+        scores = []
+        for number in range(1, len(articles) + 1):
+            scores.append(
+                {
+                    "number": number,
+                    "relevance": 4,
+                    "credibility": 4,
+                    "novelty": 3,
+                    "verifiable": True,
+                }
+            )
+        return scores
+
     def write_post(self, article, requirements):
         """Return a headline and a caption that credits the source."""
         headline = article.title[:MAX_HEADLINE_LENGTH]
