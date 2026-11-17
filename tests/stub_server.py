@@ -3,15 +3,17 @@
 Our code talks to it over real HTTP, exactly as it would talk to OpenAI or
 Anthropic, so tests check the real request and the real answer handling.
 
-Each route maps (method, path) to an answer: a dict with "status" and either
-"json" or "body", or a function that receives the request's JSON and returns
-such a dict. Every request received is kept in stub.requests.
+Each route maps (method, path) to an answer: a dict with "status", either
+"json" or "body", and optionally "headers", or a function that receives the
+request's JSON (or form fields) and returns such a dict. Every request
+received is kept in stub.requests, with its raw body, form fields and query.
 """
 
 import json
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qsl, urlsplit
 
 
 class StubServer:
@@ -49,24 +51,38 @@ class StubServer:
         return [request for request in self.requests if request["path"] == path]
 
 
+def read_request(handler):
+    """Return the request as a dict: method, path, headers, body, form, query."""
+    length = int(handler.headers.get("Content-Length", 0))
+    raw_body = handler.rfile.read(length)
+    content_type = handler.headers.get("Content-Type", "")
+    body = None
+    form = None
+    if raw_body and content_type.startswith("application/json"):
+        body = json.loads(raw_body)
+    if content_type.startswith("application/x-www-form-urlencoded"):
+        form = dict(parse_qsl(raw_body.decode()))
+    parts = urlsplit(handler.path)
+    return {
+        "method": handler.command,
+        "path": parts.path,
+        "query": dict(parse_qsl(parts.query)),
+        "headers": handler.headers,
+        "body": body,
+        "form": form,
+        "raw_body": raw_body,
+    }
+
+
 def answer_request(handler):
     """Record one request and send back the route's answer."""
     stub = handler.server.stub
-    length = int(handler.headers.get("Content-Length", 0))
-    raw_body = handler.rfile.read(length)
-    body = json.loads(raw_body) if raw_body else None
-    path = handler.path.split("?")[0]
-    stub.requests.append(
-        {
-            "method": handler.command,
-            "path": path,
-            "headers": handler.headers,
-            "body": body,
-        }
-    )
-    answer = stub.routes.get((handler.command, path), {"status": 404, "json": {}})
+    request = read_request(handler)
+    stub.requests.append(request)
+    route = (request["method"], request["path"])
+    answer = stub.routes.get(route, {"status": 404, "json": {}})
     if callable(answer):
-        answer = answer(body)
+        answer = answer(request["body"] or request["form"])
     time.sleep(answer.get("delay", 0))
     content = answer.get("body")
     if content is None:
@@ -74,12 +90,14 @@ def answer_request(handler):
     handler.send_response(answer.get("status", 200))
     handler.send_header("Content-Type", answer.get("content_type", "application/json"))
     handler.send_header("Content-Length", str(len(content)))
+    for name, value in answer.get("headers", {}).items():
+        handler.send_header(name, value)
     handler.end_headers()
     handler.wfile.write(content)
 
 
 class StubRequestHandler(BaseHTTPRequestHandler):
-    """Passes every GET and POST to answer_request()."""
+    """Passes every GET, POST, PUT and DELETE to answer_request()."""
 
     def do_GET(self):
         """Answer a GET request."""
@@ -87,4 +105,12 @@ class StubRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Answer a POST request."""
+        answer_request(self)
+
+    def do_PUT(self):
+        """Answer a PUT request."""
+        answer_request(self)
+
+    def do_DELETE(self):
+        """Answer a DELETE request."""
         answer_request(self)

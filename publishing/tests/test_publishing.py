@@ -65,8 +65,8 @@ def approved_post(db):
 def test_the_label_is_on_the_caption_sent_to_the_platform(approved_post, monkeypatch):
     sent_captions = []
 
-    def remember_caption(self, account, caption, image_bytes):
-        sent_captions.append(caption)
+    def remember_caption(self, account, content):
+        sent_captions.append(content.caption)
         return "demo-post-1"
 
     monkeypatch.setattr(DemoPublisher, "publish", remember_caption)
@@ -84,7 +84,7 @@ def test_publishing_twice_contacts_each_platform_only_once(approved_post):
 
 
 def test_one_failing_account_does_not_stop_the_others(approved_post, monkeypatch):
-    def fail_for_account_2(self, account, caption, image_bytes):
+    def fail_for_account_2(self, account, content):
         if account.display_name == "Account 2":
             raise ProviderError("Account 2 was refused.")
         return "demo-post-1"
@@ -97,7 +97,7 @@ def test_one_failing_account_does_not_stop_the_others(approved_post, monkeypatch
 
 
 def test_a_post_fails_when_no_account_gets_it(approved_post, monkeypatch):
-    def always_fail(self, account, caption, image_bytes):
+    def always_fail(self, account, content):
         raise ProviderError("Refused.")
 
     monkeypatch.setattr(DemoPublisher, "publish", always_fail)

@@ -17,6 +17,7 @@ post waits for the user's approval.
 | `openai_compatible.py` | Text and image models for any service that speaks OpenAI's format (OpenAI, OpenRouter, Groq, Gemini's compatible endpoint, Ollama and more). |
 | `pipeline.py` | The stages `research`, `draft`, `make_poster` and `review`. Each returns the AI models it used. |
 | `posters.py` | `render_poster` (crops any artwork to the poster size, then adds the headline and source) and `draw_abstract_artwork`. The only file that uses Pillow. |
+| `public_links.py` | `make_public_poster_url` and `read_public_poster`: signed, login-free poster links that stop working after 7 days, for services that download images themselves (Buffer). |
 | `prompts.py` | The versioned instructions sent to the text model. Article text is always wrapped in `<article>` tags and treated as untrusted. |
 | `providers.py` | `get_text_model`, `get_image_model` and `get_provider`: the right provider class for a saved credential. |
 | `runner.py` | `run_stage()`: runs the stage for a post's status, saves a `GenerationStep` (models, prompt versions, tokens) and handles each kind of failure. |
@@ -25,7 +26,7 @@ post waits for the user's approval.
 | `statuses.py` | `ALLOWED_TRANSITIONS`, the one table of allowed status changes; `change_status()`, which every change goes through; and `fail_after_crash()`. |
 | `tasks.py` | `advance_post_task`: runs one stage, then queues the next. A busy provider is retried after 30, 60 and 120 seconds. If a bug crashes it, the post is marked `failed` and the error is raised again so it is logged. |
 | `text_models.py` | `TextModel`, the base class every text provider follows. Providers only write `ask()`; prompting, reading and checking JSON, and one repair round live here. |
-| `urls.py` | `/api/v1/plans/<id>/generate-now/` and `/api/v1/posts/...` (list, detail, `approve/`, `reject/`, `poster/`). |
+| `urls.py` | `/api/v1/plans/<id>/generate-now/`, `/api/v1/posts/...` (list, detail, `approve/`, `reject/`, `poster/`) and `/api/v1/public/posters/<signed link>.png`. |
 | `verdicts.py` | `decide_verdict`: fixed rules turn the AI's scores and issues into pass, revise or reject. |
 | `views.py` | Thin API classes. |
 

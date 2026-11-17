@@ -13,6 +13,16 @@ from celery.schedules import crontab
 
 from config.env import read_bool, read_int, read_list, read_text
 
+# Social platform apps, API addresses and our public address live in their
+# own file. Django reads these names from this module, so they look unused.
+from config.settings.social import (  # noqa: F401
+    FRONTEND_URL,
+    LINKEDIN_API_VERSION,
+    PUBLIC_API_URL,
+    SOCIAL_API_URLS,
+    SOCIAL_APPS,
+)
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Development-only default. Production must set DJANGO_SECRET_KEY.
@@ -203,5 +213,22 @@ CELERY_BEAT_SCHEDULE = {
     "delete-old-notifications": {
         "task": "notifications.tasks.delete_old_notifications_task",
         "schedule": crontab(hour=3, minute=0),
+    },
+    # X tokens last two hours, so this runs often enough to keep them fresh.
+    "refresh-social-tokens": {
+        "task": "social.tasks.refresh_social_tokens_task",
+        "schedule": crontab(minute="*/30"),
+    },
+}
+
+# httpx writes every request's full address to the log at INFO level. Some
+# platforms (Facebook's token exchange) put secrets in the address, so those
+# lines must never be logged. Warnings and errors still are.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "loggers": {
+        "httpx": {"level": "WARNING"},
+        "httpcore": {"level": "WARNING"},
     },
 }

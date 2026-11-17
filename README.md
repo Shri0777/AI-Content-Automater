@@ -71,6 +71,27 @@ To run everything in Docker instead (web server, worker and scheduler):
 docker compose up --build
 ```
 
+## Linking real social accounts
+
+Demo mode needs nothing. To link real accounts, set these environment
+variables (`GET /api/v1/social/platforms/` shows which platforms are ready):
+
+| Variable | Needed for |
+|---|---|
+| `PUBLIC_API_URL` | The address the internet uses to reach this API (default `http://localhost:8000`). Platforms send users back here, and Buffer downloads posters from here, so Buffer needs a public address. |
+| `FRONTEND_URL` | Where users land after linking (default `http://localhost:5173`). |
+| `X_CLIENT_ID`, `X_CLIENT_SECRET` | X: an app from the X developer console with OAuth 2.0 turned on. |
+| `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | LinkedIn: an app with the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products. |
+| `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | Facebook Pages: a Meta app with Facebook Login. Some permissions need Meta's app review. |
+| `LINKEDIN_API_VERSION` | Optional; LinkedIn's API version, `YYYYMM` (default `202610`). |
+
+Register each app's redirect address as
+`<PUBLIC_API_URL>/api/v1/social/link/<x|linkedin|facebook>/callback/`.
+Buffer needs no app: each user pastes their own API key from Buffer's
+Settings > API page. The adapters are tested against stub servers that
+answer in each platform's documented format; they have not yet been run
+against the live platforms.
+
 ## Checks
 
 ```bash

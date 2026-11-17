@@ -4,10 +4,12 @@ from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.pagination import CursorPagination
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from studio import services
+from studio.public_links import read_public_poster
 from studio.serializers import PostDetailSerializer, PostSerializer
 
 
@@ -82,3 +84,18 @@ class PosterView(APIView):
         """Return the newest poster as a PNG image."""
         png_bytes = services.get_poster_bytes(request.user, post_id)
         return HttpResponse(png_bytes, content_type="image/png")
+
+
+class PublicPosterView(APIView):
+    """A poster image behind a signed link, for services such as Buffer.
+
+    No login is needed: the signature in the address is the permission.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(responses={(200, "image/png"): OpenApiTypes.BINARY})
+    def get(self, request, token):
+        """Return the poster as a PNG image if the link is valid."""
+        return HttpResponse(read_public_poster(token), content_type="image/png")

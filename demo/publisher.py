@@ -12,6 +12,6 @@ from social.publishers import Publisher
 class DemoPublisher(Publisher):
     """Pretends to publish a post and returns a made-up post id."""
 
-    def publish(self, account, caption, image_bytes):
+    def publish(self, account, content):
         """Return a new fake post id, as a real platform would."""
         return f"demo-post-{uuid.uuid4().hex[:12]}"

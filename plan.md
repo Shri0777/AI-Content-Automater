@@ -1,6 +1,6 @@
 # AI Content Automator: Backend Build Plan (V4)
 
-Status: **Phases 0 to 3 are built and verified against stub servers** (V3 preserved under the `legacy-v3` tag). Real providers are **unverified-live** until someone runs them with real keys. Next: Phase 4, social linking.
+Status: **Phases 0 to 4 are built and verified against stub servers** (V3 preserved under the `legacy-v3` tag). Real AI providers and social platforms are **unverified-live** until someone runs them with real keys and registered apps. Next: Phase 5, planning and scheduling.
 Scope: backend only (REST API + workers). The frontend is planned separately.
 
 **Decided so far**
@@ -168,6 +168,14 @@ Work is built as a **walking skeleton first** (Phase 2), then deepened. That giv
 | **10 Resume packaging** | README, diagrams in `docs/`, `docs/CASE-STUDY.md`, badges, demo recording, measured resume bullets | A newcomer runs the demo in three commands. Every number cited is measured. |
 | **Later (not scheduled)** | Production deployment, frontend integration, live-provider verification | Decided with you after Phase 10. |
 
+**Phase 4 notes (built 2026-11-17).** Buffer (API key, channels found automatically), X (OAuth 2.0 with PKCE, rotating refresh tokens), LinkedIn (member posts) and Facebook Pages. Each adapter follows that platform's documentation, read on 2026-11-17 and linked at the top of its file. Decisions and limits:
+- **Instagram is deferred.** Meta downloads Instagram images from a public URL and needs JPEG. This uses the signed poster link built for Buffer, so it can follow once a public address exists.
+- **LinkedIn tokens cannot be refreshed** by self-serve apps (60 days). Users get a warning a week before expiry and relink. Not yet confirmed live: that `/v2/userinfo`'s `sub` is the id in `urn:li:person:<id>`.
+- **Buffer posts go out 2 minutes after publishing** (`customScheduled`), so Buffer has time to download the poster. Phase 5 will pass the slot's real time instead.
+- **Refresh safety:** refreshing locks the account's row, so a single-use refresh token is never sent twice. A test proves two simultaneous workers make one refresh call.
+- **Revoke on unlink:** X's revoke call is used. LinkedIn and Meta revoke calls were not verified, so for them only our copy of the tokens is deleted.
+- **Ambiguous outcomes and `check_status`** (ADR-004's reconcile) are Phase 8 work.
+
 Each phase also ends with the definition of done in [design/test-strategy.md](design/test-strategy.md#7-definition-of-done-per-phase): green tests, the readability gate, the fresh-eyes review, and an updated code tour, plus a review of the final diff.
 
 ## 9. Verification (summary)
@@ -176,6 +184,7 @@ Unit, integration (real Postgres, Redis and Celery worker), contract (OpenAPI sn
 ## 10. Needs a human (nothing here will be fabricated)
 - Developer app registration (and app review where needed) for LinkedIn, X and Meta.
 - Real text and image model keys and a Buffer token for live checks. A paid news key is optional and off by default.
+- For Buffer: a server reachable from the internet (`PUBLIC_API_URL`), because Buffer downloads the poster itself.
 - Until then, live generation, linking and publishing are verified **only against stubs and fakes**, and docs mark them **unverified-live**.
 - The **auto-post gate policy** (Phase 8) encodes editorial risk tolerance. I will build it myself with a safe, closed-by-default policy, and list it in the review notes so you can read it and adjust the thresholds after the build.
 - Deployment and hosting choices, when you are ready.

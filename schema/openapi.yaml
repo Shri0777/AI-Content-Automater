@@ -584,6 +584,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/PostDetail'
           description: ''
+  /api/v1/public/posters/{token}.png:
+    get:
+      operationId: public_posters_.png_retrieve
+      description: Return the poster as a PNG image if the link is valid.
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/v1/social/accounts/:
     get:
       operationId: social_accounts_list
@@ -604,7 +626,7 @@ paths:
   /api/v1/social/accounts/{account_id}/:
     delete:
       operationId: social_accounts_destroy
-      description: Remove the account if it belongs to the user.
+      description: Cancel the account's tokens and remove it, if it is the user's.
       parameters:
       - in: path
         name: account_id
@@ -619,6 +641,73 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/social/link/{platform}/callback/:
+    get:
+      operationId: social_link_callback_retrieve
+      description: Finish linking and send the user on to the frontend's result page.
+      parameters:
+      - in: path
+        name: platform
+        schema:
+          type: string
+        required: true
+      tags:
+      - social
+      security:
+      - {}
+      responses:
+        '302':
+          description: No response body
+  /api/v1/social/link/{platform}/start/:
+    post:
+      operationId: social_link_start_create
+      description: Return the platform page where the user approves the link.
+      parameters:
+      - in: path
+        name: platform
+        schema:
+          type: string
+        required: true
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkStart'
+          description: ''
+  /api/v1/social/link/buffer/:
+    post:
+      operationId: social_link_buffer_create
+      description: Find the key's channels and link them (or only the chosen ones).
+      tags:
+      - social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BufferLink'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BufferLink'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BufferLink'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SocialAccount'
+          description: ''
   /api/v1/social/link/demo/:
     post:
       operationId: social_link_demo_create
@@ -633,6 +722,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SocialAccount'
+          description: ''
+  /api/v1/social/platforms/:
+    get:
+      operationId: social_platforms_list
+      description: Return every platform with how it is linked and if it is ready.
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Platform'
           description: ''
 components:
   schemas:
@@ -664,6 +770,22 @@ components:
       - source_name
       - title
       - url
+    BufferLink:
+      type: object
+      description: The Buffer API key, and optionally which channels to link.
+      properties:
+        api_key:
+          type: string
+          writeOnly: true
+          maxLength: 500
+        channel_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          maxItems: 50
+      required:
+      - api_key
     Credential:
       type: object
       description: A saved credential. The API key is accepted but never sent back.
@@ -820,6 +942,25 @@ components:
       - resets_at
       - resource
       - used
+    LinkMethodEnum:
+      enum:
+      - oauth
+      - api_key
+      - demo
+      type: string
+      description: |-
+        * `oauth` - oauth
+        * `api_key` - api_key
+        * `demo` - demo
+    LinkStart:
+      type: object
+      description: Where to send the user to approve the link.
+      properties:
+        authorization_url:
+          type: string
+          format: uri
+      required:
+      - authorization_url
     Login:
       type: object
       description: The fields needed to log in.
@@ -1012,11 +1153,37 @@ components:
       - account_ids
       - name
       - topics
+    Platform:
+      type: object
+      description: One platform and whether accounts can be linked on it right now.
+      properties:
+        platform:
+          type: string
+        name:
+          type: string
+        link_method:
+          $ref: '#/components/schemas/LinkMethodEnum'
+        ready:
+          type: boolean
+      required:
+      - link_method
+      - name
+      - platform
+      - ready
     PlatformEnum:
       enum:
       - demo
+      - buffer
+      - x
+      - linkedin
+      - facebook
       type: string
-      description: '* `demo` - Demo network'
+      description: |-
+        * `demo` - Demo network
+        * `buffer` - Buffer
+        * `x` - X
+        * `linkedin` - LinkedIn
+        * `facebook` - Facebook Page
     Post:
       type: object
       description: 'A post in a list: its status and where it belongs.'
@@ -1355,7 +1522,7 @@ components:
       - verdict
     SocialAccount:
       type: object
-      description: A linked social account, without its token.
+      description: A linked social account, without its tokens.
       properties:
         id:
           type: string
@@ -1365,12 +1532,22 @@ components:
           allOf:
           - $ref: '#/components/schemas/PlatformEnum'
           readOnly: true
+        network:
+          type: string
+          readOnly: true
         display_name:
           type: string
           readOnly: true
         status:
           allOf:
           - $ref: '#/components/schemas/SocialAccountStatusEnum'
+          readOnly: true
+        last_error:
+          type: string
+          readOnly: true
+        link_expires_at:
+          type: string
+          format: date-time
           readOnly: true
         created_at:
           type: string
@@ -1380,6 +1557,9 @@ components:
       - created_at
       - display_name
       - id
+      - last_error
+      - link_expires_at
+      - network
       - platform
       - status
     SocialAccountStatusEnum:

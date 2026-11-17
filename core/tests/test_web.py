@@ -128,3 +128,86 @@ def test_the_api_key_is_hidden_in_error_messages(stub_server):
 
     assert key not in str(error.value)
     assert "[hidden]" in str(error.value)
+
+
+def test_a_web_form_is_sent_as_a_form(stub_server):
+    stub_server.set_route("POST", "/token", {"json": {"access_token": "t"}})
+
+    answer = web.post_form(f"{stub_server.base_url}/token", {}, {"code": "abc 1"})
+
+    assert answer == {"access_token": "t"}
+    request = stub_server.requests[0]
+    assert request["headers"]["Content-Type"] == "application/x-www-form-urlencoded"
+    assert request["form"] == {"code": "abc 1"}
+
+
+def test_a_file_upload_sends_the_file_and_the_fields(stub_server):
+    stub_server.set_route("POST", "/upload", {"json": {"data": {"id": "7"}}})
+
+    answer = web.post_files(
+        f"{stub_server.base_url}/upload",
+        {},
+        {"media_category": "tweet_image"},
+        {"media": ("poster.png", b"PNGDATA", "image/png")},
+    )
+
+    assert answer == {"data": {"id": "7"}}
+    request = stub_server.requests[0]
+    assert request["headers"]["Content-Type"].startswith("multipart/form-data")
+    assert b"PNGDATA" in request["raw_body"]
+    assert b"tweet_image" in request["raw_body"]
+
+
+def test_raw_bytes_can_be_put_and_the_answer_headers_are_returned(stub_server):
+    stub_server.set_route(
+        "PUT", "/file", {"status": 201, "body": b"", "headers": {"x-id": "abc"}}
+    )
+
+    answer = web.put_bytes(f"{stub_server.base_url}/file", {}, b"\x89PNG")
+
+    assert answer.status == 201
+    assert answer.headers["x-id"] == "abc"
+    assert stub_server.requests[0]["raw_body"] == b"\x89PNG"
+
+
+def test_post_json_with_headers_returns_the_answer_headers(stub_server):
+    stub_server.set_route(
+        "POST", "/posts", {"status": 201, "body": b"", "headers": {"x-id": "p1"}}
+    )
+
+    answer = web.send("POST", f"{stub_server.base_url}/posts", {}, {"json": {}})
+
+    assert answer.headers["x-id"] == "p1"
+
+
+def test_a_secret_sent_in_a_form_is_hidden_in_error_messages(stub_server):
+    secret = "client-secret-abcdef"
+    stub_server.set_route(
+        "POST", "/token", {"status": 400, "json": {"error": f"bad {secret}"}}
+    )
+
+    with pytest.raises(ProviderError) as error:
+        web.post_form(f"{stub_server.base_url}/token", {}, {"client_secret": secret})
+
+    assert secret not in str(error.value)
+
+
+def test_request_addresses_are_never_written_to_the_log(stub_server, caplog):
+    stub_server.set_route("GET", "/token", {"json": {}})
+    caplog.set_level("INFO")
+
+    get_json(f"{stub_server.base_url}/token?client_secret=abcdefgh123", {})
+
+    assert "abcdefgh123" not in caplog.text
+
+
+def test_a_secret_in_the_address_is_hidden_in_error_messages(stub_server):
+    secret = "app-secret-in-query-123"
+    stub_server.set_route(
+        "GET", "/token", {"status": 400, "json": {"error": f"bad {secret}"}}
+    )
+
+    with pytest.raises(ProviderError) as error:
+        get_json(f"{stub_server.base_url}/token?client_secret={secret}", {})
+
+    assert secret not in str(error.value)

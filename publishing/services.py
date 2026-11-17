@@ -8,13 +8,15 @@ import hashlib
 
 from django.utils import timezone
 
-from core.errors import ProviderError
+from core.errors import ProviderError, ProviderKeyRejected
 from notifications.services import notify
 from publishing.models import Publication
-from social.models import CAPTION_LIMITS
-from social.services import get_publisher
+from social.platforms import caption_limit_for, get_publisher
+from social.publishers import PostContent
+from social.tokens import REFRESH_BEFORE_POSTING, mark_needs_reauth, refresh_account
 from studio.files import read_poster
 from studio.models import Post
+from studio.public_links import make_public_poster_url
 from studio.statuses import change_status
 
 ELLIPSIS = "…"
@@ -45,7 +47,22 @@ def caption_for(post, version, account):
     label = ""
     if post.plan.ai_label_enabled:
         label = post.plan.ai_label_text
-    return add_ai_label(version.caption, label, CAPTION_LIMITS[account.platform])
+    return add_ai_label(version.caption, label, caption_limit_for(account))
+
+
+def send_to_platform(post, version, account, poster):
+    """Refresh the account's token if needed, then post; return the post id."""
+    account = refresh_account(account.id, REFRESH_BEFORE_POSTING)
+    if account.status != "active":
+        raise ProviderError(f"{account.display_name} must be connected again.")
+    content = PostContent(
+        caption_for(post, version, account), poster, make_public_poster_url(version)
+    )
+    try:
+        return get_publisher(account.platform).publish(account, content)
+    except ProviderKeyRejected:
+        mark_needs_reauth(account, "The platform refused this account's token.")
+        raise
 
 
 def publish_to_account(post, version, account, poster):
@@ -66,10 +83,8 @@ def publish_to_account(post, version, account, poster):
     )
     if not created:
         return publication
-    publisher = get_publisher(account.platform)
     try:
-        caption = caption_for(post, version, account)
-        publication.external_id = publisher.publish(account, caption, poster)
+        publication.external_id = send_to_platform(post, version, account, poster)
     except ProviderError as error:
         publication.status = "failed"
         publication.error = str(error)

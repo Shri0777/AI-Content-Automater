@@ -32,7 +32,8 @@ and social providers (`demo/`), so no API keys are needed.
 5. `quotas/`: free-tier limits.
 6. `notifications/`: in-app messages.
 7. `credentials/`: each user's own AI and news keys, stored encrypted.
-8. `social/`: linked social accounts and the `Publisher` base class.
+8. `social/`: linked social accounts, the `Publisher` base class, one
+   publisher per platform (Buffer, X, LinkedIn, Facebook) and token refresh.
 9. `planning/`: content plans and their topics.
 10. `newsroom/`: articles, topic presets and the `NewsSource` base class.
 11. `studio/`: the post pipeline, the status table, the poster renderer.
@@ -124,8 +125,11 @@ Tasks call services too. Business rules never live in views or serializers.
    `change_status(post, "approved")`. Two clicks at once cannot both win,
    because the database update only matches the old status.
 6. **`publishing/services.py`, `publish_post()`** sends the post to each of
-   the plan's accounts with the AI label added. The unique `idempotency_key`
-   means each account is contacted at most once.
+   the plan's accounts with the AI label added, cut to each network's
+   caption limit. The unique `idempotency_key` means each account is
+   contacted at most once. Just before posting, `social/tokens.py`,
+   `refresh_account()` renews a token that is about to end; a token the
+   platform refuses marks the account `needs_reauth` and tells the user.
 
 You can follow all of this in the API: `GET /api/v1/posts/<id>/` shows the
 article, versions, review, steps and publications.
@@ -149,6 +153,11 @@ article, versions, review, steps and publications.
 | **Pipeline stage** | One step of making a post (research, draft, poster, review), run as one background job. |
 | **Idempotency key** | A value that is always the same for the same action, so the action can be safely retried without happening twice. |
 | **SSRF** | Tricking a server into calling addresses inside its own network. `core/web.py` refuses private addresses. |
+| **OAuth** | The "Log in with X / LinkedIn / Facebook" approval flow. The platform hands us a code, which we swap for tokens (`social/oauth.py`). |
+| **State (OAuth)** | A random, single-use value sent to the platform and checked when the user comes back, so another site cannot link its account to our user. |
+| **PKCE** | Sending a fingerprint of a secret first and the secret itself only when swapping the code, so a stolen code is useless. |
+| **Row lock** | `select_for_update()` makes a second worker wait for the first, so a once-only refresh token is never used twice (`social/tokens.py`). |
+| **Signed link** | An address that carries a signature made with our secret key, so it cannot be guessed or changed (`studio/public_links.py`). |
 | **Stub server** | A small fake web service used in tests that answers like a real provider (`tests/stub_server.py`). |
 | **OpenAPI schema** | A machine-readable description of the API, saved in `schema/openapi.yaml`. |
 
