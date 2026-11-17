@@ -642,6 +642,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/PostDetail'
           description: ''
+    patch:
+      operationId: posts_partial_update
+      description: Change the headline or caption of a post waiting for approval.
+      parameters:
+      - in: path
+        name: post_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - posts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPostEdit'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPostEdit'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPostEdit'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+          description: ''
   /api/v1/posts/{post_id}/approve/:
     post:
       operationId: posts_approve_create
@@ -730,6 +762,40 @@ paths:
               schema:
                 type: string
                 format: binary
+          description: ''
+  /api/v1/publications/{publication_id}/resolve/:
+    post:
+      operationId: publications_resolve_create
+      description: Record the owner's answer and update the post.
+      parameters:
+      - in: path
+        name: publication_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - publications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resolve'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Resolve'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Resolve'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Publication'
           description: ''
   /api/v1/social/accounts/:
     get:
@@ -870,8 +936,11 @@ components:
     ApprovalModeEnum:
       enum:
       - manual
+      - auto
       type: string
-      description: '* `manual` - I approve every post'
+      description: |-
+        * `manual` - I approve every post
+        * `auto` - Post automatically when the review is clean
     ArticlePreview:
       type: object
       description: An article in a topic preview, with where its text came from.
@@ -926,6 +995,9 @@ components:
       - source_name
       - title
       - url
+    BlankEnum:
+      enum:
+      - ''
     BufferLink:
       type: object
       description: The Buffer API key, and optionally which channels to link.
@@ -1196,6 +1268,7 @@ components:
       enum:
       - post_awaiting_approval
       - post_published
+      - publish_unconfirmed
       - post_failed
       - post_skipped
       - post_expired
@@ -1208,6 +1281,7 @@ components:
       description: |-
         * `post_awaiting_approval` - A post is waiting for your approval
         * `post_published` - Post published
+        * `publish_unconfirmed` - Check whether a post went out
         * `post_failed` - A post could not be made
         * `post_skipped` - A post was skipped
         * `post_expired` - A post expired before it was approved
@@ -1224,6 +1298,14 @@ components:
       description: |-
         * `expire` - Drop it (old news loses its value)
         * `hold` - Keep it; publish as soon as I approve
+    OutcomeEnum:
+      enum:
+      - published
+      - not_published
+      type: string
+      description: |-
+        * `published` - published
+        * `not_published` - not_published
     PatchedMeUpdate:
       type: object
       description: The details users may change about themselves.
@@ -1231,6 +1313,17 @@ components:
         timezone:
           type: string
           maxLength: 64
+    PatchedPostEdit:
+      type: object
+      description: The user's own wording for a post waiting for approval.
+      properties:
+        headline:
+          type: string
+          default: ''
+          maxLength: 90
+        caption:
+          type: string
+          maxLength: 3000
     Plan:
       type: object
       description: A plan as the API shows it, with its topics, accounts and schedule.
@@ -1268,6 +1361,9 @@ components:
           allOf:
           - $ref: '#/components/schemas/OnMissedApprovalEnum'
           readOnly: true
+        auto_post_min_score:
+          type: integer
+          readOnly: true
         topics:
           type: array
           items:
@@ -1292,6 +1388,7 @@ components:
       - ai_label_enabled
       - ai_label_text
       - approval_mode
+      - auto_post_min_score
       - created_at
       - id
       - lead_time_minutes
@@ -1337,6 +1434,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/OnMissedApprovalEnum'
           default: expire
+        auto_post_min_score:
+          type: integer
+          maximum: 25
+          minimum: 15
+          default: 22
         topics:
           type: array
           items:
@@ -1480,7 +1582,7 @@ components:
         poster_url:
           type: string
           nullable: true
-          description: Return the address of the newest poster, or None if there is
+          description: Return the address of the final poster, or None if there is
             none.
           readOnly: true
         versions:
@@ -1561,6 +1663,7 @@ components:
       - drafting
       - imaging
       - reviewing
+      - correcting
       - awaiting_approval
       - approved
       - publishing
@@ -1575,6 +1678,7 @@ components:
         * `drafting` - Writing the caption
         * `imaging` - Making the poster
         * `reviewing` - Checking the post
+        * `correcting` - Fixing what the review found
         * `awaiting_approval` - Waiting for your approval
         * `approved` - Approved
         * `publishing` - Publishing
@@ -1653,6 +1757,11 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        resolved_by:
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/ResolvedByEnum'
+          - $ref: '#/components/schemas/BlankEnum'
       required:
       - account_name
       - demo_mode
@@ -1661,17 +1770,20 @@ components:
       - id
       - platform
       - published_at
+      - resolved_by
       - status
     PublicationStatusEnum:
       enum:
       - publishing
       - published
       - failed
+      - ambiguous
       type: string
       description: |-
         * `publishing` - Publishing
         * `published` - Published
         * `failed` - Failed
+        * `ambiguous` - Not confirmed
     Recover:
       type: object
       description: The fields needed to reset a forgotten password with a recovery
@@ -1759,6 +1871,27 @@ components:
       - recovery_codes
       - tier
       - timezone
+    Resolve:
+      type: object
+      description: The owner's answer about a post we could not confirm.
+      properties:
+        outcome:
+          $ref: '#/components/schemas/OutcomeEnum'
+        external_id:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - outcome
+    ResolvedByEnum:
+      enum:
+      - platform
+      - user
+      type: string
+      description: |-
+        * `` - Not settled
+        * `platform` - Checked with the platform
+        * `user` - Confirmed by the user
     Review:
       type: object
       description: The AI review of a version and its verdict.

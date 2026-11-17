@@ -13,6 +13,7 @@ studio.providers.get_text_model() picks the right one for a credential.
 import json
 
 from core.errors import ProviderError, ProviderKeyRejected
+from studio.guards import neutralise_tags
 from studio.model_outputs import (
     ArticleScoresOutput,
     DraftOutput,
@@ -21,6 +22,7 @@ from studio.model_outputs import (
 )
 from studio.prompts import (
     ARTICLE_SCORES_PROMPT,
+    CORRECT_PROMPT,
     DRAFT_PROMPT,
     IMAGE_PROMPT_PROMPT,
     MAX_ARTICLE_CHARACTERS,
@@ -51,8 +53,8 @@ def read_json_answer(answer, output_class):
 def article_values(article):
     """Return the article details the prompts fill in."""
     return {
-        "title": article.title,
-        "text": article.text[:MAX_ARTICLE_CHARACTERS],
+        "title": neutralise_tags(article.title),
+        "text": neutralise_tags(article.text[:MAX_ARTICLE_CHARACTERS]),
         "source_name": article.source_name,
         "url": article.url,
     }
@@ -62,12 +64,34 @@ def numbered_articles(articles):
     """Return the shortlist as numbered <article> blocks for the scoring prompt."""
     blocks = []
     for number, article in enumerate(articles, start=1):
-        text = article.text[:SCORING_ARTICLE_CHARACTERS]
+        text = neutralise_tags(article.text[:SCORING_ARTICLE_CHARACTERS])
+        title = neutralise_tags(article.title)
         blocks.append(
-            f'<article number="{number}">\n{article.title}\n'
+            f'<article number="{number}">\n{title}\n'
             f"Source: {article.source_name}\n\n{text}\n</article>"
         )
     return "\n\n".join(blocks)
+
+
+def finished_post(result, article):
+    """Return the headline (cut to length) and a caption that credits the source."""
+    caption = result["caption"]
+    if article.url not in caption:
+        caption = f"{caption}\n\nSource: {article.source_name}, {article.url}"
+    return {"headline": result["headline"][:MAX_HEADLINE_LENGTH], "caption": caption}
+
+
+def describe_issues(issues):
+    """Return the review's issues as a short numbered list of notes."""
+    lines = []
+    for number, issue in enumerate(issues, start=1):
+        lines.append(
+            f"{number}. ({issue['severity']}) {issue['problem']} "
+            f"Fix: {issue.get('fix_instruction') or 'use your judgement'}"
+        )
+    if not lines:
+        return "Make the post clearer and more engaging, staying accurate."
+    return "\n".join(lines)
 
 
 class TextModel:
@@ -140,13 +164,17 @@ class TextModel:
         values = article_values(article)
         values["requirements"] = requirements or "(nothing specific)"
         result = self.ask_for_json(DRAFT_PROMPT, values, DraftOutput)
-        caption = result["caption"]
-        if article.url not in caption:
-            caption = f"{caption}\n\nSource: {article.source_name}, {article.url}"
-        return {
-            "headline": result["headline"][:MAX_HEADLINE_LENGTH],
-            "caption": caption,
-        }
+        return finished_post(result, article)
+
+    def correct_post(self, article, requirements, version, issues):
+        """Return a corrected {"headline", "caption"} following the review's issues."""
+        values = article_values(article)
+        values["requirements"] = requirements or "(nothing specific)"
+        values["headline"] = version.headline
+        values["caption"] = version.caption
+        values["notes"] = describe_issues(issues)
+        result = self.ask_for_json(CORRECT_PROMPT, values, DraftOutput)
+        return finished_post(result, article)
 
     def write_image_prompt(self, article, headline):
         """Return a prompt for the image model. It asks for no written words."""

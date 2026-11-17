@@ -16,6 +16,7 @@ import time
 from core.errors import ProviderBusy, ProviderError, ProviderKeyRejected
 from credentials.services import CredentialMissing, reject_credential
 from notifications.services import notify
+from planning.services import pause_all_plans
 from studio.models import GenerationStep, Post
 from studio.pipeline import STAGES
 from studio.statuses import change_status
@@ -61,6 +62,9 @@ def handle_failure(post, error, can_retry):
         raise TryAgainLater(str(error)) from error
     if isinstance(error, ProviderKeyRejected) and error.credential is not None:
         reject_credential(error.credential, str(error))
+        # Every post would fail the same way, so stop the schedules until
+        # the user updates the key.
+        pause_all_plans(post.user, f"your {error.credential.kind} API key was refused.")
     fail_post(post, str(error))
 
 

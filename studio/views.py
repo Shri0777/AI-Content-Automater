@@ -10,7 +10,11 @@ from rest_framework.views import APIView
 
 from studio import services
 from studio.public_links import read_public_poster
-from studio.serializers import PostDetailSerializer, PostSerializer
+from studio.serializers import (
+    PostDetailSerializer,
+    PostEditSerializer,
+    PostSerializer,
+)
 
 
 class PostPagination(CursorPagination):
@@ -53,6 +57,19 @@ class PostDetailView(APIView):
     def get(self, request, post_id):
         """Return everything about one post."""
         post = services.get_post(request.user, post_id)
+        return Response(PostDetailSerializer(post).data)
+
+    @extend_schema(request=PostEditSerializer, responses=PostDetailSerializer)
+    def patch(self, request, post_id):
+        """Change the headline or caption of a post waiting for approval."""
+        serializer = PostEditSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        post = services.edit_post(
+            request.user,
+            post_id,
+            serializer.validated_data["headline"],
+            serializer.validated_data["caption"],
+        )
         return Response(PostDetailSerializer(post).data)
 
 

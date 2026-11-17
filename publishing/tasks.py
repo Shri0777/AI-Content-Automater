@@ -6,6 +6,7 @@ them between processes as JSON.
 
 from celery import shared_task
 
+from publishing.reconcile import reconcile_ambiguous
 from publishing.services import publish_post
 from studio.statuses import fail_after_crash
 
@@ -20,3 +21,9 @@ def publish_post_task(post_id):
         # post stuck in "publishing" with no message for the user.
         fail_after_crash(post_id)
         raise
+
+
+@shared_task
+def reconcile_publications_task():
+    """Try to settle publications whose outcome is unknown."""
+    return reconcile_ambiguous()

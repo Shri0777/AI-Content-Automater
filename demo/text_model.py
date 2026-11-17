@@ -44,6 +44,13 @@ class DemoTextModel(TextModel):
         )
         return {"headline": headline, "caption": caption}
 
+    def correct_post(self, article, requirements, version, issues):
+        """Return the caption with the source link added if it was missing."""
+        caption = version.caption
+        if article.url not in caption:
+            caption = f"{caption}\n\nSource: {article.source_name}, {article.url}"
+        return {"headline": version.headline, "caption": caption}
+
     def write_image_prompt(self, article, headline):
         """Return a simple prompt that asks for artwork without words."""
         return (

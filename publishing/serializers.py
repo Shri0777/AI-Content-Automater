@@ -26,5 +26,14 @@ class PublicationSerializer(serializers.ModelSerializer):
             "error",
             "demo_mode",
             "published_at",
+            "resolved_by",
         ]
         read_only_fields = fields
+
+
+class ResolveSerializer(serializers.Serializer):
+    """The owner's answer about a post we could not confirm."""
+
+    outcome = serializers.ChoiceField(choices=["published", "not_published"])
+    # The post's id on the platform, if the owner can see it (optional).
+    external_id = serializers.CharField(max_length=200, required=False, default="")

@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from core.errors import AppError
+from notifications.services import notify
 from planning.models import ContentPlan, PostSlot, ScheduleRule, Topic
 from planning.schedule import make_slots, remove_future_slots
 from quotas.services import (
@@ -89,6 +90,7 @@ def save_new_plan(user, details):
         lead_time_minutes=details["lead_time_minutes"],
         max_lateness_minutes=details["max_lateness_minutes"],
         on_missed_approval=details["on_missed_approval"],
+        auto_post_min_score=details["auto_post_min_score"],
     )
 
 
@@ -162,6 +164,22 @@ def get_upcoming_slots(user, plan_id):
         publish_at__gte=timezone.now(),
         status__in=["waiting", "claimed", "started"],
     ).select_related("post")
+
+
+def pause_all_plans(user, reason):
+    """Pause every active plan of the user (for example after a key broke)."""
+    for plan in ContentPlan.objects.filter(user=user, paused=False):
+        with transaction.atomic():
+            plan.paused = True
+            plan.save(update_fields=["paused"])
+            remove_future_slots(plan)
+        notify(
+            user,
+            "plan_paused",
+            f"'{plan.name}' was paused: {reason} Resume it once that is fixed.",
+            related=plan,
+            dedupe_key=f"plan-paused:{plan.id}",
+        )
 
 
 def delete_plan(user, plan_id):

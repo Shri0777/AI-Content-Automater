@@ -10,6 +10,7 @@ from django.utils import timezone
 KIND_CHOICES = [
     ("post_awaiting_approval", "A post is waiting for your approval"),
     ("post_published", "Post published"),
+    ("publish_unconfirmed", "Check whether a post went out"),
     ("post_failed", "A post could not be made"),
     ("post_skipped", "A post was skipped"),
     ("post_expired", "A post expired before it was approved"),

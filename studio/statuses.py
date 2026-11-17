@@ -15,7 +15,10 @@ ALLOWED_TRANSITIONS = {
     "researching": ["drafting", "skipped", "failed"],
     "drafting": ["imaging", "failed"],
     "imaging": ["reviewing", "failed"],
-    "reviewing": ["awaiting_approval", "failed"],
+    # A review either asks for a correction or hands the post to the user.
+    # "approved" straight away only when the auto-post gate allows it.
+    "reviewing": ["correcting", "awaiting_approval", "approved", "failed"],
+    "correcting": ["reviewing", "failed"],
     # A scheduled post expires if nobody approves it in time.
     "awaiting_approval": ["approved", "rejected", "expired"],
     # An approved post fails if publishing cannot even start.

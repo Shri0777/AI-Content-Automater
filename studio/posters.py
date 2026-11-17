@@ -68,6 +68,18 @@ def wrap_text(draw, text, font, max_width):
     return lines
 
 
+def fit_lines(draw, lines, font, max_width, max_lines):
+    """Keep at most max_lines; end the last kept line with "…" if some were cut."""
+    if len(lines) <= max_lines:
+        return lines
+    kept = lines[:max_lines]
+    last = kept[-1]
+    while last and draw.textlength(f"{last}…", font=font) > max_width:
+        last = last[:-1]
+    kept[-1] = f"{last.rstrip()}…"
+    return kept
+
+
 def open_artwork(artwork_bytes, width, height):
     """Return the artwork cropped and scaled to exactly width x height.
 
@@ -84,22 +96,42 @@ def open_artwork(artwork_bytes, width, height):
     return ImageOps.fit(artwork.convert("RGBA"), (width, height))
 
 
-def render_poster(artwork_bytes, headline, source_line, width, height):
-    """Return width x height PNG bytes: artwork with the headline on top."""
-    image = open_artwork(artwork_bytes, width, height)
-    margin = width // 18
+def fit_artwork(artwork_bytes, width, height):
+    """Return the artwork as PNG bytes, cropped and scaled to width x height."""
+    return to_png_bytes(open_artwork(artwork_bytes, width, height).convert("RGB"))
+
+
+def shade_lower_part(image, shade_top):
+    """Return image with everything below shade_top darkened, for readable text."""
     shade = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    ImageDraw.Draw(shade).rectangle(
+        [0, shade_top, image.width, image.height], fill=SHADE
+    )
+    return Image.alpha_composite(image, shade)
+
+
+def render_poster(artwork_bytes, headline, source_line, width, height):
+    """Return width x height PNG bytes: artwork with the headline on top.
+
+    Text stays inside a margin on every side (the "safe area"), and the
+    headline gets only as many lines as fit above the source line.
+    """
+    margin = min(width, height) // 18
     shade_top = height * 55 // 100
-    ImageDraw.Draw(shade).rectangle([0, shade_top, width, height], fill=SHADE)
-    image = Image.alpha_composite(image, shade)
+    image = shade_lower_part(open_artwork(artwork_bytes, width, height), shade_top)
     draw = ImageDraw.Draw(image)
     headline_font = ImageFont.load_default(size=height // 15)
     source_font = ImageFont.load_default(size=height // 40)
+    line_height = height // 13
+    # Measured, not guessed, so the source line ends exactly at the margin.
+    source_box = draw.textbbox((0, 0), source_line, font=source_font)
+    source_y = height - margin - source_box[3]
+    y = shade_top + margin // 2
+    room = source_y - margin // 2 - y
+    max_lines = max(1, min(MAX_HEADLINE_LINES, room // line_height))
     lines = wrap_text(draw, headline, headline_font, width - 2 * margin)
-    y = shade_top + margin
-    for line in lines[:MAX_HEADLINE_LINES]:
+    for line in fit_lines(draw, lines, headline_font, width - 2 * margin, max_lines):
         draw.text((margin, y), line, font=headline_font, fill=WHITE)
-        y = y + height // 13
-    source_y = height - margin - height // 40
+        y = y + line_height
     draw.text((margin, source_y), source_line, font=source_font, fill=LIGHT_GREY)
     return to_png_bytes(image.convert("RGB"))

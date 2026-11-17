@@ -38,8 +38,10 @@ and social providers (`demo/`), so no API keys are needed.
    (`schedule.py`), and the dispatcher starts them on time (`dispatcher.py`).
 10. `newsroom/`: keyless news sources (RSS, Hacker News), polite fetching,
     the shared article store and the quality gates that choose an article.
-11. `studio/`: the post pipeline, the status table, the poster renderer.
-12. `publishing/`: sending approved posts, never twice.
+11. `studio/`: the post pipeline (with up to 2 correction rounds), the status
+    table, the poster renderer and the prompt-injection guards.
+12. `publishing/`: sending approved posts, never twice; the auto-post gate;
+    and settling posts a platform never confirmed.
 13. `demo/`: the fake providers used in demo mode and by the tests.
 
 Each app folder has a `README.md` that describes every file in it.
@@ -160,6 +162,10 @@ article, versions, review, steps and publications.
 | **PKCE** | Sending a fingerprint of a secret first and the secret itself only when swapping the code, so a stolen code is useless. |
 | **Row lock** | `select_for_update()` makes a second worker wait for the first, so a once-only refresh token is never used twice (`social/tokens.py`). |
 | **Signed link** | An address that carries a signature made with our secret key, so it cannot be guessed or changed (`studio/public_links.py`). |
+| **Auto-post gate** | The one function that decides if a post may go out without the owner's approval (`publishing/gate.py`). Closed unless every rule passes. |
+| **Ambiguous** | A post we sent but never got an answer for: it may or may not be live, so it is never re-sent automatically (`publishing/reconcile.py`). |
+| **Prompt injection** | Text from the internet that tries to give the AI orders. Kept inside `<article>` tags, defused, and caught by `studio/guards.py`. |
+| **Golden image** | An approved reference picture a test compares new output against (`studio/tests/golden/`). |
 | **RSS / Atom feed** | A site's machine-readable list of its newest articles (`newsroom/feeds.py`). |
 | **robots.txt** | A file where a site says which automated readers may read which pages. We obey it (`newsroom/fetching.py`). |
 | **Ingest** | Reading every source of a topic into the shared article store (`newsroom/ingest.py`). |

@@ -36,5 +36,8 @@ waiting --(generate_at arrives, dispatcher claims it)--> claimed --> started (it
   of its time is skipped, not posted late, and does not count towards the
   daily limit.
 
-Automatic posting with a closed-by-default safety gate arrives in Phase 8;
-until then every post waits for approval (`approval_mode` is `manual`).
+**Approval modes:** `manual` (the default) asks before every post. `auto`
+posts on its own only when the auto-post gate allows it
+(`publishing/gate.py`): a clean pass with no issues, a total review score of
+at least `auto_post_min_score` (default 22 of 25), and perfect scores on
+strict topics. Anything else still waits for approval, with the reason.

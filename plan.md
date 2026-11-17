@@ -1,6 +1,6 @@
 # AI Content Automator: Backend Build Plan (V4)
 
-Status: **Phases 0 to 6 are built and verified against stub servers** (V3 preserved under the `legacy-v3` tag). Real AI providers and social platforms are **unverified-live** until someone runs them with real keys and registered apps. Next: Phase 7, the studio.
+Status: **Phases 0 to 8 are built and verified against stub servers** (V3 preserved under the `legacy-v3` tag). Real AI providers and social platforms are **unverified-live** until someone runs them with real keys and registered apps. Next: Phase 9, hardening.
 Scope: backend only (REST API + workers). The frontend is planned separately.
 
 **Decided so far**
@@ -190,6 +190,15 @@ Work is built as a **walking skeleton first** (Phase 2), then deepened. That giv
 - **Articles are stored once per address *and* preset.** A shared feed must not file a story only under whichever preset read it first. The used-article check compares addresses, so a plan never posts the same story under two topics.
 - **Live check on 2026-11-17** (Docker, real internet): AI news had 31 usable articles, Linux tips 51, job hiring 20 and layoffs 2. Layoffs is thin on free sources; on days without a qualifying story, those posts are skipped.
 - **Not yet built:** a user's own paid news key (later, with the other APIs) and the 30-day text retention job (Phase 9).
+
+**Phase 7 notes (built 2026-11-17).** The review-and-correct loop: `reviewing ⇄ correcting`, at most 2 rounds, stopping early when the total score does not rise. A correction puts the new headline on the same saved artwork (no second image request), and `Post.final_version()` (the best-reviewed version) is the one shown and published. Strict review for layoffs, hiring and Linux tips needs perfect grounding and safety. Verdicts are tested over all 3,125 score combinations × 3 issue cases × strict on/off. Prompt-injection fixtures: injected `<article>` tags are defused, and a post that repeats the app's instructions gets a blocker, so it can never pass however the model scores it. Posters: reference images for square, landscape and portrait with short and long headlines, plus safe-area and WCAG AA contrast checks. Decisions and limits:
+- **One square poster (1080×1080) is published to every platform.** The renderer and its tests already cover landscape and portrait; per-platform posters can follow if a platform needs them.
+- **No vision check of the poster.** The text model reviews the headline and caption only. A vision review needs a model that declares image input; it can be added with the live APIs.
+
+**Phase 8 notes (built 2026-11-17).** Auto mode behind a closed-by-default gate (five small rules, tested as a table plus a sweep of every combination). Plans have `auto_post_min_score`, default 22 of 25. Publishing tells "never reached" (connection refused: a plain failure) apart from "sent, no answer" (timeout or cut line: `ambiguous`, never re-sent). Reconcile runs every 10 minutes: it asks the platform, otherwise the owner answers through `POST /publications/{id}/resolve/`. A refused API key now pauses the owner's plans (`plan_paused`), and a test checks every notification kind is really sent. The owner can reword a waiting post (`PATCH /posts/{id}/`), and that version is the one published. Decisions and findings:
+- **The concurrent-publish test found two races, both fixed.** (1) The second worker crashed changing the status the first had just changed. (2) Worst: a worker that found a send still in progress marked the whole post `failed`, so a post live on X showed as failed. Now the worker doing the send finishes the post, and a send stuck in "publishing" for 10 minutes (a crashed worker) becomes `ambiguous`.
+- **`check_status` returns "unknown" on every real platform today.** Looking a post up by content needs read permissions that were not verified (LinkedIn's need partner approval), so the owner confirms instead. Platform look-ups can be added per adapter later.
+- **Not built:** "regenerate a post" (`POST /posts/{id}/regenerate/`) and a "retry failed accounts" action. Both need a rule for how a new attempt is keyed without risking duplicates; left for later.
 
 Each phase also ends with the definition of done in [design/test-strategy.md](design/test-strategy.md#7-definition-of-done-per-phase): green tests, the readability gate, the fresh-eyes review, and an updated code tour, plus a review of the final diff.
 

@@ -91,6 +91,15 @@ class Publisher:
         """
         raise NotImplementedError("Each publisher must define publish().")
 
+    def check_status(self, account, publication):
+        """Return what the platform says about a post we got no answer for.
+
+        A dict: {"outcome": "published" | "not_published" | "unknown",
+        "external_id": ...}. Most platforms cannot look a post up by its
+        content, so the default is "unknown" and the user is asked instead.
+        """
+        return {"outcome": "unknown", "external_id": ""}
+
     def refresh_tokens(self, account):
         """Return new tokens for account, or None if this platform cannot."""
         return None

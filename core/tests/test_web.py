@@ -5,7 +5,12 @@ import socket
 import pytest
 
 from core import web
-from core.errors import ProviderBusy, ProviderError, ProviderKeyRejected
+from core.errors import (
+    ProviderBusy,
+    ProviderError,
+    ProviderKeyRejected,
+    ProviderNoAnswer,
+)
 from core.web import UnsafeAddress, check_address, get_json, post_json
 
 
@@ -211,3 +216,19 @@ def test_a_secret_in_the_address_is_hidden_in_error_messages(stub_server):
         get_json(f"{stub_server.base_url}/token?client_secret={secret}", {})
 
     assert secret not in str(error.value)
+
+
+def test_a_refused_connection_means_nothing_was_sent(stub_server):
+    # Port 9 has nothing listening, so the connection is refused at once.
+    with pytest.raises(ProviderBusy) as error:
+        get_json("http://127.0.0.1:9/nothing", {})
+
+    assert not isinstance(error.value, ProviderNoAnswer)
+
+
+def test_a_request_that_gets_no_answer_may_have_been_acted_on(stub_server, monkeypatch):
+    monkeypatch.setattr(web, "TIMEOUT_SECONDS", 0.2)
+    stub_server.set_route("POST", "/slow", {"delay": 1, "json": {}})
+
+    with pytest.raises(ProviderNoAnswer):
+        post_json(f"{stub_server.base_url}/slow", {}, {})

@@ -94,8 +94,16 @@ class PostDetailSerializer(PostSerializer):
         read_only_fields = fields
 
     def get_poster_url(self, post) -> str | None:
-        """Return the address of the newest poster, or None if there is none."""
-        version = post.latest_version()
+        """Return the address of the final poster, or None if there is none."""
+        version = post.final_version()
         if version is None or not version.poster_path:
             return None
         return reverse("post-poster", args=[post.id])
+
+
+class PostEditSerializer(serializers.Serializer):
+    """The user's own wording for a post waiting for approval."""
+
+    # Leave the headline out to keep the current one.
+    headline = serializers.CharField(max_length=90, required=False, default="")
+    caption = serializers.CharField(max_length=3000)

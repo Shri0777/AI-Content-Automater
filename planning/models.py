@@ -13,11 +13,17 @@ from django.db import models
 
 from newsroom.presets import PRESET_CHOICES
 
-# Automatic posting arrives in Phase 8 with the auto-post gate. Until then
-# every post waits for the user's approval.
+# "auto" posts without asking only when the auto-post gate allows it
+# (publishing/gate.py): a clean review and a high enough score. Anything
+# else still waits for the user's approval.
 APPROVAL_MODE_CHOICES = [
     ("manual", "I approve every post"),
+    ("auto", "Post automatically when the review is clean"),
 ]
+
+# The lowest total review score (5 scores of 1 to 5, so 5 to 25) a post may
+# have and still be posted automatically.
+DEFAULT_AUTO_POST_MIN_SCORE = 22
 
 DEFAULT_AI_LABEL = "Made with AI assistance."
 
@@ -38,6 +44,9 @@ class ContentPlan(models.Model):
     requirements = models.TextField(blank=True)
     approval_mode = models.CharField(
         max_length=20, choices=APPROVAL_MODE_CHOICES, default="manual"
+    )
+    auto_post_min_score = models.PositiveIntegerField(
+        default=DEFAULT_AUTO_POST_MIN_SCORE
     )
     accounts = models.ManyToManyField("social.SocialAccount", blank=True)
     ai_label_enabled = models.BooleanField(default=True)

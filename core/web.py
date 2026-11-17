@@ -24,7 +24,12 @@ from urllib.parse import parse_qsl, urlsplit
 import httpx
 from django.conf import settings
 
-from core.errors import ProviderBusy, ProviderError, ProviderKeyRejected
+from core.errors import (
+    ProviderBusy,
+    ProviderError,
+    ProviderKeyRejected,
+    ProviderNoAnswer,
+)
 
 TIMEOUT_SECONDS = 60
 MAX_RESPONSE_BYTES = 25 * 1024 * 1024
@@ -181,10 +186,14 @@ def send(method, url, headers, payload=None):
     check_address(url)
     try:
         response, content = exchange(method, url, headers, payload)
-    except httpx.TimeoutException:
-        raise ProviderBusy("The service took too long to answer.") from None
-    except httpx.TransportError:
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        # Nothing was sent: the connection itself failed.
         raise ProviderBusy("The service could not be reached.") from None
+    except (httpx.TimeoutException, httpx.TransportError):
+        # The request went out, but the answer never came back.
+        raise ProviderNoAnswer(
+            "The service did not answer in time; it may still have acted."
+        ) from None
     secrets = find_secrets(url, headers, payload)
     location = response.headers.get("location", "")
     check_status(response.status_code, content, url, secrets, location)

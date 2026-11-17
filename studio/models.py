@@ -12,12 +12,15 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from studio.verdicts import total_score
+
 # The allowed changes between these are in studio/statuses.py.
 STATUS_CHOICES = [
     ("researching", "Finding an article"),
     ("drafting", "Writing the caption"),
     ("imaging", "Making the poster"),
     ("reviewing", "Checking the post"),
+    ("correcting", "Fixing what the review found"),
     ("awaiting_approval", "Waiting for your approval"),
     ("approved", "Approved"),
     ("publishing", "Publishing"),
@@ -77,6 +80,28 @@ class Post(models.Model):
         """Return the newest PostVersion, or None if nothing is written yet."""
         return self.versions.order_by("-number").first()
 
+    def final_version(self):
+        """Return the version to show and publish: the best-reviewed one.
+
+        A correction can come out worse than the version before it; then the
+        earlier, better one is used. Ties go to the newest version. A version
+        the user edited themselves always wins: it is their decision.
+        """
+        edited = self.versions.filter(edited_by_user=True).order_by("-number").first()
+        if edited is not None:
+            return edited
+        totals = {}
+        for review in Review.objects.filter(version__post=self):
+            totals[review.version_id] = review.total()
+        best = None
+        best_total = -1
+        for version in self.versions.order_by("number"):
+            total = totals.get(version.id, 0)
+            if total >= best_total:
+                best = version
+                best_total = total
+        return best
+
 
 class PostVersion(models.Model):
     """The headline, caption and poster of one version of a post."""
@@ -87,6 +112,11 @@ class PostVersion(models.Model):
     headline = models.CharField(max_length=200)
     caption = models.TextField()
     image_prompt = models.TextField(blank=True)
+    # The AI artwork without text, kept so a corrected headline can be put
+    # on the same artwork without paying for a new image.
+    artwork_path = models.CharField(max_length=300, blank=True)
+    # True when the user wrote this version themselves (edited the caption).
+    edited_by_user = models.BooleanField(default=False)
     # Where the poster image is saved in file storage ("" until it exists).
     poster_path = models.CharField(max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -118,6 +148,10 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review of {self.version}: {self.verdict}"
+
+    def total(self):
+        """Return the sum of the five scores, for comparing versions."""
+        return total_score(self.scores)
 
 
 class GenerationStep(models.Model):

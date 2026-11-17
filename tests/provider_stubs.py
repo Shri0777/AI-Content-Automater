@@ -15,6 +15,7 @@ from PIL import Image
 
 from studio.prompts import (
     ARTICLE_SCORES_PROMPT,
+    CORRECT_PROMPT,
     DRAFT_PROMPT,
     IMAGE_PROMPT_PROMPT,
     REVIEW_PROMPT,
@@ -37,7 +38,7 @@ def image_base64(image_format):
 
 def reply_for(system_prompt):
     """Return the JSON text a well-behaved model would reply with."""
-    if system_prompt == DRAFT_PROMPT["system"]:
+    if system_prompt in [DRAFT_PROMPT["system"], CORRECT_PROMPT["system"]]:
         answer = {
             "headline": "Stub model headline",
             "caption": "A summary written by the stub model.",

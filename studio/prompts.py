@@ -64,6 +64,25 @@ REVIEW_PROMPT = {
     ),
 }
 
+CORRECT_PROMPT = {
+    "version": "correct-v1",
+    "system": (
+        "You fix a short social media post using a reviewer's notes. "
+        f"{UNTRUSTED_TEXT_RULE} {JSON_RULE} The object has two keys: "
+        '"headline" (at most 90 characters) and "caption" (at most 1200 '
+        "characters). Change what the notes ask for and keep everything else. "
+        "Invent nothing that is not in the article. The caption ends with "
+        'the line "Source: <source name>, <article link>".'
+    ),
+    "user": (
+        "What the account owner wants: {requirements}\n\n"
+        "Current headline: {headline}\nCurrent caption:\n{caption}\n\n"
+        "Reviewer's notes:\n{notes}\n\n"
+        "Source name: {source_name}\nArticle link: {url}\n"
+        "<article>\n{title}\n\n{text}\n</article>"
+    ),
+}
+
 ARTICLE_SCORES_PROMPT = {
     "version": "article-scores-v1",
     "system": (

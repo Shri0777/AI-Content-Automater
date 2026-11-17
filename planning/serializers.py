@@ -8,6 +8,7 @@ from newsroom.presets import PRESET_CHOICES
 from planning.models import (
     APPROVAL_MODE_CHOICES,
     DEFAULT_AI_LABEL,
+    DEFAULT_AUTO_POST_MIN_SCORE,
     ON_MISSED_APPROVAL_CHOICES,
     ContentPlan,
     PostSlot,
@@ -106,6 +107,7 @@ class PlanSerializer(serializers.ModelSerializer):
             "lead_time_minutes",
             "max_lateness_minutes",
             "on_missed_approval",
+            "auto_post_min_score",
             "topics",
             "accounts",
             "schedule_rules",
@@ -134,6 +136,11 @@ class PlanCreateSerializer(serializers.Serializer):
     )
     on_missed_approval = serializers.ChoiceField(
         choices=ON_MISSED_APPROVAL_CHOICES, default="expire"
+    )
+    # Only for "auto" plans: the lowest total review score (out of 25) a
+    # post needs to go out without your approval.
+    auto_post_min_score = serializers.IntegerField(
+        min_value=15, max_value=25, default=DEFAULT_AUTO_POST_MIN_SCORE
     )
     topics = TopicSerializer(many=True, allow_empty=False)
     account_ids = serializers.ListField(

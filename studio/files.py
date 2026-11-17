@@ -16,6 +16,19 @@ def save_poster(version, png_bytes):
     return default_storage.save(path, ContentFile(png_bytes))
 
 
+def save_artwork(version, png_bytes):
+    """Save a version's text-free artwork and return where it was saved."""
+    post = version.post
+    path = f"posters/{post.user_id}/{post.id}/v{version.number}-artwork.png"
+    return default_storage.save(path, ContentFile(png_bytes))
+
+
+def read_artwork(version):
+    """Return the artwork bytes of a version."""
+    with default_storage.open(version.artwork_path, "rb") as artwork_file:
+        return artwork_file.read()
+
+
 def read_poster(version):
     """Return the poster image bytes of a version."""
     with default_storage.open(version.poster_path, "rb") as poster_file:

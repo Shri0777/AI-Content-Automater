@@ -85,6 +85,15 @@ class ProviderBusy(ProviderError):
     """
 
 
+class ProviderNoAnswer(ProviderBusy):
+    """The request was sent, but no answer came back (a timeout or a cut line).
+
+    The service may or may not have acted on it. For most work that just
+    means "try again later". For publishing it means we cannot know whether
+    the post went out, so it must never be sent again automatically.
+    """
+
+
 class ProviderKeyRejected(ProviderError):
     """The service refused the user's API key (HTTP 401 or 403).
 

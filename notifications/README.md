@@ -7,7 +7,7 @@ frontend polls `/api/v1/me/summary/` for the unread count.
 |---|---|
 | `admin.py` | Shows notifications on the admin site for troubleshooting. |
 | `apps.py` | Tells Django this app exists. |
-| `models.py` | `Notification` and `KIND_CHOICES`, the list of every kind with its title. |
+| `models.py` | `Notification` and `KIND_CHOICES`, the list of every kind with its title. A test checks every kind is really sent somewhere. |
 | `serializers.py` | What a notification looks like in the API. |
 | `services.py` | `notify()` (the one way to create a notification), `mark_read`, `mark_all_read`, `count_unread`, `delete_old_notifications`. |
 | `tasks.py` | A nightly job that deletes notifications older than 60 days. |

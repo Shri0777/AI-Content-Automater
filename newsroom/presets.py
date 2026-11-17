@@ -16,6 +16,10 @@ for layoffs and hiring because their feeds publish full text, while
 TechCrunch's tag feeds publish one line and its pages are closed to AI
 readers.
 
+strict_review makes the review stricter (studio/verdicts.py): posts about
+layoffs and hiring name real companies and people, and Linux tips give
+commands people run on their own computers.
+
 tier says how much a source is trusted when ranking articles:
 "primary" (the people involved), "reputable" (an established publication)
 or "aggregator" (links collected from elsewhere). keywords help rank
@@ -27,6 +31,7 @@ TOPIC_PRESETS = {
         "label": "Job hiring",
         "kind": "news",
         "freshness_hours": 72,
+        "strict_review": True,
         "keywords": ["hiring", "hire", "hires", "recruit", "openings"],
         "sources": [
             {
@@ -61,6 +66,7 @@ TOPIC_PRESETS = {
         "label": "Layoffs",
         "kind": "news",
         "freshness_hours": 48,
+        "strict_review": True,
         "keywords": ["layoff", "layoffs", "laid off", "job cuts", "redundan"],
         "sources": [
             {
@@ -95,6 +101,7 @@ TOPIC_PRESETS = {
         "label": "Linux tips",
         "kind": "evergreen",
         "freshness_hours": 0,
+        "strict_review": True,
         "keywords": ["linux", "command", "terminal", "shell", "bash", "ubuntu"],
         "sources": [
             {
@@ -121,6 +128,7 @@ TOPIC_PRESETS = {
         "label": "AI news",
         "kind": "news",
         "freshness_hours": 72,
+        "strict_review": False,
         "keywords": ["ai", "model", "llm", "openai", "anthropic", "machine learning"],
         "sources": [
             {

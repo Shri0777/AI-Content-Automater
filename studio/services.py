@@ -11,8 +11,9 @@ from planning.models import PostSlot
 from planning.services import get_plan
 from publishing.tasks import publish_post_task
 from quotas.services import use_daily_quota
-from studio.files import read_poster
-from studio.models import Post
+from studio.files import read_artwork, read_poster, save_poster
+from studio.models import Post, PostVersion
+from studio.pipeline import poster_for
 from studio.statuses import change_status, fail_after_crash
 from studio.tasks import advance_post_task
 
@@ -114,6 +115,14 @@ def start_generation(user, plan_id):
     return get_post(user, post.id)
 
 
+class PostNotEditable(AppError):
+    """Raised when a post is past the point where it can be edited."""
+
+    status = 409
+    code = "post_not_editable"
+    title = "Post cannot be edited"
+
+
 class SlotAlreadyStarted(AppError):
     """Raised when another worker started this slot first."""
 
@@ -149,6 +158,32 @@ def create_scheduled_post(slot):
     return post
 
 
+def edit_post(user, post_id, headline, caption):
+    """Save the user's own wording as a new version, on the same artwork.
+
+    Only a post waiting for approval can be edited. The user's version is
+    the one shown and published from then on (Post.final_version).
+    """
+    post = get_post(user, post_id)
+    if post.status != "awaiting_approval":
+        raise PostNotEditable("Only a post waiting for your approval can be edited.")
+    current = post.final_version()
+    edited = PostVersion.objects.create(
+        post=post,
+        number=post.latest_version().number + 1,
+        headline=headline or current.headline,
+        caption=caption,
+        image_prompt=current.image_prompt,
+        artwork_path=current.artwork_path,
+        edited_by_user=True,
+    )
+    edited.poster_path = save_poster(
+        edited, poster_for(post, edited, read_artwork(current))
+    )
+    edited.save(update_fields=["poster_path"])
+    return get_post(user, post.id)
+
+
 def approve_post(user, post_id):
     """Approve a post that is waiting, and publish it when its time comes.
 
@@ -172,7 +207,7 @@ def reject_post(user, post_id):
 
 def get_poster_bytes(user, post_id):
     """Return the PNG bytes of a post's newest poster."""
-    version = get_post(user, post_id).latest_version()
+    version = get_post(user, post_id).final_version()
     if version is None or not version.poster_path:
         raise PostNotFound("This post has no poster yet.")
     return read_poster(version)

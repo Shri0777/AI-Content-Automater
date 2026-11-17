@@ -16,6 +16,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "newsroom.tasks.ingest_news_task",
         "schedule": crontab(minute="10,40"),
     },
+    # Settles posts that were sent but never confirmed by the platform.
+    "reconcile-publications": {
+        "task": "publishing.tasks.reconcile_publications_task",
+        "schedule": crontab(minute="*/10"),
+    },
     # Keeps every plan's slots filled up to its schedule horizon.
     "make-slots": {
         "task": "planning.tasks.make_slots_task",
