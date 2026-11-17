@@ -15,12 +15,14 @@ A slot that cannot start within its plan's max_lateness after publish_at
 the owner gets one notification for the whole batch.
 """
 
+import time
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from core.disk import disk_is_nearly_full
 from core.errors import AppError
 from notifications.services import notify
 from planning.models import PostSlot
@@ -29,6 +31,10 @@ from studio.services import create_scheduled_post
 
 LEASE = timedelta(minutes=5)
 CLAIM_BATCH_SIZE = 50
+# One run keeps claiming batches for at most this long, so it ends before
+# Beat starts the next run a minute later. A load test with one batch per
+# run left half of a 100-post burst waiting an extra minute.
+RUN_TIME_BUDGET_SECONDS = 45
 MISSED_WINDOW = "missed_window"
 
 
@@ -143,8 +149,26 @@ def run_dispatcher(now=None):
     if now is None:
         now = timezone.now()
     skipped = skip_missed_slots(now)
+    if disk_is_nearly_full():
+        # No room for new posters: wait. Slots that wait too long are
+        # skipped above with a notification, never posted late.
+        return {"started": 0, "skipped": skipped}
+    return {"started": start_due_slots(now), "skipped": skipped}
+
+
+def start_due_slots(now):
+    """Claim and start due slots, batch after batch; return how many started.
+
+    Small batches keep each claim's lock short. Batches continue until no
+    due slot is left or RUN_TIME_BUDGET_SECONDS have passed.
+    """
     started = 0
-    for slot_id in claim_due_slots(now):
-        if start_slot(slot_id, now) is not None:
-            started = started + 1
-    return {"started": started, "skipped": skipped}
+    run_started = time.monotonic()
+    while time.monotonic() - run_started < RUN_TIME_BUDGET_SECONDS:
+        slot_ids = claim_due_slots(now)
+        if not slot_ids:
+            break
+        for slot_id in slot_ids:
+            if start_slot(slot_id, now) is not None:
+                started = started + 1
+    return started

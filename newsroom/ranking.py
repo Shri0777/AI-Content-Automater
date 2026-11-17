@@ -17,6 +17,8 @@ If nothing passes, None is returned and the post is skipped: never filler.
 from datetime import timedelta
 from difflib import SequenceMatcher
 
+from django.conf import settings
+
 from newsroom.ingest import MIN_TEXT_CHARACTERS
 from newsroom.models import Article, ArticleUse
 from newsroom.presets import TOPIC_PRESETS
@@ -36,7 +38,8 @@ def candidate_articles(plan, preset, now):
 
     plan may be None (a preview), and then nothing counts as used.
     """
-    articles = Article.objects.filter(preset=preset)
+    # Demo mode only uses the fictional demo articles; live mode never does.
+    articles = Article.objects.filter(preset=preset, is_demo=settings.DEMO_MODE)
     if plan is not None:
         # Compared by address, so a story used under one topic is not used
         # again under another topic of the same plan.

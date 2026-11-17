@@ -21,6 +21,7 @@ is the canned, fictional one in `demo/`.
 | `models.py` | `Article`, `ArticleUse` (which plan used which article), `FeedState`, `SourceBudget` and `IngestRecord`. |
 | `presets.py` | `TOPIC_PRESETS`: job hiring, layoffs, Linux tips and AI news, each with its sources, freshness window, topic words and whether its posts get the strict review. |
 | `ranking.py` | The quality gates and ranking: fresh, unused, enough text, a cheap score, no repeated stories, then the AI's ratings. |
+| `retention.py` | Clears article text after 14 days, deletes unused articles after 90 days and old daily request counts after 30. |
 | `serializers.py` | An article inside a post, and in a preview. |
 | `services.py` | `pick_article(plan, topic, text_model)`, `record_article_use` and `preview_topic`. |
 | `sources.py` | `NewsSource` (the base class), `RssSource`, `HackerNewsSource` and `get_sources(preset)`. |

@@ -149,6 +149,21 @@ def create_recovery_codes(user):
     return codes
 
 
+class WrongPassword(AppError):
+    """Raised when the password typed to confirm a change is wrong."""
+
+    status = 403
+    code = "wrong_password"
+    title = "Wrong password"
+
+
+def new_recovery_codes(user, password):
+    """Replace the user's recovery codes after checking their password again."""
+    if not user.check_password(password):
+        raise WrongPassword("That password is not right.")
+    return create_recovery_codes(user)
+
+
 def find_matching_code(user, typed_code):
     """Return the user's unused RecoveryCode that matches typed_code, or None."""
     normalized = normalize_recovery_code(typed_code)
@@ -169,9 +184,11 @@ def recover_account(email, typed_code, new_password):
     failure = RecoveryFailed("That email and recovery code do not match.")
     user = User.objects.filter(email__iexact=email).first()
     if user is None:
-        # Spend as long as a real check would, so the answer's timing does
-        # not reveal whether the email has an account.
-        make_password(typed_code)
+        # Spend as long as a real check would (one slow hash per saved
+        # code), so the answer's timing does not reveal whether the email
+        # has an account.
+        for _ in range(RECOVERY_CODES_PER_USER):
+            make_password(typed_code)
         raise failure
     with transaction.atomic():
         saved_code = find_matching_code(user, typed_code)

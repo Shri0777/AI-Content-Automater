@@ -10,11 +10,12 @@ from django.conf import settings
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from accounts import services
 from accounts.serializers import (
+    ConfirmPasswordSerializer,
     LoginResultSerializer,
     LoginSerializer,
     MeUpdateSerializer,
@@ -108,12 +109,25 @@ class RecoverView(PublicAuthView):
 
 
 class NewRecoveryCodesView(APIView):
-    """Make a fresh set of recovery codes. The old ones stop working."""
+    """Make a fresh set of recovery codes. The old ones stop working.
 
-    @extend_schema(request=None, responses={201: RecoveryCodesSerializer})
+    The current password is asked for again: new codes can reset the
+    password, so a stolen login token alone must not be enough to get them.
+    """
+
+    throttle_classes = [UserRateThrottle, ScopedRateThrottle]
+    throttle_scope = "auth"
+
+    @extend_schema(
+        request=ConfirmPasswordSerializer, responses={201: RecoveryCodesSerializer}
+    )
     def post(self, request):
-        """Replace the user's recovery codes and show the new ones once."""
-        codes = services.create_recovery_codes(request.user)
+        """Check the password, then replace the codes and show the new ones once."""
+        serializer = ConfirmPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        codes = services.new_recovery_codes(
+            request.user, serializer.validated_data["password"]
+        )
         return Response({"recovery_codes": codes}, status=201)
 
 

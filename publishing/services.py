@@ -172,6 +172,13 @@ def move_once(post, new_status, reason):
     return True
 
 
+def fail_for_missing_poster(post):
+    """Fail a post whose poster was deleted after the retention period."""
+    reason = "The poster was deleted after the retention period."
+    if move_once(post, "failed", reason):
+        notify(post.user, "post_failed", reason, related=post)
+
+
 def publish_post(post_id):
     """Publish an approved post to every active account of its plan.
 
@@ -186,6 +193,9 @@ def publish_post(post_id):
     if post.status != "publishing":
         return post.status
     version = post.final_version()
+    if version.image_expired or not version.poster_path:
+        fail_for_missing_poster(post)
+        return post.status
     poster = read_poster(version)
     publications = []
     for account in post.plan.accounts.filter(status="active"):

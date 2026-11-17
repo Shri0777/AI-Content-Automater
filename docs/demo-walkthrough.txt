@@ -1,0 +1,37 @@
+$ python3 scripts/demo_walkthrough.py --invite-code <code>
+
+1. Register demo-5921ef12@example.com with the invite code
+   Got 8 one-time recovery codes.
+
+2. Log in
+   Logged in. The refresh token is in an httpOnly cookie.
+
+3. Save demo text and image credentials
+   text: saved, key shown only as ...0000
+   image: saved, key shown only as ...0000
+
+4. Link an account on the demo social network
+   Linked 'Demo account 1'.
+
+5. Create a plan that follows the 'ai_news' topic
+   Plan e6dd927f-eb31-414c-b109-7b3bf7f0622a created.
+
+6. Generate a post now (the worker does the work)
+   Article:  Woodgrove Labs releases a small open model for summaries
+   Headline: Woodgrove Labs releases a small open model for summaries
+   Verdict:  pass
+   - researching: 16 ms
+   - drafting: 6 ms
+   - imaging: 140 ms
+   - reviewing: 10 ms
+
+7. Download the poster
+   Saved 53973 bytes to demo-poster.png
+
+8. Approve the post, which publishes it
+   Published to 'Demo account 1' as demo-post-65364dd36957
+
+9. Check the in-app summary
+   Unread notifications: 2
+
+All steps passed. Demo content is canned, not real AI output.

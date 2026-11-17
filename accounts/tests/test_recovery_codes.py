@@ -162,9 +162,23 @@ def test_a_new_set_replaces_the_old_codes(api_client, user):
     old_code = create_recovery_codes(user)[0]
     api_client.force_authenticate(user)
 
-    response = api_client.post(NEW_CODES_URL)
+    response = api_client.post(NEW_CODES_URL, {"password": OLD_PASSWORD})
 
     assert response.status_code == 201
     assert len(response.json()["recovery_codes"]) == 8
     api_client.force_authenticate(None)
     assert recover(api_client, old_code).status_code == 400
+
+
+def test_new_codes_need_the_password_again(api_client, user):
+    old_code = create_recovery_codes(user)[0]
+    api_client.force_authenticate(user)
+
+    wrong = api_client.post(NEW_CODES_URL, {"password": "not-my-password"})
+    missing = api_client.post(NEW_CODES_URL, {})
+
+    assert wrong.status_code == 403
+    assert wrong.json()["code"] == "wrong_password"
+    assert missing.status_code == 400
+    # A stolen login token alone cannot replace the codes: the old one works.
+    assert recover(api_client, old_code).status_code == 200

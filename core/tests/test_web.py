@@ -1,10 +1,8 @@
 """Tests for the safe web client in core/web.py."""
 
-import socket
-
 import pytest
 
-from core import web
+from core import safe_network, web
 from core.errors import (
     ProviderBusy,
     ProviderError,
@@ -17,10 +15,10 @@ from core.web import UnsafeAddress, check_address, get_json, post_json
 def resolve_to(monkeypatch, ip_text):
     """Make every host name resolve to ip_text, like a DNS server would."""
 
-    def fake_getaddrinfo(host, port):
-        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip_text, 0))]
+    def fake_look_up(host):
+        return [ip_text]
 
-    monkeypatch.setattr(web.socket, "getaddrinfo", fake_getaddrinfo)
+    monkeypatch.setattr(safe_network, "look_up", fake_look_up)
 
 
 @pytest.mark.parametrize(

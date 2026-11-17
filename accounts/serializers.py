@@ -126,3 +126,9 @@ class MeUpdateSerializer(serializers.ModelSerializer):
                 f"'{value}' is not a known timezone."
             ) from None
         return value
+
+
+class ConfirmPasswordSerializer(serializers.Serializer):
+    """The user's current password, asked for again before a risky change."""
+
+    password = serializers.CharField(write_only=True, max_length=200)

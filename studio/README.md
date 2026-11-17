@@ -21,6 +21,7 @@ post waits for the user's approval.
 | `public_links.py` | `make_public_poster_url` and `read_public_poster`: signed, login-free poster links that stop working after 7 days, for services that download images themselves (Buffer). |
 | `prompts.py` | The versioned instructions sent to the text model. Article text is always wrapped in `<article>` tags and treated as untrusted. |
 | `providers.py` | `get_text_model`, `get_image_model` and `get_provider`: the right provider class for a saved credential. |
+| `retention.py` | `expire_old_images` (deletes poster and artwork files after each user's retention days; the words stay) and `delete_old_steps` (pipeline records older than 90 days). |
 | `runner.py` | `run_stage()`: runs the stage for a post's status, saves a `GenerationStep` (models, prompt versions, tokens) and handles each kind of failure. |
 | `serializers.py` | What a post looks like in a list and in full detail. |
 | `services.py` | `start_generation` (generate-now), `get_posts`, `get_post`, `approve_post` (a scheduled post then waits for its time), `edit_post` (the owner's own wording, as a new version on the same artwork), `reject_post`, `create_scheduled_post` (used by the dispatcher), `get_poster_bytes`, and `queue_post_job` (fails the post with a clear message if background jobs are down). |

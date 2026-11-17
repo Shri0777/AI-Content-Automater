@@ -208,6 +208,8 @@ def reject_post(user, post_id):
 def get_poster_bytes(user, post_id):
     """Return the PNG bytes of a post's newest poster."""
     version = get_post(user, post_id).final_version()
+    if version is not None and version.image_expired:
+        raise PostNotFound("This poster was deleted after the retention period.")
     if version is None or not version.poster_path:
         raise PostNotFound("This post has no poster yet.")
     return read_poster(version)

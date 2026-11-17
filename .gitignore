@@ -38,3 +38,6 @@ htmlcov/
 .vscode/
 *.swp
 *~
+
+# Browser-tool screenshots and logs (may contain third-party pages)
+.playwright-mcp/

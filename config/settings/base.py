@@ -206,6 +206,22 @@ ENCRYPTION_KEY = read_text(
 
 # Background jobs. Development default matches docker-compose.yml (port 6380).
 CELERY_BROKER_URL = read_text("CELERY_BROKER_URL", "redis://localhost:6380/0")
+# Publishing and token jobs get their own queue and worker
+# (docker-compose.yml, worker-publish), so a burst of posts being made can
+# never delay a post that is due to go out.
+CELERY_TASK_ROUTES = {
+    "publishing.tasks.*": {"queue": "publish"},
+    "social.tasks.*": {"queue": "publish"},
+}
+
+# The shared cache: rate-limit counters and robots.txt rules. It lives in
+# Redis so every web and worker process counts and remembers together.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": read_text("CACHE_URL", "redis://localhost:6380/1"),
+    }
+}
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]

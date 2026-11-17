@@ -70,10 +70,13 @@ jobs:
           DJANGO_SECRET_KEY: ci-only-not-secret-3f9a7c1e5b2d8a6f4c0e9b7d5a3f1c8e6b4d2a0f
           ENCRYPTION_KEY: 4kuHz3t5x4cXJ0G6Lq8V9pWmRbN2sYfT7aDcEgHiJkM=
           DJANGO_ALLOWED_HOSTS: api.example.com
+          CORS_ALLOWED_ORIGINS: https://app.example.com
+          PUBLIC_API_URL: https://api.example.com
+          FRONTEND_URL: https://app.example.com
         run: uv run python manage.py check --deploy --fail-level WARNING
 
       - name: Tests
-        run: uv run pytest
+        run: uv run pytest --cov --cov-fail-under=90
 
       - name: Security scan of our code (Bandit)
         run: uv run bandit -c pyproject.toml -r . -q

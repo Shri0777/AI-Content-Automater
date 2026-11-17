@@ -77,6 +77,8 @@ def store(preset, title, hours_ago, text=LONG_TEXT, tier="reputable"):
         preset=preset,
         published_at=timezone.now() - timedelta(hours=hours_ago),
         text=text,
+        # Tests run in demo mode, which only uses demo articles.
+        is_demo=True,
     )
 
 
@@ -213,3 +215,18 @@ def test_a_story_used_under_one_topic_is_not_used_again_under_another(plan, no_s
     copy.save()
 
     assert pick_article(plan, topic_for(plan, "layoffs"), good_model()) is None
+
+
+def test_demo_mode_never_uses_real_articles(plan, no_sources):
+    real = store("ai_news", "a real story", hours_ago=1)
+    real.is_demo = False
+    real.save()
+
+    assert pick_article(plan, topic_for(plan, "ai_news"), good_model()) is None
+
+
+def test_live_mode_never_uses_demo_articles(plan, no_sources, settings):
+    store("ai_news", "a fictional demo story", hours_ago=1)
+    settings.DEMO_MODE = False
+
+    assert pick_article(plan, topic_for(plan, "ai_news"), good_model()) is None

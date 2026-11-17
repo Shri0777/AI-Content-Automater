@@ -11,6 +11,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "notifications.tasks.delete_old_notifications_task",
         "schedule": crontab(hour=3, minute=0),
     },
+    # Deletes old posters, article text and records (core/maintenance.py).
+    "nightly-cleanup": {
+        "task": "core.tasks.nightly_cleanup_task",
+        "schedule": crontab(hour=3, minute=30),
+    },
     # Reads the news for every topic in use (shared by all users).
     "ingest-news": {
         "task": "newsroom.tasks.ingest_news_task",

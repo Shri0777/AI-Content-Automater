@@ -10,6 +10,7 @@ has a daily request cap.
 import uuid
 
 from django.db import models
+from django.utils import timezone
 
 from newsroom.presets import PRESET_CHOICES
 
@@ -39,6 +40,11 @@ class Article(models.Model):
     # True once we tried to fetch the page, so it is never fetched twice.
     page_checked = models.BooleanField(default=False)
     fetched_at = models.DateTimeField(auto_now=True)
+    # True for the canned, fictional demo articles. Demo mode only uses demo
+    # articles and live mode never does, so the two can never mix.
+    is_demo = models.BooleanField(default=False)
+    # When the article was first stored; retention counts from here.
+    stored_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         indexes = [models.Index(fields=["preset", "published_at"])]

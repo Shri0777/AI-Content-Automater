@@ -147,3 +147,15 @@ def test_dispatchers_running_at_once_start_every_slot_exactly_once(plan, user):
 
     assert Post.objects.count() == 20
     assert PostSlot.objects.filter(status="started").count() == 20
+
+
+def test_a_burst_bigger_than_one_batch_is_started_in_one_run(plan, user, monkeypatch):
+    monkeypatch.setattr("planning.dispatcher.CLAIM_BATCH_SIZE", 3)
+    QuotaOverride.objects.create(user=user, resource="posts_per_day", limit_value=50)
+    QuotaOverride.objects.create(
+        user=user, resource="posts_per_plan_per_day", limit_value=50
+    )
+    for minutes in range(10, 18):
+        add_slot(plan, NOW + timedelta(minutes=minutes))
+
+    assert run_dispatcher(now=NOW)["started"] == 8

@@ -17,6 +17,7 @@ from datetime import timedelta
 from django.db import IntegrityError
 from django.utils import timezone
 
+from core.disk import disk_is_nearly_full
 from core.errors import ProviderError
 from newsroom.extract import html_to_text
 from newsroom.fetching import OverBudget, fetch_page_html
@@ -96,6 +97,7 @@ def save_article(preset, item, source):
             preset=preset,
             published_at=item["published_at"],
             popularity=item.get("popularity", 0),
+            is_demo=source.name == "demo",
             text=item["text"],
             text_source="feed" if item["text"] else "",
         )
@@ -164,7 +166,12 @@ def ensure_recent_ingest(preset):
 
 
 def ingest_active_presets():
-    """Read the sources of every preset an active plan follows."""
+    """Read the sources of every preset an active plan follows.
+
+    Nothing is read while the disk is nearly full (core/disk.py).
+    """
+    if disk_is_nearly_full():
+        return 0
     presets = set(
         Topic.objects.filter(plan__paused=False).values_list("preset", flat=True)
     )

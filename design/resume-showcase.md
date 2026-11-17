@@ -35,14 +35,14 @@ Recruiters will not have your API keys. So the project ships a **demo mode** (AD
 - The fakes are the **same stub servers the tests use**, so demo mode and CI share code and cannot drift apart.
 
 ## 4. Repository showcase checklist (Phase 10)
-- [ ] README: one-paragraph pitch, architecture diagram, feature list, **three-command quickstart**, screenshot or short screen recording of the Swagger walkthrough, design-decision highlights, honest limitations, "what I would do next"
-- [ ] Badges that are true: CI status, coverage (critical areas), Python and Django versions
-- [ ] `docs/CODE-TOUR.md` and per-app READMEs up to date
-- [ ] Diagrams exported into `docs/` (architecture, pipeline, lifecycle, data model)
-- [ ] `docs/CASE-STUDY.md`: why V3 failed, what V4 changed, measured results
-- [ ] Clean, meaningful commit history on the V4 branch (not "V1, V2, V3")
-- [ ] `LICENSE`, `.env.example`, `CONTRIBUTING.md` (short)
-- [ ] Optional: a 60 to 90 second screen recording of `scripts/demo_walkthrough.py`
+- [x] README: one-paragraph pitch, architecture diagram, feature list, **three-command quickstart**, screenshot or short screen recording of the Swagger walkthrough, design-decision highlights, honest limitations, "what I would do next"
+- [x] Badges that are true: CI status, coverage (critical areas), Python and Django versions
+- [x] `docs/CODE-TOUR.md` and per-app READMEs up to date
+- [x] Diagrams exported into `docs/` (architecture, pipeline, lifecycle, data model)
+- [x] `docs/CASE-STUDY.md`: why V3 failed, what V4 changed, measured results
+- [ ] Clean, meaningful commit history on the V4 branch (not "V1, V2, V3"). Open: later commits are named "phase-6" and "phase-8"; rewording them needs a history rewrite, which is the owner's call.
+- [x] `LICENSE`, `.env.example`, `CONTRIBUTING.md` (short)
+- [ ] Optional: a 60 to 90 second screen recording of `scripts/demo_walkthrough.py`. Open: needs the owner's screen; a transcript is in `docs/demo-walkthrough.txt` and screenshots in `docs/images/`.
 
 ## 5. Interview talking points (five stories, each backed by code and tests)
 1. **From a failing app to a verified one:** what the old tests missed and how real-wiring tests fix it.
@@ -58,7 +58,7 @@ Recruiters will not have your API keys. So the project ships a **demo mode** (AD
 - "Replaced a failing prototype by diagnosing why [N] passing tests missed production failures; introduced real-wiring tests and CI gates, reaching [X]% branch coverage on critical modules."
 - "Implemented per-user free-tier quotas with atomic counters, in-app notifications and invite-based registration."
 - "Enforced a beginner-readable code standard in CI (function-length, complexity and import rules) across [N] modules."
-Square-bracket values stay empty until we measure them. A bullet is dropped if its number cannot be measured.
+Square-bracket values stay empty until we measure them. A bullet is dropped if its number cannot be measured. The filled-in, measured versions are in [../docs/RESUME.md](../docs/RESUME.md).
 
 ## 7. What not to claim
 - Real-world users, traffic, uptime or cost savings (none exist yet).

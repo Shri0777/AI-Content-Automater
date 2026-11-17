@@ -117,6 +117,9 @@ class PostVersion(models.Model):
     artwork_path = models.CharField(max_length=300, blank=True)
     # True when the user wrote this version themselves (edited the caption).
     edited_by_user = models.BooleanField(default=False)
+    # True once the poster and artwork files were deleted after the
+    # retention period (the words and the history are kept).
+    image_expired = models.BooleanField(default=False)
     # Where the poster image is saved in file storage ("" until it exists).
     poster_path = models.CharField(max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

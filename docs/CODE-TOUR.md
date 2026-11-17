@@ -162,6 +162,9 @@ article, versions, review, steps and publications.
 | **PKCE** | Sending a fingerprint of a secret first and the secret itself only when swapping the code, so a stolen code is useless. |
 | **Row lock** | `select_for_update()` makes a second worker wait for the first, so a once-only refresh token is never used twice (`social/tokens.py`). |
 | **Signed link** | An address that carries a signature made with our secret key, so it cannot be guessed or changed (`studio/public_links.py`). |
+| **DNS rebinding** | A trick where a host name first points to a public address, then to a private one. Stopped by checking the address at the moment of connecting (`core/safe_network.py`). |
+| **IDOR** | Reaching someone else's data by changing an id in the address. `tests/test_ownership.py` tries every address with another user's ids. |
+| **Retention** | How long data is kept before the nightly clean-up deletes it (`core/maintenance.py`). |
 | **Auto-post gate** | The one function that decides if a post may go out without the owner's approval (`publishing/gate.py`). Closed unless every rule passes. |
 | **Ambiguous** | A post we sent but never got an answer for: it may or may not be live, so it is never re-sent automatically (`publishing/reconcile.py`). |
 | **Prompt injection** | Text from the internet that tries to give the AI orders. Kept inside `<article>` tags, defused, and caught by `studio/guards.py`. |

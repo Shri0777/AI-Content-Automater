@@ -11,14 +11,13 @@ Failures become one of three errors from core/errors.py, so callers know
 what to do: ProviderBusy (try later), ProviderKeyRejected (fix the key) or
 ProviderError (give up).
 
-Known gap: the host is resolved before connecting, and a hostile DNS server
-could answer differently a moment later ("DNS rebinding"). Closing that gap
-is part of the security work in Phase 9.
+Every connection is made through core/safe_network.py, which checks the
+address again at the moment of connecting and connects to exactly that
+address, so a DNS server cannot switch it to a private one in between
+("DNS rebinding").
 """
 
-import ipaddress
 import json
-import socket
 from urllib.parse import parse_qsl, urlsplit
 
 import httpx
@@ -30,16 +29,13 @@ from core.errors import (
     ProviderKeyRejected,
     ProviderNoAnswer,
 )
+from core.safe_network import UnsafeAddress, checked_transport, public_address_of
 
 TIMEOUT_SECONDS = 60
 MAX_RESPONSE_BYTES = 25 * 1024 * 1024
 KEY_REJECTED_STATUSES = [401, 403]
 TRY_LATER_STATUSES = [408, 409, 425, 429, 500, 502, 503, 504]
 MAX_ERROR_TEXT = 300
-
-
-class UnsafeAddress(ProviderError):
-    """Raised for an address we refuse to contact."""
 
 
 class Redirected(ProviderError):
@@ -72,20 +68,15 @@ def check_url_format(url):
 
 
 def check_address(url):
-    """Raise UnsafeAddress unless every IP address of url's host is public."""
+    """Raise UnsafeAddress unless every IP address of url's host is public.
+
+    Requests check this again when they connect (core/safe_network.py);
+    checking first gives a clear error before any work is done.
+    """
     host = check_url_format(url)
     if settings.ALLOW_PRIVATE_PROVIDER_URLS:
         return
-    try:
-        results = socket.getaddrinfo(host, None)
-    except socket.gaierror:
-        raise ProviderError(f"The address {host} could not be found.") from None
-    for result in results:
-        ip_text = result[4][0].split("%")[0]
-        if not ipaddress.ip_address(ip_text).is_global:
-            raise UnsafeAddress(
-                f"{host} leads to a private network address, which is not allowed."
-            )
+    public_address_of(host)
 
 
 class Answer:
@@ -159,7 +150,10 @@ def check_status(status, content, url, secrets, location):
 def exchange(method, url, headers, payload):
     """Send the request over the network and return (response, body bytes)."""
     with httpx.Client(
-        timeout=TIMEOUT_SECONDS, follow_redirects=False, trust_env=False
+        timeout=TIMEOUT_SECONDS,
+        follow_redirects=False,
+        trust_env=False,
+        transport=checked_transport(),
     ) as client:
         with client.stream(
             method,

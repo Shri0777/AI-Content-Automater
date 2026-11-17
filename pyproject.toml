@@ -24,6 +24,7 @@ dev = [
     "freezegun>=1.5.5",
     "pip-audit>=2.10.1",
     "pytest>=9.2.0",
+    "pytest-cov>=6.0",
     "pytest-django>=4.14.0",
     "ruff>=0.17.4",
 ]
@@ -77,3 +78,24 @@ max-statements = 25
 # Bandit looks for common security mistakes in our code (not in tests).
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", ".venv-legacy-v3", "venv", "frontend", "frontend_ui"]
+
+# Coverage measures our application code only: not the tests themselves,
+# migrations or virtual environments. Run: uv run pytest --cov
+[tool.coverage.run]
+source = ["."]
+branch = true
+omit = [
+    "*/tests/*",
+    "tests/*",
+    "conftest.py",
+    "*/migrations/*",
+    ".venv/*",
+    ".venv-legacy-v3/*",
+    "venv/*",
+    "manage.py",
+    "config/wsgi.py",
+    "config/asgi.py",
+]
+
+[tool.coverage.report]
+skip_empty = true
