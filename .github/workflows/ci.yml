@@ -93,7 +93,7 @@ jobs:
           def known_false_positive(issue):
               return (
                   issue["test_id"] == "B105"
-                  and Path(issue["filename"]).as_posix().endswith("/social/publishers.py")
+                  and Path(issue["filename"]) == Path("social/publishers.py")
                   and issue["line_number"] == 89
                   and issue["issue_text"] == "Possible hardcoded password: ''"
               )
