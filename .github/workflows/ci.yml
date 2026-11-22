@@ -79,7 +79,37 @@ jobs:
         run: uv run pytest --cov --cov-fail-under=90
 
       - name: Security scan of our code (Bandit)
-        run: uv run bandit -c pyproject.toml -r . -q
+        run: |
+          # Report every issue, except the exact empty default (not a secret).
+          # Do not disable B105 globally: a real hardcoded password must still fail CI.
+          uv run bandit -c pyproject.toml -r . -f json -o /tmp/bandit-report.json || test "$?" -eq 1
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          report = json.loads(Path("/tmp/bandit-report.json").read_text())
+
+          def known_false_positive(issue):
+              return (
+                  issue["test_id"] == "B105"
+                  and Path(issue["filename"]).as_posix().endswith("/social/publishers.py")
+                  and issue["line_number"] == 89
+                  and '"client_secret": ""' in issue.get("code", "")
+              )
+
+          ignored = [issue for issue in report["results"] if known_false_positive(issue)]
+          unexpected = [issue for issue in report["results"] if not known_false_positive(issue)]
+          for issue in unexpected:
+              print(f'{issue["filename"]}:{issue["line_number"]}: {issue["test_id"]}: {issue["issue_text"]}')
+          for error in report.get("errors", []):
+              print(f"Bandit scan error: {error}")
+          if ignored:
+              print("Ignored known B105 false positive: empty OAuth client-secret default.")
+          if unexpected or report.get("errors"):
+              sys.exit(1)
+          print("Bandit passed: no unapproved findings.")
+          PY
 
       - name: Known vulnerabilities in packages (pip-audit)
         run: uv run pip-audit
@@ -170,7 +200,8 @@ jobs:
 
       - name: Type check, lint and production build
         working-directory: client
-        run: npx tsc --noEmit && npm run lint && npm run build
+        # Next.js generates the global LayoutProps helper; tsc alone cannot.
+        run: npx next typegen && npx tsc --noEmit && npm run lint && npm run build
 
       - name: Install Firefox for Playwright
         working-directory: client
