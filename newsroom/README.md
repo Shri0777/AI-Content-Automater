@@ -19,7 +19,7 @@ is the canned, fictional one in `demo/`.
 | `fetching.py` | Polite downloads: our User-Agent on every request, "only if changed" feed requests (ETag, Last-Modified), checked redirects, and pages read only where robots.txt allows us and the common AI crawlers. |
 | `ingest.py` | `ingest_preset`, `ingest_active_presets` and `ensure_recent_ingest`: read sources into the store, skip the same story from other outlets, and read short articles' pages. |
 | `models.py` | `Article`, `ArticleUse` (which plan used which article), `FeedState`, `SourceBudget` and `IngestRecord`. |
-| `presets.py` | `TOPIC_PRESETS`: job hiring, layoffs, Linux tips and AI news, each with its sources, freshness window, topic words and whether its posts get the strict review. |
+| `presets.py` | Loads the topic catalogue from `topics.json` (34 topics in 7 categories, each with feeds checked on 2026-11-17) and `get_preset`, which also builds users' own topics (`planning/custom_topics.py`). |
 | `ranking.py` | The quality gates and ranking: fresh, unused, enough text, a cheap score, no repeated stories, then the AI's ratings. |
 | `retention.py` | Clears article text after 14 days, deletes unused articles after 90 days and old daily request counts after 30. |
 | `serializers.py` | An article inside a post, and in a preview. |

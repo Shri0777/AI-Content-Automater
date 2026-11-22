@@ -41,7 +41,7 @@ line-length = 88
 # Format and lint as if for Python 3.12 so Ruff keeps familiar syntax, for
 # example "except (A, B):" instead of the newer "except A, B:".
 target-version = "py312"
-extend-exclude = ["**/migrations/**", ".venv-legacy-v3", "venv"]
+extend-exclude = ["**/migrations/**", ".venv-legacy-v3", "venv", "client"]
 
 [tool.ruff.lint]
 select = [
@@ -77,7 +77,7 @@ max-statements = 25
 
 # Bandit looks for common security mistakes in our code (not in tests).
 [tool.bandit]
-exclude_dirs = ["tests", ".venv", ".venv-legacy-v3", "venv", "frontend", "frontend_ui"]
+exclude_dirs = ["tests", ".venv", ".venv-legacy-v3", "venv", "frontend", "frontend_ui", "client"]
 
 # Coverage measures our application code only: not the tests themselves,
 # migrations or virtual environments. Run: uv run pytest --cov

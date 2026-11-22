@@ -52,9 +52,10 @@ def test_a_wrong_time_or_timezone_is_refused(client, user):
 
 
 def test_more_times_in_a_day_than_the_plan_limit_are_refused(client, user):
-    five_times = ["08:00", "10:00", "12:00", "14:00", "16:00"]
+    # One more than the free tier's 10 posts per plan per day.
+    eleven_times = [f"{hour:02d}:00" for hour in range(8, 19)]
 
-    response = new_plan(client, user, [{"days_of_week": [0], "times": five_times}])
+    response = new_plan(client, user, [{"days_of_week": [0], "times": eleven_times}])
 
     assert response.status_code == 403
     assert response.json()["code"] == "quota_exceeded"

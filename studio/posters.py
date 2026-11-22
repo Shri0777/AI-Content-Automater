@@ -1,23 +1,25 @@
-"""Draw poster images. This is the only file that uses the Pillow library.
+"""Drawing helpers shared by the slides (studio/slides.py lays them out).
 
-render_poster() puts the headline and source line on top of AI artwork. The
-AI never draws words itself, so the text is always crisp and spelled right.
-draw_abstract_artwork() makes simple artwork from a piece of text; the demo
-image model uses it in place of a real AI image.
+Only this file and studio/slides.py use the Pillow library. The AI never
+draws words itself: all text is drawn here, so it is crisp and spelled
+right. draw_abstract_artwork() makes simple artwork from a piece of text;
+the demo image model uses it in place of a real AI image.
 """
 
 import hashlib
 from io import BytesIO
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps, UnidentifiedImageError
 
 from core.errors import ProviderError
 
 WHITE = (255, 255, 255, 255)
-LIGHT_GREY = (220, 220, 220, 255)
-# Black at about two-thirds strength, so text stays readable on any artwork.
-SHADE = (0, 0, 0, 170)
-MAX_HEADLINE_LINES = 4
+# Inter (studio/fonts/README.md): it has accented letters, dashes and
+# currency signs, which Pillow's built-in font draws as boxes.
+FONT_FILE = Path(__file__).parent / "fonts" / "InterVariable.ttf"
+# Loaded fonts by (size, bold), so the font file is read once per size.
+LOADED_FONTS = {}
 
 
 def to_png_bytes(image):
@@ -52,11 +54,24 @@ def draw_abstract_artwork(seed_text, width, height):
     return to_png_bytes(image)
 
 
+def shorten_word(draw, word, font, max_width):
+    """Return word cut with "…" so it fits max_width (for very long words)."""
+    while len(word) > 1 and draw.textlength(f"{word}…", font=font) > max_width:
+        word = word[:-1]
+    return f"{word}…"
+
+
 def wrap_text(draw, text, font, max_width):
-    """Split text into lines that each fit within max_width pixels."""
+    """Split text into lines that each fit within max_width pixels.
+
+    A single word wider than a whole line (a long web address) is shortened
+    with "…", so no text ever runs off the image.
+    """
     lines = []
     current = ""
     for word in text.split():
+        if draw.textlength(word, font=font) > max_width:
+            word = shorten_word(draw, word, font, max_width)
         candidate = word if current == "" else f"{current} {word}"
         if draw.textlength(candidate, font=font) <= max_width or current == "":
             current = candidate
@@ -101,37 +116,35 @@ def fit_artwork(artwork_bytes, width, height):
     return to_png_bytes(open_artwork(artwork_bytes, width, height).convert("RGB"))
 
 
-def shade_lower_part(image, shade_top):
-    """Return image with everything below shade_top darkened, for readable text."""
-    shade = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    ImageDraw.Draw(shade).rectangle(
-        [0, shade_top, image.width, image.height], fill=SHADE
-    )
-    return Image.alpha_composite(image, shade)
+def font_of(size, bold=False):
+    """Return Inter at size pixels, in its Bold or Regular weight."""
+    key = (size, bold)
+    if key not in LOADED_FONTS:
+        font = ImageFont.truetype(FONT_FILE, size)
+        font.set_variation_by_name("Bold" if bold else "Regular")
+        LOADED_FONTS[key] = font
+    return LOADED_FONTS[key]
 
 
-def render_poster(artwork_bytes, headline, source_line, width, height):
-    """Return width x height PNG bytes: artwork with the headline on top.
+def fit_text(draw, text, max_width, fonts, room):
+    """Return (font, lines) for the biggest font whose wrapped text fits.
 
-    Text stays inside a margin on every side (the "safe area"), and the
-    headline gets only as many lines as fit above the source line.
+    fonts are biggest first; room is (max_lines, max_height). If even the
+    smallest font is too big, it is used and the text ends with "…" after
+    as many lines as fit.
     """
-    margin = min(width, height) // 18
-    shade_top = height * 55 // 100
-    image = shade_lower_part(open_artwork(artwork_bytes, width, height), shade_top)
-    draw = ImageDraw.Draw(image)
-    headline_font = ImageFont.load_default(size=height // 15)
-    source_font = ImageFont.load_default(size=height // 40)
-    line_height = height // 13
-    # Measured, not guessed, so the source line ends exactly at the margin.
-    source_box = draw.textbbox((0, 0), source_line, font=source_font)
-    source_y = height - margin - source_box[3]
-    y = shade_top + margin // 2
-    room = source_y - margin // 2 - y
-    max_lines = max(1, min(MAX_HEADLINE_LINES, room // line_height))
-    lines = wrap_text(draw, headline, headline_font, width - 2 * margin)
-    for line in fit_lines(draw, lines, headline_font, width - 2 * margin, max_lines):
-        draw.text((margin, y), line, font=headline_font, fill=WHITE)
-        y = y + line_height
-    draw.text((margin, source_y), source_line, font=source_font, fill=LIGHT_GREY)
-    return to_png_bytes(image.convert("RGB"))
+    max_lines, max_height = room
+    for font in fonts:
+        lines = wrap_text(draw, text, font, max_width)
+        height = len(lines) * line_height(font)
+        if len(lines) <= max_lines and height <= max_height:
+            return font, lines
+    font = fonts[-1]
+    lines = wrap_text(draw, text, font, max_width)
+    fitting = max(1, min(max_lines, max_height // line_height(font)))
+    return font, fit_lines(draw, lines, font, max_width, fitting)
+
+
+def line_height(font):
+    """Return the distance from one line of text to the next."""
+    return int(font.size) * 6 // 5

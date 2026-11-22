@@ -28,3 +28,19 @@ class ArticlePreviewSerializer(serializers.ModelSerializer):
             "text_source",
         ]
         read_only_fields = fields
+
+
+class TopicChoiceSerializer(serializers.Serializer):
+    """One built-in topic a plan can follow."""
+
+    key = serializers.CharField()
+    label = serializers.CharField()
+    category = serializers.CharField()
+    description = serializers.CharField()
+
+
+class TopicCatalogueSerializer(serializers.Serializer):
+    """Every built-in topic, with the categories the picker groups them by."""
+
+    categories = serializers.ListField(child=serializers.CharField())
+    topics = TopicChoiceSerializer(many=True)

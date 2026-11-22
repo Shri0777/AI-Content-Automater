@@ -139,6 +139,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "user": "120/minute",
         "auth": "10/minute",
+        # Every page load refreshes the login, and the refresh cookie cannot
+        # be guessed, so this limit only stops runaway loops.
+        "auth_refresh": "60/minute",
         # Testing a key calls the provider, which may cost the user money.
         "credential_test": "10/minute",
     },

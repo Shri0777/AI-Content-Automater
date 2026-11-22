@@ -17,6 +17,14 @@ PLATFORM_CHOICES = [
     ("facebook", "Facebook Page"),
 ]
 
+# Platforms linked through OAuth, which need a developer app (an id and a
+# secret registered with the platform) before anyone can link to them.
+APP_PLATFORM_CHOICES = [
+    ("x", "X"),
+    ("linkedin", "LinkedIn"),
+    ("facebook", "Facebook Page"),
+]
+
 STATUS_CHOICES = [
     ("active", "Active"),
     ("needs_reauth", "Needs to be reconnected"),
@@ -79,3 +87,30 @@ class LinkAttempt(models.Model):
 
     def __str__(self):
         return f"{self.platform} link for {self.user}"
+
+
+class PlatformApp(models.Model):
+    """A user's own developer app on X, LinkedIn or Facebook.
+
+    The user registers the app on the platform's developer site and pastes
+    its id and secret here. The secret is stored encrypted and never sent
+    back by the API; the id is not secret (it appears in approval links).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    platform = models.CharField(max_length=20, choices=APP_PLATFORM_CHOICES)
+    client_id = models.CharField(max_length=255)
+    encrypted_client_secret = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["platform"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "platform"], name="one_app_per_user_platform"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.platform} app for {self.user}"

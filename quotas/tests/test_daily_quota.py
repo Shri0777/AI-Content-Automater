@@ -13,7 +13,7 @@ from quotas.services import QuotaExceeded, get_daily_used, use_daily_quota
 
 @pytest.fixture
 def user(db):
-    """A saved user on the free tier (6 posts per day)."""
+    """A saved user on the free tier (10 posts per day)."""
     return get_user_model().objects.create_user(
         email="ada@example.com", password="correct-horse-battery-staple"
     )
@@ -31,21 +31,21 @@ def test_each_use_is_counted(user):
     assert get_daily_used(user, "posts_per_day") == 2
 
 
-def test_the_seventh_post_of_the_day_is_refused(user):
-    use_posts(user, 6)
+def test_the_eleventh_post_of_the_day_is_refused(user):
+    use_posts(user, 10)
 
     with pytest.raises(QuotaExceeded) as error:
         use_daily_quota(user, "posts_per_day")
 
     assert error.value.code == "quota_exceeded"
-    assert error.value.extra["limit"] == 6
-    assert error.value.extra["used"] == 6
-    assert get_daily_used(user, "posts_per_day") == 6
+    assert error.value.extra["limit"] == 10
+    assert error.value.extra["used"] == 10
+    assert get_daily_used(user, "posts_per_day") == 10
 
 
 def test_the_limit_starts_again_the_next_day(user):
     with freeze_time("2026-11-12 10:00:00"):
-        use_posts(user, 6)
+        use_posts(user, 10)
 
     with freeze_time("2026-11-13 00:01:00"):
         use_daily_quota(user, "posts_per_day")
@@ -69,7 +69,7 @@ def test_the_error_says_when_the_limit_starts_again(user):
     user.save()
 
     with freeze_time("2026-11-12 10:00:00"):
-        use_posts(user, 6)
+        use_posts(user, 10)
         with pytest.raises(QuotaExceeded) as error:
             use_daily_quota(user, "posts_per_day")
 
@@ -77,7 +77,7 @@ def test_the_error_says_when_the_limit_starts_again(user):
 
 
 def test_separate_scopes_have_separate_counters(user):
-    for _ in range(4):
+    for _ in range(10):
         use_daily_quota(user, "posts_per_plan_per_day", scope="plan-a")
 
     use_daily_quota(user, "posts_per_plan_per_day", scope="plan-b")
@@ -113,5 +113,5 @@ def test_many_requests_at_the_same_moment_never_go_over_the_limit():
     for thread in threads:
         thread.join()
 
-    assert len(successes) == 6
-    assert get_daily_used(user, "posts_per_day") == 6
+    assert len(successes) == 10
+    assert get_daily_used(user, "posts_per_day") == 10

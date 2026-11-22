@@ -5,6 +5,9 @@
                                             |   v
                                           correcting (at most 2 rounds)
 
+"imaging" draws the slides (studio/visuals.py). It calls an image model only
+when the plan asks for AI artwork; by default the slides are plain type.
+
 Each stage function does its work, saves it, then moves the post to the
 next status. A stage first checks whether its work is already saved, so
 running it twice (for example after a crash) never makes things twice.
@@ -16,28 +19,42 @@ record which provider, prompt versions and tokens went into the post.
 from django.utils import timezone
 
 from credentials.services import require_credential
-from newsroom.presets import TOPIC_PRESETS
 from newsroom.services import pick_article, record_article_use
 from notifications.services import notify
+from planning.custom_topics import requirements_for
 from publishing.gate import check_auto_post
 from publishing.tasks import publish_post_task
-from studio.files import read_artwork, save_artwork, save_poster
-from studio.guards import LEAK_ISSUE, leaked_instructions
+from studio.files import save_artwork
 from studio.models import PostVersion, Review
-from studio.posters import fit_artwork, render_poster
+from studio.posters import fit_artwork
 from studio.providers import get_image_model, get_text_model
+from studio.reviewing import save_review, should_correct
 from studio.statuses import change_status
-from studio.verdicts import decide_verdict
+from studio.visuals import artwork_of, save_visuals
 
-POSTER_WIDTH = 1080
-POSTER_HEIGHT = 1080
-# A post is corrected at most this many times (so at most 3 versions).
-MAX_CORRECTION_ROUNDS = 2
+# The AI artwork is asked for square; each slide crops what it needs.
+ARTWORK_SIZE = 1080
 NO_ARTICLE_REASON = (
     "No article was good enough for this topic (fresh, unused, with enough "
     "text, and rated relevant and credible), so nothing was made rather "
     "than posting filler."
 )
+
+
+# Demo mode offers only the fictional demo articles; a real AI model rightly
+# rates them not credible, so with real keys every post would be skipped.
+DEMO_NEWS_WITH_REAL_MODEL = (
+    " This server is in demo mode, so it only offers fictional demo articles, "
+    "and your real AI model does not rate them credible. To use real news, "
+    "set DEMO_MODE=false and restart the app."
+)
+
+
+def skip_reason(post, text_model):
+    """Return why the post was skipped, explaining demo news to real models."""
+    if post.demo_mode and text_model.credential.adapter != "demo":
+        return NO_ARTICLE_REASON + DEMO_NEWS_WITH_REAL_MODEL
+    return NO_ARTICLE_REASON
 
 
 def text_model_for(post):
@@ -56,8 +73,9 @@ def research(post):
         used.append(text_model)
         article = pick_article(post.plan, post.topic, text_model)
         if article is None:
-            change_status(post, "skipped", NO_ARTICLE_REASON)
-            notify(post.user, "post_skipped", NO_ARTICLE_REASON, related=post)
+            reason = skip_reason(post, text_model)
+            change_status(post, "skipped", reason)
+            notify(post.user, "post_skipped", reason, related=post)
             return used
         record_article_use(post.plan, article)
         post.article = article
@@ -72,11 +90,17 @@ def draft(post):
     if post.latest_version() is None:
         text_model = text_model_for(post)
         used.append(text_model)
-        written = text_model.write_post(post.article, post.plan.requirements)
+        written = text_model.write_post(
+            post.article, requirements_for(post.plan, post.topic)
+        )
         PostVersion.objects.create(
             post=post,
             number=1,
             headline=written["headline"],
+            points=written.get("points", []),
+            figure=written.get("figure", {}),
+            quote=written.get("quote", {}),
+            takeaway=written.get("takeaway", ""),
             caption=written["caption"],
         )
     change_status(post, "imaging")
@@ -84,67 +108,29 @@ def draft(post):
 
 
 def make_poster(post):
-    """Write an image prompt, make the artwork and put the headline on it."""
+    """Draw the slides, with AI artwork on the cover only if the plan asks."""
     used = []
     version = post.latest_version()
     if not version.poster_path:
-        text_model = text_model_for(post)
-        image_model = get_image_model(require_credential(post.user, "image"))
-        used = [text_model, image_model]
-        prompt = text_model.write_image_prompt(post.article, version.headline)
-        artwork = image_model.make_artwork(prompt, POSTER_WIDTH, POSTER_HEIGHT)
-        version.image_prompt = prompt
-        version.artwork_path = save_artwork(
-            version, fit_artwork(artwork, POSTER_WIDTH, POSTER_HEIGHT)
-        )
-        version.poster_path = save_poster(version, poster_for(post, version, artwork))
-        version.save(update_fields=["image_prompt", "artwork_path", "poster_path"])
+        artwork = artwork_of(version)
+        if post.plan.ai_artwork_enabled and not artwork:
+            used, artwork = make_artwork(post, version)
+        save_visuals(post, version, artwork)
     change_status(post, "reviewing")
     return used
 
 
-def poster_for(post, version, artwork):
-    """Return the poster PNG: version's headline and the source on artwork."""
-    source_line = f"Source: {post.article.source_name}"
-    return render_poster(
-        artwork, version.headline, source_line, POSTER_WIDTH, POSTER_HEIGHT
-    )
-
-
-def is_strict(post):
-    """Return True if the post's topic needs the stricter review rules."""
-    if post.topic is None:
-        return False
-    return TOPIC_PRESETS[post.topic.preset].get("strict_review", False)
-
-
-def save_review(post, version, result):
-    """Save the model's review, adding a blocker if the post leaked our prompts."""
-    issues = result["issues"]
-    if leaked_instructions(f"{version.headline} {version.caption}"):
-        issues = issues + [LEAK_ISSUE]
-    return Review.objects.create(
-        version=version,
-        scores=result["scores"],
-        issues=issues,
-        verdict=decide_verdict(result["scores"], issues, strict=is_strict(post)),
-    )
-
-
-def should_correct(version, review):
-    """Return True if the post gets another correction round.
-
-    Not after a pass, not after MAX_CORRECTION_ROUNDS, and not when the last
-    correction did not raise the total score (it is not getting better).
-    """
-    if review.verdict == "pass" or version.number > MAX_CORRECTION_ROUNDS:
-        return False
-    if version.number == 1:
-        return True
-    previous = Review.objects.filter(
-        version__post=version.post, version__number=version.number - 1
-    ).first()
-    return previous is None or review.total() > previous.total()
+def make_artwork(post, version):
+    """Make and save AI artwork for the cover; return (models used, PNG bytes)."""
+    text_model = text_model_for(post)
+    image_model = get_image_model(require_credential(post.user, "image"))
+    prompt = text_model.write_image_prompt(post.article, version.headline)
+    made = image_model.make_artwork(prompt, ARTWORK_SIZE, ARTWORK_SIZE)
+    artwork = fit_artwork(made, ARTWORK_SIZE, ARTWORK_SIZE)
+    version.image_prompt = prompt
+    version.artwork_path = save_artwork(version, artwork)
+    version.save(update_fields=["image_prompt", "artwork_path"])
+    return [text_model, image_model], artwork
 
 
 def review(post):
@@ -155,7 +141,7 @@ def review(post):
     if found is None:
         text_model = text_model_for(post)
         used.append(text_model)
-        result = text_model.review_post(post.article, version.headline, version.caption)
+        result = text_model.review_post(post.article, version)
         found = save_review(post, version, result)
     if should_correct(version, found):
         change_status(post, "correcting")
@@ -182,7 +168,10 @@ def hand_over(post):
 
 
 def correct(post):
-    """Write the next version following the review's notes, on the same artwork."""
+    """Write the next version following the review's notes, on the same artwork.
+
+    No new image is made: the slides are drawn again with the new words.
+    """
     used = []
     version = post.latest_version()
     found = Review.objects.filter(version=version).first()
@@ -190,21 +179,21 @@ def correct(post):
         text_model = text_model_for(post)
         used.append(text_model)
         fixed = text_model.correct_post(
-            post.article, post.plan.requirements, version, found.issues
+            post.article, requirements_for(post.plan, post.topic), version, found.issues
         )
         new_version = PostVersion.objects.create(
             post=post,
             number=version.number + 1,
             headline=fixed["headline"],
+            points=fixed.get("points", version.points),
+            figure=fixed.get("figure", {}),
+            quote=fixed.get("quote", {}),
+            takeaway=fixed.get("takeaway", ""),
             caption=fixed["caption"],
             image_prompt=version.image_prompt,
             artwork_path=version.artwork_path,
         )
-        artwork = read_artwork(version)
-        new_version.poster_path = save_poster(
-            new_version, poster_for(post, new_version, artwork)
-        )
-        new_version.save(update_fields=["poster_path"])
+        save_visuals(post, new_version, artwork_of(version))
     change_status(post, "reviewing")
     return used
 

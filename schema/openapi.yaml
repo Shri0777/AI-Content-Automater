@@ -331,6 +331,21 @@ paths:
                 items:
                   $ref: '#/components/schemas/ArticlePreview'
           description: ''
+  /api/v1/news/topics/:
+    get:
+      operationId: news_topics_retrieve
+      description: Return the categories and each topic's key, label and description.
+      tags:
+      - news
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicCatalogue'
+          description: ''
   /api/v1/notifications/:
     get:
       operationId: notifications_list
@@ -657,7 +672,8 @@ paths:
           description: ''
     patch:
       operationId: posts_partial_update
-      description: Change the headline or caption of a post waiting for approval.
+      description: Change the headline, key points or caption of a post waiting for
+        approval.
       parameters:
       - in: path
         name: post_id
@@ -754,6 +770,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/PostDetail'
           description: ''
+  /api/v1/posts/{post_id}/slides/{number}/:
+    get:
+      operationId: posts_slides_retrieve
+      description: Return one slide of the post's final version as a PNG image.
+      parameters:
+      - in: path
+        name: number
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: post_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - posts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/v1/public/posters/{token}.png:
     get:
       operationId: public_posters_.png_retrieve
@@ -845,6 +889,101 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/social/apps/:
+    get:
+      operationId: social_apps_list
+      description: Return the user's saved apps (ids only, never secrets).
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlatformApp'
+          description: ''
+  /api/v1/social/apps/{platform}/:
+    put:
+      operationId: social_apps_update
+      description: Save the app's id and secret (the secret is stored encrypted).
+      parameters:
+      - in: path
+        name: platform
+        schema:
+          type: string
+        required: true
+      tags:
+      - social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformAppInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlatformAppInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlatformAppInput'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformApp'
+          description: ''
+    delete:
+      operationId: social_apps_destroy
+      description: Remove the app. Accounts linked through it will need relinking.
+      parameters:
+      - in: path
+        name: platform
+        schema:
+          type: string
+        required: true
+      tags:
+      - social
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/social/buffer/channels/:
+    post:
+      operationId: social_buffer_channels_create
+      description: Return each channel's id, name and network, for the user to choose.
+      tags:
+      - social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BufferKey'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BufferKey'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BufferKey'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BufferChannel'
+          description: ''
   /api/v1/social/link/{platform}/callback/:
     get:
       operationId: social_link_callback_retrieve
@@ -1011,6 +1150,30 @@ components:
     BlankEnum:
       enum:
       - ''
+    BufferChannel:
+      type: object
+      description: One Buffer channel the user can choose to link.
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        network:
+          type: string
+      required:
+      - id
+      - name
+      - network
+    BufferKey:
+      type: object
+      description: A Buffer API key, to look up the user's channels.
+      properties:
+        api_key:
+          type: string
+          writeOnly: true
+          maxLength: 500
+      required:
+      - api_key
     BufferLink:
       type: object
       description: The Buffer API key, and optionally which channels to link.
@@ -1344,6 +1507,12 @@ components:
           type: string
           default: ''
           maxLength: 90
+        points:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          maxItems: 5
         caption:
           type: string
           maxLength: 3000
@@ -1369,6 +1538,12 @@ components:
           type: boolean
           readOnly: true
         ai_label_text:
+          type: string
+          readOnly: true
+        ai_artwork_enabled:
+          type: boolean
+          readOnly: true
+        brand_colour:
           type: string
           readOnly: true
         paused:
@@ -1408,10 +1583,12 @@ components:
           readOnly: true
       required:
       - accounts
+      - ai_artwork_enabled
       - ai_label_enabled
       - ai_label_text
       - approval_mode
       - auto_post_min_score
+      - brand_colour
       - created_at
       - id
       - lead_time_minutes
@@ -1443,6 +1620,13 @@ components:
           type: string
           default: Made with AI assistance.
           maxLength: 100
+        ai_artwork_enabled:
+          type: boolean
+          default: false
+        brand_colour:
+          type: string
+          default: '#0E1634'
+          pattern: ^#[0-9A-Fa-f]{6}$
         lead_time_minutes:
           type: integer
           maximum: 1440
@@ -1459,9 +1643,9 @@ components:
           default: expire
         auto_post_min_score:
           type: integer
-          maximum: 25
-          minimum: 15
-          default: 22
+          maximum: 30
+          minimum: 18
+          default: 26
         topics:
           type: array
           items:
@@ -1491,11 +1675,46 @@ components:
           $ref: '#/components/schemas/LinkMethodEnum'
         ready:
           type: boolean
+        app_saved:
+          type: boolean
+        callback_url:
+          type: string
+          nullable: true
       required:
+      - app_saved
+      - callback_url
       - link_method
       - name
       - platform
       - ready
+    PlatformApp:
+      type: object
+      description: A saved developer app. The secret is never sent back.
+      properties:
+        platform:
+          type: string
+        client_id:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - client_id
+      - platform
+      - updated_at
+    PlatformAppInput:
+      type: object
+      description: A developer app's id and secret, copied from the platform's site.
+      properties:
+        client_id:
+          type: string
+          maxLength: 255
+        client_secret:
+          type: string
+          maxLength: 500
+      required:
+      - client_id
+      - client_secret
     PlatformEnum:
       enum:
       - demo
@@ -1608,6 +1827,17 @@ components:
           description: Return the address of the final poster, or None if there is
             none.
           readOnly: true
+        slide_urls:
+          type: array
+          items:
+            type: string
+          description: Return the addresses of the final version's slides, cover first.
+          readOnly: true
+        final_version:
+          type: integer
+          nullable: true
+          description: Return the number of the version that is shown and published.
+          readOnly: true
         versions:
           type: array
           items:
@@ -1627,12 +1857,14 @@ components:
       - article
       - created_at
       - demo_mode
+      - final_version
       - id
       - plan
       - plan_name
       - poster_url
       - publications
       - scheduled_for
+      - slide_urls
       - status
       - status_reason
       - steps
@@ -1726,28 +1958,38 @@ components:
         image_prompt:
           type: string
           readOnly: true
+        points:
+          readOnly: true
+        figure:
+          readOnly: true
+        quote:
+          readOnly: true
+        takeaway:
+          type: string
+          readOnly: true
+        slide_count:
+          type: integer
+          description: Return how many slide images the version has (0 before slides).
+          readOnly: true
+        edited_by_user:
+          type: boolean
+          readOnly: true
         review:
           allOf:
           - $ref: '#/components/schemas/Review'
           readOnly: true
       required:
       - caption
+      - edited_by_user
+      - figure
       - headline
       - image_prompt
       - number
+      - points
+      - quote
       - review
-    PresetEnum:
-      enum:
-      - job_hiring
-      - layoffs
-      - linux_tips
-      - ai_news
-      type: string
-      description: |-
-        * `job_hiring` - Job hiring
-        * `layoffs` - Layoffs
-        * `linux_tips` - Linux tips
-        * `ai_news` - AI news
+      - slide_count
+      - takeaway
     Publication:
       type: object
       description: Where a post was sent and what happened.
@@ -2037,7 +2279,8 @@ components:
       - unread_notifications
     Topic:
       type: object
-      description: One topic of a plan.
+      description: 'One topic of a plan: a built-in preset, or "custom" with search
+        words.'
       properties:
         id:
           type: string
@@ -2047,11 +2290,53 @@ components:
           type: string
           maxLength: 100
         preset:
-          $ref: '#/components/schemas/PresetEnum'
+          type: string
+          maxLength: 40
+        search_words:
+          type: string
+          default: ''
+          maxLength: 300
+        instructions:
+          type: string
+          default: ''
+          maxLength: 1000
       required:
       - id
       - name
       - preset
+    TopicCatalogue:
+      type: object
+      description: Every built-in topic, with the categories the picker groups them
+        by.
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicChoice'
+      required:
+      - categories
+      - topics
+    TopicChoice:
+      type: object
+      description: One built-in topic a plan can follow.
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+      required:
+      - category
+      - description
+      - key
+      - label
     UnreadCount:
       type: object
       description: How many notifications are unread.

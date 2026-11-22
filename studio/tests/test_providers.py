@@ -5,6 +5,7 @@ pass the same checks, so demo mode and real providers cannot drift apart.
 """
 
 from io import BytesIO
+from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -14,12 +15,14 @@ from core.errors import ProviderBusy, ProviderError, ProviderKeyRejected
 from credentials.models import ADAPTERS_BY_KIND
 from credentials.services import save_credential
 from newsroom.models import Article
+from studio.prompts import DRAFT_PROMPT
 from studio.providers import (
     IMAGE_MODEL_CLASSES,
     TEXT_MODEL_CLASSES,
     get_image_model,
     get_text_model,
 )
+from studio.verdicts import SCORE_NAMES
 from tests.provider_stubs import (
     ANTHROPIC_MESSAGES_PATH,
     FAL_MODEL,
@@ -78,18 +81,12 @@ def test_every_text_model_writes_a_post_that_credits_its_source(
 
     post = model.write_post(article, "Short and friendly.")
     prompt = model.write_image_prompt(article, post["headline"])
-    review = model.review_post(article, post["headline"], post["caption"])
+    review = model.review_post(article, SimpleNamespace(**post))
 
     assert post["headline"]
     assert article.url in post["caption"]
     assert prompt
-    assert set(review["scores"]) == {
-        "grounding",
-        "relevance",
-        "clarity",
-        "tone",
-        "safety",
-    }
+    assert set(review["scores"]) == set(SCORE_NAMES)
     assert isinstance(review["issues"], list)
     model.check_connection()
 
@@ -114,7 +111,7 @@ def test_real_text_models_count_tokens_and_prompt_versions(
 
     assert model.input_tokens == 120
     assert model.output_tokens == 40
-    assert model.prompt_versions == ["draft-v1"]
+    assert model.prompt_versions == [DRAFT_PROMPT["version"]]
 
 
 def test_the_users_own_key_is_sent_to_the_provider(user, stub_server):
@@ -155,7 +152,10 @@ def test_text_provider_failures_become_our_error_kinds(
 
 def test_a_model_that_answers_badly_once_is_asked_to_fix_it(user, article, stub_server):
     credential = make_credential(user, stub_server, "text", "openai_compatible")
-    answers = ["Sure! Here is your post.", '{"headline": "Fixed", "caption": "Done."}']
+    answers = [
+        "Sure! Here is your post.",
+        '{"headline": "Fixed", "points": ["A fact."], "caption": "Done."}',
+    ]
 
     def bad_then_good(body):
         reply = answers.pop(0)

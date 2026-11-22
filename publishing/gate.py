@@ -7,7 +7,7 @@ ALL of these hold:
 1. The plan's approval mode is "auto".
 2. The post has a review, and its verdict is "pass" (studio/verdicts.py).
 3. The review noted no issues at all, not even minor ones.
-4. The review's total score (5 to 25) reaches the plan's auto_post_min_score.
+4. The review's total score (6 to 30) reaches the plan's auto_post_min_score.
 5. On a strict topic (layoffs, hiring, Linux tips) every score is 5.
 
 These rules encode how much editorial risk the owner accepts. They are
@@ -15,7 +15,7 @@ tested as one row per case in publishing/tests/test_gate.py; change the
 thresholds there and here together.
 """
 
-from newsroom.presets import TOPIC_PRESETS
+from newsroom.presets import get_preset
 from studio.verdicts import SCORE_NAMES
 
 
@@ -23,7 +23,7 @@ def is_strict_topic(topic):
     """Return True if the topic's preset asks for the strict review."""
     if topic is None:
         return False
-    return TOPIC_PRESETS[topic.preset].get("strict_review", False)
+    return (get_preset(topic.preset) or {}).get("strict_review", False)
 
 
 def mode_problem(plan, topic, review):
@@ -53,7 +53,7 @@ def score_problem(plan, topic, review):
     """Rule 4: the total score reaches the plan's minimum."""
     if review.total() < plan.auto_post_min_score:
         return (
-            f"Its review score ({review.total()} of 25) is below this plan's "
+            f"Its review score ({review.total()} of 30) is below this plan's "
             f"minimum for automatic posting ({plan.auto_post_min_score})."
         )
     return ""

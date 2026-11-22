@@ -1,7 +1,7 @@
 """Delete old poster images and old pipeline records (run nightly).
 
 Poster images are the biggest files we keep. After each user's
-poster_retention_days (30 by default) the poster and artwork files are
+poster_retention_days (30 by default) the poster, slide and artwork files are
 deleted and the version is marked image_expired; its headline, caption,
 review and publications stay as the user's history.
 """
@@ -31,14 +31,22 @@ def expire_images_of(user, now):
     )
     count = 0
     for version in old_versions:
-        delete_file(version.poster_path)
-        delete_file(version.artwork_path)
-        version.poster_path = ""
-        version.artwork_path = ""
-        version.image_expired = True
-        version.save(update_fields=["poster_path", "artwork_path", "image_expired"])
+        expire_files_of(version)
         count = count + 1
     return count
+
+
+def expire_files_of(version):
+    """Delete a version's poster, slides and artwork, keeping its words."""
+    for path in [version.poster_path, version.artwork_path, *version.slide_paths]:
+        delete_file(path)
+    version.poster_path = ""
+    version.artwork_path = ""
+    version.slide_paths = []
+    version.image_expired = True
+    version.save(
+        update_fields=["poster_path", "artwork_path", "slide_paths", "image_expired"]
+    )
 
 
 def expire_old_images(now):

@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.utils import timezone
 
@@ -54,20 +55,36 @@ def made_post(plan):
 
 def test_old_poster_files_are_deleted_but_the_words_are_kept(made_post, api_client):
     version = made_post.final_version()
-    poster, artwork = version.poster_path, version.artwork_path
+    poster, slides = version.poster_path, list(version.slide_paths)
+    assert slides
 
     counts = run_cleanup(now=timezone.now() + LATER)
 
     version.refresh_from_db()
     assert counts["images_expired"] == 1
     assert version.image_expired is True
-    assert not default_storage.exists(poster)
-    assert not default_storage.exists(artwork)
+    for path in [poster, *slides]:
+        assert not default_storage.exists(path)
+    assert version.slide_paths == []
     assert version.caption != ""
     api_client.force_authenticate(made_post.user)
     response = api_client.get(f"/api/v1/posts/{made_post.id}/poster/")
     assert response.status_code == 404
     assert "retention" in response.json()["detail"]
+    response = api_client.get(f"/api/v1/posts/{made_post.id}/slides/1/")
+    assert response.status_code == 404
+
+
+def test_old_ai_artwork_is_deleted_too(made_post):
+    version = made_post.final_version()
+    version.artwork_path = default_storage.save(
+        "posters/old-artwork.png", ContentFile(b"x")
+    )
+    version.save()
+
+    run_cleanup(now=timezone.now() + LATER)
+
+    assert not default_storage.exists(version.artwork_path)
 
 
 def test_recent_posters_and_longer_user_limits_are_respected(made_post):

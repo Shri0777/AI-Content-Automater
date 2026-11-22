@@ -25,6 +25,7 @@ SKIPPED_FOLDERS = [
     "__pycache__",
     "frontend",
     "frontend_ui",
+    "node_modules",
 ]
 
 # Django requires management commands to define handle(self, *args, **options),

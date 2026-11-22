@@ -11,11 +11,11 @@ from planning.models import PostSlot
 from planning.services import get_plan
 from publishing.tasks import publish_post_task
 from quotas.services import use_daily_quota
-from studio.files import read_artwork, read_poster, save_poster
+from studio.files import read_poster, read_slide
 from studio.models import Post, PostVersion
-from studio.pipeline import poster_for
 from studio.statuses import change_status, fail_after_crash
 from studio.tasks import advance_post_task
+from studio.visuals import artwork_of, save_visuals
 
 
 class PostNotFound(AppError):
@@ -90,12 +90,19 @@ def choose_topic(plan):
     return best_topic
 
 
+def needed_credentials(plan):
+    """Return the kinds of API key a plan's posts need ("image" only for art)."""
+    if plan.ai_artwork_enabled:
+        return ["text", "image"]
+    return ["text"]
+
+
 def start_generation(user, plan_id):
     """Create a post for the plan and start making it in the background."""
     plan = get_plan(user, plan_id)
     if plan.paused:
         raise PlanCannotGenerate("This plan is paused. Resume it first.")
-    for kind in ["text", "image"]:
+    for kind in needed_credentials(plan):
         if require_credential(user, kind).status == "invalid":
             raise PlanCannotGenerate(
                 f"Your {kind} provider refused its API key. "
@@ -158,7 +165,7 @@ def create_scheduled_post(slot):
     return post
 
 
-def edit_post(user, post_id, headline, caption):
+def edit_post(user, post_id, headline, caption, points=None):
     """Save the user's own wording as a new version, on the same artwork.
 
     Only a post waiting for approval can be edited. The user's version is
@@ -172,15 +179,16 @@ def edit_post(user, post_id, headline, caption):
         post=post,
         number=post.latest_version().number + 1,
         headline=headline or current.headline,
+        points=current.points if points is None else points,
+        figure=current.figure,
+        quote=current.quote,
+        takeaway=current.takeaway,
         caption=caption,
         image_prompt=current.image_prompt,
         artwork_path=current.artwork_path,
         edited_by_user=True,
     )
-    edited.poster_path = save_poster(
-        edited, poster_for(post, edited, read_artwork(current))
-    )
-    edited.save(update_fields=["poster_path"])
+    save_visuals(post, edited, artwork_of(current))
     return get_post(user, post.id)
 
 
@@ -213,6 +221,16 @@ def get_poster_bytes(user, post_id):
     if version is None or not version.poster_path:
         raise PostNotFound("This post has no poster yet.")
     return read_poster(version)
+
+
+def get_slide_bytes(user, post_id, number):
+    """Return the PNG bytes of slide number (1 is the cover) of a post."""
+    version = get_post(user, post_id).final_version()
+    if version is not None and version.image_expired:
+        raise PostNotFound("This slide was deleted after the retention period.")
+    if version is None or not 1 <= number <= len(version.slide_paths):
+        raise PostNotFound("This post has no such slide.")
+    return read_slide(version, number)
 
 
 def count_awaiting_approval(user):

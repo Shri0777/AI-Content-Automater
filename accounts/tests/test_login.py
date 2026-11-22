@@ -7,6 +7,8 @@ kept in an httpOnly cookie that browser scripts cannot read (ADR-009).
 import pytest
 from django.contrib.auth import get_user_model
 
+from accounts import refresh_replay
+
 LOGIN_URL = "/api/v1/auth/login/"
 REFRESH_URL = "/api/v1/auth/refresh/"
 LOGOUT_URL = "/api/v1/auth/logout/"
@@ -91,9 +93,39 @@ def test_refresh_without_a_cookie_is_refused(api_client, user):
     assert response.json()["code"] == "not_logged_in"
 
 
-def test_an_old_refresh_token_cannot_be_reused(api_client, user):
+def test_an_old_refresh_token_cannot_be_reused_after_the_replay_window(
+    api_client, user, monkeypatch
+):
+    monkeypatch.setattr(refresh_replay, "REFRESH_REPLAY_SECONDS", 0)
     old_cookie = log_in(api_client).cookies["refresh_token"].value
     api_client.post(REFRESH_URL, **HEADER)
+    api_client.cookies["refresh_token"] = old_cookie
+
+    response = api_client.post(REFRESH_URL, **HEADER)
+
+    assert response.status_code == 401
+
+
+def test_a_just_swapped_refresh_token_gets_the_same_answer_again(api_client, user):
+    # Two tabs refreshing together, or a reload that dropped the reply with
+    # the new cookie, must not log the user out.
+    old_cookie = log_in(api_client).cookies["refresh_token"].value
+    first = api_client.post(REFRESH_URL, **HEADER)
+    # Read it now: setting the client's cookie below changes this one too.
+    new_cookie = first.cookies["refresh_token"].value
+    api_client.cookies["refresh_token"] = old_cookie
+
+    again = api_client.post(REFRESH_URL, **HEADER)
+
+    assert again.status_code == 200
+    assert again.json()["access"] == first.json()["access"]
+    assert again.cookies["refresh_token"].value == new_cookie
+
+
+def test_a_just_swapped_refresh_token_is_refused_after_logout(api_client, user):
+    old_cookie = log_in(api_client).cookies["refresh_token"].value
+    api_client.post(REFRESH_URL, **HEADER)
+    api_client.post(LOGOUT_URL, **HEADER)
     api_client.cookies["refresh_token"] = old_cookie
 
     response = api_client.post(REFRESH_URL, **HEADER)
@@ -121,3 +153,12 @@ def test_too_many_login_attempts_are_slowed_down(api_client, user):
 
     assert response.status_code == 429
     assert response.json()["code"] == "throttled"
+
+
+def test_refreshing_has_its_own_looser_limit_than_logging_in(api_client, user):
+    # Every page load refreshes the login. Sharing the strict 10-a-minute
+    # login limit would log out anyone who opens a few tabs.
+    log_in(api_client)
+    for _ in range(15):
+        response = api_client.post(REFRESH_URL, **HEADER)
+        assert response.status_code == 200

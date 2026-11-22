@@ -41,6 +41,10 @@ def reply_for(system_prompt):
     if system_prompt in [DRAFT_PROMPT["system"], CORRECT_PROMPT["system"]]:
         answer = {
             "headline": "Stub model headline",
+            "points": ["The stub's first fact.", "The stub's second fact."],
+            "figure": None,
+            "quote": None,
+            "takeaway": "Why the stub's news matters.",
             "caption": "A summary written by the stub model.",
         }
     elif system_prompt == IMAGE_PROMPT_PROMPT["system"]:
@@ -56,6 +60,7 @@ def reply_for(system_prompt):
         answer = {"scores": [score]}
     elif system_prompt == REVIEW_PROMPT["system"]:
         scores = {"grounding": 5, "relevance": 5, "clarity": 4, "tone": 5, "safety": 5}
+        scores["shareability"] = 4
         answer = {"scores": scores, "issues": []}
     else:
         return "OK"

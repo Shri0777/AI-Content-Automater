@@ -230,3 +230,19 @@ def test_a_request_that_gets_no_answer_may_have_been_acted_on(stub_server, monke
 
     with pytest.raises(ProviderNoAnswer):
         post_json(f"{stub_server.base_url}/slow", {}, {})
+
+
+def test_a_services_own_error_sentence_is_shown_not_its_json(stub_server):
+    # What Groq answers for a model name without its "openai/" prefix.
+    sentence = (
+        "The model `gpt-oss-120b` does not exist or you do not have access to "
+        "it. Please pass the full model_id including any prefixes."
+    )
+    body = {"error": {"message": sentence, "type": "invalid_request_error"}}
+    stub_server.set_route("POST", "/chat", {"status": 404, "json": body})
+
+    with pytest.raises(ProviderError) as error:
+        post_json(f"{stub_server.base_url}/chat", {}, {})
+
+    assert sentence in str(error.value)
+    assert "invalid_request_error" not in str(error.value)

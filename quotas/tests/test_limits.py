@@ -23,7 +23,9 @@ def user(db):
 
 def test_free_tier_limits_come_from_the_database(user):
     assert get_limit(user, "active_plans") == 3
-    assert get_limit(user, "posts_per_day") == 6
+    assert get_limit(user, "posts_per_day") == 10
+    assert get_limit(user, "posts_per_plan_per_day") == 10
+    assert get_limit(user, "generate_now_per_day") == 10
 
 
 def test_an_override_beats_the_tier_limit(user):

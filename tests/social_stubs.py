@@ -16,6 +16,8 @@ LINKEDIN_USERINFO_PATH = "/linkedin/v2/userinfo"
 LINKEDIN_IMAGES_PATH = "/linkedin/rest/images"
 LINKEDIN_UPLOAD_PATH = "/linkedin-upload/image-1"
 LINKEDIN_POSTS_PATH = "/linkedin/rest/posts"
+LINKEDIN_DOCUMENTS_PATH = "/linkedin/rest/documents"
+LINKEDIN_DOCUMENT_UPLOAD_PATH = "/linkedin-upload/document-1"
 FACEBOOK_TOKEN_PATH = "/facebook/oauth/access_token"
 FACEBOOK_PAGES_PATH = "/facebook/me/accounts"
 FACEBOOK_PHOTOS_PATH = "/facebook/page-1/photos"
@@ -76,6 +78,20 @@ def add_x_routes(stub_server):
     return counter
 
 
+def add_linkedin_document_routes(stub_server):
+    """Answer LinkedIn's document upload (the slides of a post, as a PDF)."""
+    document_upload = {
+        "value": {
+            "uploadUrlExpiresAt": 1650567510704,
+            "uploadUrl": stub_server.base_url + LINKEDIN_DOCUMENT_UPLOAD_PATH,
+            "document": "urn:li:document:D5510AQFx87994pYx0Q",
+        }
+    }
+    stub_server.set_route("POST", LINKEDIN_DOCUMENTS_PATH, {"json": document_upload})
+    empty = {"status": 201, "body": b""}
+    stub_server.set_route("PUT", LINKEDIN_DOCUMENT_UPLOAD_PATH, empty)
+
+
 def add_linkedin_routes(stub_server):
     """Answer like LinkedIn: 60-day tokens with no refresh token."""
     counter = TokenCounter(expires_in=5184000, with_refresh_token=False)
@@ -91,6 +107,7 @@ def add_linkedin_routes(stub_server):
     }
     stub_server.set_route("POST", LINKEDIN_IMAGES_PATH, {"json": upload})
     stub_server.set_route("PUT", LINKEDIN_UPLOAD_PATH, {"status": 201, "body": b""})
+    add_linkedin_document_routes(stub_server)
     created = {
         "status": 201,
         "body": b"",

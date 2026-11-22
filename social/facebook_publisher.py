@@ -33,9 +33,8 @@ def graph_url(path, params):
     return f"{settings.SOCIAL_API_URLS['facebook']}{path}?{urlencode(params)}"
 
 
-def get_user_token(code, redirect_uri):
-    """Swap the approval code for a long-lived user token."""
-    app = settings.SOCIAL_APPS["facebook"]
+def get_user_token(app, code, redirect_uri):
+    """Swap the approval code for a long-lived user token, as the app."""
     app_params = {"client_id": app["client_id"], "client_secret": app["client_secret"]}
     params = {"redirect_uri": redirect_uri, "code": code}
     params.update(app_params)
@@ -67,7 +66,7 @@ class FacebookPublisher(Publisher):
     def authorization_url(self, state, code_challenge, redirect_uri):
         """Return Facebook's approval page. Facebook Login has no PKCE here."""
         params = {
-            "client_id": settings.SOCIAL_APPS["facebook"]["client_id"],
+            "client_id": self.app["client_id"],
             "redirect_uri": redirect_uri,
             "state": state,
             "scope": SCOPES,
@@ -77,7 +76,7 @@ class FacebookPublisher(Publisher):
 
     def finish_link(self, code, code_verifier, redirect_uri):
         """Return every Page the user manages where they may create posts."""
-        user_token = get_user_token(code, redirect_uri)
+        user_token = get_user_token(self.app, code, redirect_uri)
         url = graph_url("/me/accounts", {"access_token": user_token})
         pages = read_answer(web.get_json(url, {}), ["data"], "Facebook")
         accounts = []

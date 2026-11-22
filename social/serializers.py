@@ -35,6 +35,25 @@ class PlatformSerializer(serializers.Serializer):
     name = serializers.CharField()
     link_method = serializers.ChoiceField(choices=["oauth", "api_key", "demo"])
     ready = serializers.BooleanField()
+    # For X, LinkedIn and Facebook: did the user save their own developer
+    # app, and the address to register in it as the callback/redirect URL.
+    app_saved = serializers.BooleanField()
+    callback_url = serializers.CharField(allow_null=True)
+
+
+class PlatformAppSerializer(serializers.Serializer):
+    """A saved developer app. The secret is never sent back."""
+
+    platform = serializers.CharField()
+    client_id = serializers.CharField()
+    updated_at = serializers.DateTimeField()
+
+
+class PlatformAppInputSerializer(serializers.Serializer):
+    """A developer app's id and secret, copied from the platform's site."""
+
+    client_id = serializers.CharField(max_length=255)
+    client_secret = serializers.CharField(max_length=500)
 
 
 class BufferLinkSerializer(serializers.Serializer):
@@ -44,6 +63,20 @@ class BufferLinkSerializer(serializers.Serializer):
     channel_ids = serializers.ListField(
         child=serializers.CharField(max_length=100), required=False, max_length=50
     )
+
+
+class BufferKeySerializer(serializers.Serializer):
+    """A Buffer API key, to look up the user's channels."""
+
+    api_key = serializers.CharField(write_only=True, max_length=500)
+
+
+class BufferChannelSerializer(serializers.Serializer):
+    """One Buffer channel the user can choose to link."""
+
+    id = serializers.CharField()
+    name = serializers.CharField()
+    network = serializers.CharField()
 
 
 class LinkStartSerializer(serializers.Serializer):

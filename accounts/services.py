@@ -20,6 +20,7 @@ from rest_framework_simplejwt.token_blacklist.models import (
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from accounts import refresh_replay
 from accounts.models import InviteCode, RecoveryCode, User
 from core.errors import AppError
 
@@ -221,14 +222,20 @@ def log_in(request, email, password):
 def refresh_login(refresh_token):
     """Swap a refresh token for a new access token and a new refresh token.
 
-    The old refresh token is cancelled, so it can never be used again.
+    The old refresh token is cancelled. For a few seconds, sending it again
+    returns the same new tokens (see accounts/refresh_replay.py).
     """
     serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
     try:
         serializer.is_valid(raise_exception=True)
     except TokenError:
-        raise NotLoggedIn("Your login has expired. Please log in again.") from None
-    return serializer.validated_data
+        tokens = refresh_replay.recall(refresh_token)
+        if tokens is None:
+            raise NotLoggedIn("Your login has expired. Please log in again.") from None
+        return tokens
+    tokens = serializer.validated_data
+    refresh_replay.remember(refresh_token, tokens)
+    return tokens
 
 
 def log_out(refresh_token):

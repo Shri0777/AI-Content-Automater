@@ -61,7 +61,7 @@ class PostDetailView(APIView):
 
     @extend_schema(request=PostEditSerializer, responses=PostDetailSerializer)
     def patch(self, request, post_id):
-        """Change the headline or caption of a post waiting for approval."""
+        """Change the headline, key points or caption of a post waiting for approval."""
         serializer = PostEditSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         post = services.edit_post(
@@ -69,6 +69,7 @@ class PostDetailView(APIView):
             post_id,
             serializer.validated_data["headline"],
             serializer.validated_data["caption"],
+            serializer.validated_data.get("points"),
         )
         return Response(PostDetailSerializer(post).data)
 
@@ -100,6 +101,16 @@ class PosterView(APIView):
     def get(self, request, post_id):
         """Return the newest poster as a PNG image."""
         png_bytes = services.get_poster_bytes(request.user, post_id)
+        return HttpResponse(png_bytes, content_type="image/png")
+
+
+class SlideView(APIView):
+    """One slide image of a post (number 1 is the cover)."""
+
+    @extend_schema(responses={(200, "image/png"): OpenApiTypes.BINARY})
+    def get(self, request, post_id, number):
+        """Return one slide of the post's final version as a PNG image."""
+        png_bytes = services.get_slide_bytes(request.user, post_id, number)
         return HttpResponse(png_bytes, content_type="image/png")
 
 

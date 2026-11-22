@@ -20,6 +20,7 @@ from studio.model_outputs import (
     ImagePromptOutput,
     ReviewOutput,
 )
+from studio.post_content import finished_post
 from studio.prompts import (
     ARTICLE_SCORES_PROMPT,
     CORRECT_PROMPT,
@@ -30,8 +31,6 @@ from studio.prompts import (
     REVIEW_PROMPT,
     SCORING_ARTICLE_CHARACTERS,
 )
-
-MAX_HEADLINE_LENGTH = 90
 
 
 def read_json_answer(answer, output_class):
@@ -73,12 +72,26 @@ def numbered_articles(articles):
     return "\n\n".join(blocks)
 
 
-def finished_post(result, article):
-    """Return the headline (cut to length) and a caption that credits the source."""
-    caption = result["caption"]
-    if article.url not in caption:
-        caption = f"{caption}\n\nSource: {article.source_name}, {article.url}"
-    return {"headline": result["headline"][:MAX_HEADLINE_LENGTH], "caption": caption}
+def numbered_points(points):
+    """Return points as "1. ..." lines for a prompt ("(none)" if empty)."""
+    lines = []
+    for number, point in enumerate(points, start=1):
+        lines.append(f"{number}. {point}")
+    return "\n".join(lines) or "(none)"
+
+
+def describe_extras(version):
+    """Return the figure, quote and takeaway as lines for a prompt."""
+    figure = version.figure or {}
+    quote = version.quote or {}
+    lines = [
+        f"Figure: {figure.get('value', '(none)')} {figure.get('label', '')}",
+        f"Quote: {quote.get('text', '(none)')} {quote.get('speaker', '')}",
+        f"Takeaway: {version.takeaway or '(none)'}",
+    ]
+    for bar in figure.get("compare") or []:
+        lines.append(f"Figure bar: {bar['label']} = {bar['display']}")
+    return "\n".join(lines)
 
 
 def describe_issues(issues):
@@ -160,17 +173,20 @@ class TextModel:
         return scores
 
     def write_post(self, article, requirements):
-        """Return {"headline": ..., "caption": ...}; the caption credits the source."""
+        """Return the post's content (studio/post_content.py); the caption
+        credits the source."""
         values = article_values(article)
         values["requirements"] = requirements or "(nothing specific)"
         result = self.ask_for_json(DRAFT_PROMPT, values, DraftOutput)
         return finished_post(result, article)
 
     def correct_post(self, article, requirements, version, issues):
-        """Return a corrected {"headline", "caption"} following the review's issues."""
+        """Return corrected content (as write_post) following the issues."""
         values = article_values(article)
         values["requirements"] = requirements or "(nothing specific)"
         values["headline"] = version.headline
+        values["points"] = numbered_points(version.points)
+        values["extras"] = describe_extras(version)
         values["caption"] = version.caption
         values["notes"] = describe_issues(issues)
         result = self.ask_for_json(CORRECT_PROMPT, values, DraftOutput)
@@ -183,11 +199,13 @@ class TextModel:
         result = self.ask_for_json(IMAGE_PROMPT_PROMPT, values, ImagePromptOutput)
         return result["prompt"]
 
-    def review_post(self, article, headline, caption):
-        """Return {"scores": {...}, "issues": [...]} for a written post."""
+    def review_post(self, article, version):
+        """Return {"scores": {...}, "issues": [...]} for a written version."""
         values = article_values(article)
-        values["headline"] = headline
-        values["caption"] = caption
+        values["headline"] = version.headline
+        values["points"] = numbered_points(version.points)
+        values["extras"] = describe_extras(version)
+        values["caption"] = version.caption
         result = self.ask_for_json(REVIEW_PROMPT, values, ReviewOutput)
         issues = []
         for issue in result["issues"]:

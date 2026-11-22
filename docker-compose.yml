@@ -11,6 +11,28 @@
 #
 # Ports 5433 and 6380 are used on your computer so they never clash with a
 # database or Redis you may already have installed.
+# Settings shared by the web server, the workers and the scheduler. The
+# ${NAME:-default} values can be set in a .env file next to this one (or in
+# your shell); Docker Compose reads it when it starts the containers.
+#   DEMO_MODE=false        real news; keep "true" to try it with no keys
+#   PUBLIC_API_URL=...     how platforms (and Buffer) reach this API
+x-app-environment: &app-environment
+  DJANGO_SETTINGS_MODULE: config.settings.dev
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CACHE_URL: redis://redis:6379/1
+  DEMO_MODE: ${DEMO_MODE:-true}
+  PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+  # Optional server-wide developer apps; users can save their own instead.
+  X_CLIENT_ID: ${X_CLIENT_ID:-}
+  X_CLIENT_SECRET: ${X_CLIENT_SECRET:-}
+  LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+  LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+  FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+  FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+
 services:
   db:
     image: postgres:17-alpine
@@ -42,12 +64,7 @@ services:
   web:
     build: .
     command: sh -c "python manage.py migrate && gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 2"
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      POSTGRES_HOST: db
-      POSTGRES_PORT: "5432"
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CACHE_URL: redis://redis:6379/1
+    environment: *app-environment
     ports:
       - "8000:8000"
     volumes:
@@ -70,12 +87,7 @@ services:
   worker:
     build: .
     command: celery -A config worker --loglevel=info --queues celery
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      POSTGRES_HOST: db
-      POSTGRES_PORT: "5432"
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CACHE_URL: redis://redis:6379/1
+    environment: *app-environment
     volumes:
       - media-files:/app/media
     depends_on:
@@ -89,12 +101,7 @@ services:
   worker-publish:
     build: .
     command: celery -A config worker --loglevel=info --queues publish --concurrency 2 --hostname publish@%h
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      POSTGRES_HOST: db
-      POSTGRES_PORT: "5432"
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CACHE_URL: redis://redis:6379/1
+    environment: *app-environment
     volumes:
       - media-files:/app/media
     depends_on:
@@ -107,12 +114,7 @@ services:
   beat:
     build: .
     command: celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      POSTGRES_HOST: db
-      POSTGRES_PORT: "5432"
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CACHE_URL: redis://redis:6379/1
+    environment: *app-environment
     depends_on:
       redis:
         condition: service_healthy

@@ -17,7 +17,10 @@ class DemoNewsSource(NewsSource):
         """Return the canned articles for a preset, dated a few hours ago."""
         articles = []
         hours_ago = 1
-        for number, canned in enumerate(DEMO_ARTICLES.get(preset, []), start=1):
+        # Topics without their own demo articles (most of the catalogue, and
+        # users' own topics) borrow the AI news ones.
+        canned_articles = DEMO_ARTICLES.get(preset) or DEMO_ARTICLES["ai_news"]
+        for number, canned in enumerate(canned_articles, start=1):
             articles.append(
                 {
                     "url": f"https://example.com/demo/{preset}/{number}",

@@ -15,7 +15,7 @@ from django.utils import timezone
 from core import web
 from newsroom.feeds import parse_date, parse_feed
 from newsroom.fetching import fetch_feed, get_with_redirects, user_agent_header
-from newsroom.presets import TOPIC_PRESETS
+from newsroom.presets import get_preset
 
 HACKERNEWS_STORIES_PER_READ = 30
 HACKERNEWS_MIN_POINTS = 5
@@ -92,7 +92,7 @@ class HackerNewsSource(NewsSource):
 
     def fetch_articles(self, preset):
         """Return recent stories that link to an article."""
-        url = self.search_url(TOPIC_PRESETS[preset]["freshness_hours"])
+        url = self.search_url(get_preset(preset)["freshness_hours"])
         answer = get_with_redirects(url, user_agent_header(), "hackernews")
         found = web.parse_json(answer.content)
         articles = []
@@ -125,6 +125,6 @@ def get_sources(preset):
 
         return [DemoNewsSource()]
     sources = []
-    for config in TOPIC_PRESETS[preset]["sources"]:
+    for config in get_preset(preset)["sources"]:
         sources.append(SOURCE_CLASSES[config["type"]](config))
     return sources

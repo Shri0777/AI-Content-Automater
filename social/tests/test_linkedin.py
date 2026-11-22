@@ -17,6 +17,8 @@ from social.tokens import (
     refresh_expiring_accounts,
 )
 from tests.social_stubs import (
+    LINKEDIN_DOCUMENT_UPLOAD_PATH,
+    LINKEDIN_DOCUMENTS_PATH,
     LINKEDIN_IMAGES_PATH,
     LINKEDIN_POSTS_PATH,
     LINKEDIN_TOKEN_PATH,
@@ -68,6 +70,30 @@ def test_publishing_uploads_the_image_then_creates_the_post(client, platforms):
     assert post["author"] == "urn:li:person:782bbtaQ"
     assert post["commentary"] == "A caption"
     assert post["content"] == {"media": {"id": "urn:li:image:C4E10AQFoyyAjHPMQuQ"}}
+
+
+def test_slides_are_posted_as_one_document_with_a_title(client, platforms):
+    account = link_linkedin_account(client, platforms)
+    content = PostContent("A caption", b"PNG-BYTES", "")
+    content.document_bytes = b"%PDF-SLIDES"
+    content.document_title = "OpenAI cuts prices by 50%"
+
+    get_publisher("linkedin").publish(account, content)
+
+    start = platforms.requests_to(LINKEDIN_DOCUMENTS_PATH)[0]
+    assert start["query"] == {"action": "initializeUpload"}
+    assert start["body"]["initializeUploadRequest"]["owner"] == "urn:li:person:782bbtaQ"
+    uploaded = platforms.requests_to(LINKEDIN_DOCUMENT_UPLOAD_PATH)[0]["raw_body"]
+    assert uploaded == b"%PDF-SLIDES"
+    # The image is not uploaded as well: the document carries the slides.
+    assert platforms.requests_to(LINKEDIN_IMAGES_PATH) == []
+    post = platforms.requests_to(LINKEDIN_POSTS_PATH)[0]["body"]
+    assert post["content"] == {
+        "media": {
+            "id": "urn:li:document:D5510AQFx87994pYx0Q",
+            "title": "OpenAI cuts prices by 50%",
+        }
+    }
 
 
 def test_a_post_without_an_id_header_is_an_error(client, platforms):

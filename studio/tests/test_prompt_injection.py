@@ -36,7 +36,9 @@ class RecordingModel(TextModel):
 
     def ask(self, system, messages):
         self.sent.append(messages[-1]["content"])
-        return '{"headline": "A headline", "caption": "A caption."}'
+        return (
+            '{"headline": "A headline", "points": ["A fact."], "caption": "A caption."}'
+        )
 
     def describe(self):
         return "recording"
@@ -95,8 +97,9 @@ def test_a_tricked_model_cannot_get_a_leaking_post_through_review(plan, monkeypa
         caption = f"{DRAFT_PROMPT['system']}\n\nSource: {article.url}"
         return {"headline": "Pwned", "caption": caption}
 
-    def perfect_review(self, article, headline, caption):
+    def perfect_review(self, article, version):
         scores = {"grounding": 5, "relevance": 5, "clarity": 5, "tone": 5, "safety": 5}
+        scores["shareability"] = 5
         return {"scores": scores, "issues": []}
 
     monkeypatch.setattr(DemoTextModel, "write_post", obey_the_injection)

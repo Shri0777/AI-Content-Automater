@@ -58,9 +58,11 @@ def ask_buffer(api_key, query, variables):
 def channel_to_account(channel, api_key):
     """Turn one Buffer channel into a found account."""
     service = channel.get("service", "")
+    name = channel.get("name", "Channel")
     return {
         "external_id": read_answer(channel, ["id"], "Buffer"),
-        "display_name": f"{channel.get('name', 'Channel')} ({service} via Buffer)",
+        "channel_name": name,
+        "display_name": f"{name} ({service} via Buffer)",
         "network": service,
         "access_token": api_key,
         "expires_in": None,

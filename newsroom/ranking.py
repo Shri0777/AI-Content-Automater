@@ -21,7 +21,7 @@ from django.conf import settings
 
 from newsroom.ingest import MIN_TEXT_CHARACTERS
 from newsroom.models import Article, ArticleUse
-from newsroom.presets import TOPIC_PRESETS
+from newsroom.presets import get_preset
 
 SHORTLIST_SIZE = 5
 CANDIDATES_CONSIDERED = 200
@@ -45,7 +45,7 @@ def candidate_articles(plan, preset, now):
         # again under another topic of the same plan.
         used = ArticleUse.objects.filter(plan=plan).values("article__url_hash")
         articles = articles.exclude(url_hash__in=used)
-    freshness_hours = TOPIC_PRESETS[preset]["freshness_hours"]
+    freshness_hours = get_preset(preset)["freshness_hours"]
     if freshness_hours > 0:
         articles = articles.filter(
             published_at__gte=now - timedelta(hours=freshness_hours)
@@ -56,7 +56,7 @@ def candidate_articles(plan, preset, now):
 
 def wanted_words(plan, preset, topic_name):
     """Return the words that show an article is on topic (lower case)."""
-    words = list(TOPIC_PRESETS[preset]["keywords"])
+    words = list(get_preset(preset)["keywords"])
     requirements = ""
     if plan is not None:
         requirements = plan.requirements
@@ -70,7 +70,7 @@ def wanted_words(plan, preset, topic_name):
 def score_article(article, words, preset, now):
     """Return a cheap score: higher is better. Each part adds at most 3."""
     score = TIER_POINTS.get(article.source_tier, 1)
-    freshness_hours = TOPIC_PRESETS[preset]["freshness_hours"]
+    freshness_hours = get_preset(preset)["freshness_hours"]
     if freshness_hours > 0:
         age_hours = (now - article.published_at).total_seconds() / 3600
         score = score + 2 * max(0, 1 - age_hours / freshness_hours)

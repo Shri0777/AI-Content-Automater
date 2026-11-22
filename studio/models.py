@@ -110,6 +110,17 @@ class PostVersion(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="versions")
     number = models.PositiveIntegerField()
     headline = models.CharField(max_length=200)
+    # 3 to 5 short key points, one slide each (post_creation.md).
+    points = models.JSONField(default=list, blank=True)
+    # The one number that matters, shown big on its own slide:
+    # {"value", "label", "compare": [two {"label", "amount", "display"}]},
+    # or {} when the article has no number worth showing.
+    figure = models.JSONField(default=dict, blank=True)
+    # {"text", "speaker"}: a sentence copied word for word from the article,
+    # or {} when there is no strong quote.
+    quote = models.JSONField(default=dict, blank=True)
+    # One sentence on why it matters, for the closing slide.
+    takeaway = models.CharField(max_length=300, blank=True)
     caption = models.TextField()
     image_prompt = models.TextField(blank=True)
     # The AI artwork without text, kept so a corrected headline can be put
@@ -121,10 +132,17 @@ class PostVersion(models.Model):
     # retention period (the words and the history are kept).
     image_expired = models.BooleanField(default=False)
     # Where the poster image is saved in file storage ("" until it exists).
+    # It is the one square image for platforms that show a single picture
+    # (X, Facebook, Buffer): the figure slide, or else the cover.
     poster_path = models.CharField(max_length=300, blank=True)
+    # The portrait slides in order (cover first), for carousels and
+    # LinkedIn's document posts. Empty for posts made before slides.
+    slide_paths = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        # The version number is the real order; creation times can tie.
+        ordering = ["number"]
         constraints = [
             models.UniqueConstraint(
                 fields=["post", "number"], name="one_version_number_per_post"

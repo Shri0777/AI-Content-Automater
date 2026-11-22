@@ -112,8 +112,30 @@ def test_a_post_is_skipped_when_no_unused_article_is_left(client, plan):
     assert "filler" in post["status_reason"]
 
 
-def test_generating_needs_text_and_image_credentials(client, user, plan):
-    user.providercredential_set.filter(kind="image").delete()
+def find_nothing(plan, topic, text_model):
+    """Stand in for pick_article when no article passes the gates."""
+    return None
+
+
+def test_a_real_model_in_demo_mode_is_told_why_nothing_qualified(
+    client, user, plan, monkeypatch
+):
+    # Demo mode only offers fictional articles, which a real model rightly
+    # rates not credible; the reason must say so and how to fix it.
+    monkeypatch.setattr("studio.pipeline.pick_article", find_nothing)
+    user.providercredential_set.filter(kind="text").update(
+        adapter="openai_compatible", model_name="a-real-model"
+    )
+
+    post = post_detail(client, generate(client, plan).json()["id"])
+
+    assert post["status"] == "skipped"
+    assert "fictional" in post["status_reason"]
+    assert "DEMO_MODE=false" in post["status_reason"]
+
+
+def test_generating_needs_a_text_credential(client, user, plan):
+    user.providercredential_set.filter(kind="text").delete()
 
     response = generate(client, plan)
 
@@ -122,15 +144,29 @@ def test_generating_needs_text_and_image_credentials(client, user, plan):
     assert not Post.objects.exists()
 
 
+def test_an_image_credential_is_needed_only_for_ai_artwork(client, user, plan):
+    user.providercredential_set.filter(kind="image").delete()
+
+    # Plain-type slides (the default) need no image key.
+    assert generate(client, plan).status_code == 202
+
+    plan.ai_artwork_enabled = True
+    plan.save()
+    response = generate(client, plan)
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "credential_missing"
+
+
 def test_generate_now_is_limited_per_day(client, plan):
-    for _ in range(4):
+    for _ in range(10):
         assert generate(client, plan).status_code == 202
 
     response = generate(client, plan)
 
     assert response.status_code == 403
-    assert response.json()["resource"] == "posts_per_plan_per_day"
-    assert Post.objects.count() == 4
+    assert response.json()["resource"] == "generate_now_per_day"
+    assert Post.objects.count() == 10
 
 
 def test_users_cannot_see_or_approve_other_users_posts(client, plan):

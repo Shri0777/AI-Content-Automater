@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from core.errors import AppError
 from notifications.services import notify
+from planning.custom_topics import custom_key
 from planning.models import ContentPlan, PostSlot, ScheduleRule, Topic
 from planning.schedule import make_slots, remove_future_slots
 from quotas.services import (
@@ -87,6 +88,8 @@ def save_new_plan(user, details):
         approval_mode=details["approval_mode"],
         ai_label_enabled=details["ai_label_enabled"],
         ai_label_text=details["ai_label_text"],
+        ai_artwork_enabled=details["ai_artwork_enabled"],
+        brand_colour=details["brand_colour"].upper(),
         lead_time_minutes=details["lead_time_minutes"],
         max_lateness_minutes=details["max_lateness_minutes"],
         on_missed_approval=details["on_missed_approval"],
@@ -94,12 +97,33 @@ def save_new_plan(user, details):
     )
 
 
+# The preset value that asks for a new custom topic (planning/custom_topics.py).
+CUSTOM_PRESET = "custom"
+
+
+def save_topic(plan, details):
+    """Save one topic; a custom topic gets its own preset key from its id."""
+    topic = Topic(
+        plan=plan,
+        name=details["name"],
+        preset=details["preset"],
+        search_words=details.get("search_words", ""),
+        instructions=details.get("instructions", ""),
+    )
+    if topic.preset == CUSTOM_PRESET:
+        topic.preset = custom_key(topic)
+    topic.save()
+    return topic
+
+
 def create_plan(user, details):
     """Create a plan with its topics, accounts and schedule, and return it.
 
     details holds name, requirements, approval_mode, ai_label_enabled,
     ai_label_text, lead_time_minutes, max_lateness_minutes,
-    on_missed_approval, topics (a list of {name, preset}), account_ids and
+    on_missed_approval, topics (a list of {name, preset, and optionally
+    search_words and instructions; preset "custom" for the user's own topic),
+    account_ids and
     schedule_rules (a list of {days_of_week, times, timezone}).
     """
     active_count = count_total_items(user, "active_plans")
@@ -114,7 +138,7 @@ def create_plan(user, details):
         plan = save_new_plan(user, details)
         plan.accounts.set(accounts)
         for topic in details["topics"]:
-            Topic.objects.create(plan=plan, name=topic["name"], preset=topic["preset"])
+            save_topic(plan, topic)
         save_rules(plan, rules)
         make_slots(plan)
     return get_plan(user, plan.id)

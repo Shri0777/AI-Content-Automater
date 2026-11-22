@@ -7,12 +7,16 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from social import oauth, services
+from social import oauth, platform_apps, services
 from social.models import PLATFORM_CHOICES
 from social.platforms import get_publisher, is_ready_to_link
 from social.serializers import (
+    BufferChannelSerializer,
+    BufferKeySerializer,
     BufferLinkSerializer,
     LinkStartSerializer,
+    PlatformAppInputSerializer,
+    PlatformAppSerializer,
     PlatformSerializer,
     SocialAccountSerializer,
 )
@@ -47,23 +51,63 @@ def link_method_of(platform):
     return "api_key"
 
 
+def describe_platform(user, platform, name):
+    """Return what the platform list shows about one platform for the user."""
+    takes_app = platform in platform_apps.APP_PLATFORMS
+    return {
+        "platform": platform,
+        "name": name,
+        "link_method": link_method_of(platform),
+        "ready": is_ready_to_link(platform, user),
+        "app_saved": takes_app and platform_apps.has_saved_app(user, platform),
+        "callback_url": oauth.callback_url(platform) if takes_app else None,
+    }
+
+
 class PlatformListView(APIView):
-    """Which platforms exist and which can be linked on this server."""
+    """Which platforms exist and which the user can link right now."""
 
     @extend_schema(responses=PlatformSerializer(many=True))
     def get(self, request):
         """Return every platform with how it is linked and if it is ready."""
         platforms = []
         for platform, name in PLATFORM_CHOICES:
-            platforms.append(
-                {
-                    "platform": platform,
-                    "name": name,
-                    "link_method": link_method_of(platform),
-                    "ready": is_ready_to_link(platform),
-                }
-            )
+            platforms.append(describe_platform(request.user, platform, name))
         return Response(PlatformSerializer(platforms, many=True).data)
+
+
+class PlatformAppListView(APIView):
+    """The developer apps the user saved for X, LinkedIn and Facebook."""
+
+    @extend_schema(responses=PlatformAppSerializer(many=True))
+    def get(self, request):
+        """Return the user's saved apps (ids only, never secrets)."""
+        apps = platform_apps.list_apps(request.user)
+        return Response(PlatformAppSerializer(apps, many=True).data)
+
+
+class PlatformAppDetailView(APIView):
+    """Save or remove the user's developer app for one platform."""
+
+    @extend_schema(request=PlatformAppInputSerializer, responses=PlatformAppSerializer)
+    def put(self, request, platform):
+        """Save the app's id and secret (the secret is stored encrypted)."""
+        platform_apps.check_takes_an_app(platform)
+        serializer = PlatformAppInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        app = platform_apps.save_app(
+            request.user,
+            platform,
+            serializer.validated_data["client_id"],
+            serializer.validated_data["client_secret"],
+        )
+        return Response(PlatformAppSerializer(app).data)
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, platform):
+        """Remove the app. Accounts linked through it will need relinking."""
+        platform_apps.delete_app(request.user, platform)
+        return Response(status=204)
 
 
 class LinkDemoAccountView(APIView):
@@ -93,6 +137,20 @@ class LinkBufferView(APIView):
             serializer.validated_data.get("channel_ids", []),
         )
         return Response(SocialAccountSerializer(accounts, many=True).data, status=201)
+
+
+class BufferChannelsView(APIView):
+    """List the channels a Buffer API key can see, without linking them."""
+
+    @extend_schema(
+        request=BufferKeySerializer, responses=BufferChannelSerializer(many=True)
+    )
+    def post(self, request):
+        """Return each channel's id, name and network, for the user to choose."""
+        serializer = BufferKeySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        channels = services.list_buffer_channels(serializer.validated_data["api_key"])
+        return Response(BufferChannelSerializer(channels, many=True).data)
 
 
 class LinkStartView(APIView):

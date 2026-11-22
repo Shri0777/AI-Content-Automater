@@ -26,7 +26,7 @@ from core.crypto import decrypt_text, encrypt_text
 from core.errors import AppError, ProviderError
 from quotas.services import check_total_limit, count_total_items
 from social.models import LinkAttempt
-from social.platforms import get_publisher, is_ready_to_link
+from social.platforms import is_ready_to_link, publisher_for
 from social.services import PlatformNotReady, save_found_accounts
 
 ATTEMPT_LIFETIME = timedelta(minutes=10)
@@ -57,7 +57,7 @@ def callback_url(platform):
 
 def start_link(user, platform):
     """Start linking an account; return the platform's approval page address."""
-    publisher = get_publisher_for_oauth(platform)
+    publisher = get_publisher_for_oauth(user, platform)
     linked_count = count_total_items(user, "social_accounts")
     check_total_limit(user, "social_accounts", linked_count)
     state = secrets.token_urlsafe(32)
@@ -72,11 +72,14 @@ def start_link(user, platform):
     return publisher.authorization_url(state, challenge, callback_url(platform))
 
 
-def get_publisher_for_oauth(platform):
-    """Return the platform's publisher, or raise PlatformNotReady."""
-    if platform not in settings.SOCIAL_APPS or not is_ready_to_link(platform):
-        raise PlatformNotReady(f"Linking '{platform}' accounts is not set up.")
-    return get_publisher(platform)
+def get_publisher_for_oauth(user, platform):
+    """Return the platform's publisher as the user's app, or raise PlatformNotReady."""
+    if platform not in settings.SOCIAL_APPS or not is_ready_to_link(platform, user):
+        raise PlatformNotReady(
+            f"Linking '{platform}' accounts needs a developer app. "
+            "Save your app's id and secret first."
+        )
+    return publisher_for(user, platform)
 
 
 def claim_attempt(platform, state):
@@ -101,8 +104,8 @@ def claim_attempt(platform, state):
 
 def finish_link(platform, code, state):
     """Finish a link attempt and return the saved accounts."""
-    publisher = get_publisher_for_oauth(platform)
     attempt = claim_attempt(platform, state)
+    publisher = get_publisher_for_oauth(attempt.user, platform)
     code_verifier = decrypt_text(attempt.encrypted_code_verifier)
     found = publisher.finish_link(code, code_verifier, callback_url(platform))
     return save_found_accounts(attempt.user, platform, found)

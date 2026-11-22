@@ -7,7 +7,14 @@ from demo.text_model import DemoTextModel
 from studio.models import GenerationStep, Post, Review
 from studio.runner import run_stage
 
-PERFECT = {"grounding": 5, "relevance": 5, "clarity": 5, "tone": 5, "safety": 5}
+PERFECT = {
+    "grounding": 5,
+    "relevance": 5,
+    "clarity": 5,
+    "tone": 5,
+    "safety": 5,
+    "shareability": 5,
+}
 
 
 def scores_with(clarity, grounding=5):
@@ -23,7 +30,7 @@ def scripted_reviews(monkeypatch):
     """Make the demo reviewer answer with the next scores from a list."""
     queue = []
 
-    def next_review(self, article, headline, caption):
+    def next_review(self, article, version):
         scores = queue.pop(0)
         issues = []
         if min(scores.values()) < 4:
@@ -77,6 +84,8 @@ def test_a_weak_post_is_corrected_until_it_passes(plan, scripted_reviews, monkey
         return real_draw(self, prompt, width, height)
 
     monkeypatch.setattr(DemoImageModel, "draw", count_drawings)
+    plan.ai_artwork_enabled = True
+    plan.save()
     scripted_reviews.extend([scores_with(clarity=2), PERFECT])
 
     post = make_post(plan)
@@ -88,6 +97,9 @@ def test_a_weak_post_is_corrected_until_it_passes(plan, scripted_reviews, monkey
     assert len(drawings) == 1
     assert second.artwork_path == first.artwork_path
     assert second.poster_path != first.poster_path
+    # The slides are drawn again with the corrected words.
+    assert len(second.slide_paths) == len(first.slide_paths)
+    assert set(second.slide_paths).isdisjoint(first.slide_paths)
     assert GenerationStep.objects.filter(post=post, stage="correcting").count() == 1
 
 
@@ -133,3 +145,26 @@ def test_the_same_scores_pass_on_a_normal_topic(plan, scripted_reviews):
 
     assert post.versions.count() == 1
     assert Review.objects.get(version__post=post).verdict == "pass"
+
+
+def test_the_api_names_the_version_that_will_be_published(
+    plan, scripted_reviews, client
+):
+    scripted_reviews.extend([scores_with(clarity=3), scores_with(clarity=2)])
+    post = make_post(plan)
+
+    body = client.get(f"/api/v1/posts/{post.id}/").json()
+
+    assert len(body["versions"]) == 2
+    assert body["final_version"] == 1
+
+
+def test_the_api_says_which_versions_the_user_wrote(plan, scripted_reviews, client):
+    scripted_reviews.extend([dict(PERFECT)])
+    post = make_post(plan)
+    client.patch(f"/api/v1/posts/{post.id}/", {"caption": "My words."}, format="json")
+
+    body = client.get(f"/api/v1/posts/{post.id}/").json()
+
+    assert [v["edited_by_user"] for v in body["versions"]] == [False, True]
+    assert body["final_version"] == 2

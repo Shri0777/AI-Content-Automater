@@ -8,6 +8,7 @@ while `REGISTRATION_MODE` is `invite` (the default).
 | `admin.py` | Shows users on the admin site (never their passwords). |
 | `apps.py` | Tells Django this app exists. |
 | `models.py` | `User` (email login, timezone, tier), `InviteCode` (single use, stored only as a fingerprint) and `RecoveryCode` (one-time password reset, stored with slow hashing). |
+| `refresh_replay.py` | Gives the same new tokens to a refresh cookie swapped in the last 30 seconds, so a reload mid-refresh or two tabs do not log you out. Logout still wins. |
 | `serializers.py` | What goes in and out of the API: registration, login, recovery, the user's details, `/me/summary`. |
 | `services.py` | The real work: invite codes, `register_user`, `log_in`, `refresh_login`, `log_out`, recovery codes and `recover_account`. |
 | `urls.py` | `/api/v1/auth/register/`, `login/`, `refresh/`, `logout/`, `recover/`, `recovery-codes/`, `/api/v1/me/` and `/api/v1/me/summary/`. |

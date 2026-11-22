@@ -21,6 +21,11 @@ def test_an_approved_post_reaches_x_within_its_caption_limit(x_post, stub_server
     tweet = stub_server.requests_to(X_TWEETS_PATH)[0]["body"]
     assert len(tweet["text"]) <= 280
     assert tweet["text"].endswith(x_post.plan.ai_label_text)
+    # The long caption is rebuilt to fit, not cut: it keeps the source link.
+    version = x_post.final_version()
+    assert tweet["text"].startswith(version.headline)
+    assert x_post.article.url in tweet["text"]
+    assert "…" not in tweet["text"]
     publication = Publication.objects.get()
     assert publication.external_id == "1445880548472328192"
 

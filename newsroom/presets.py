@@ -1,162 +1,51 @@
 """Topic presets: ready-made kinds of topic a plan can follow.
 
-Presets are plain data. "news" topics only use recent articles (within
-freshness_hours). "evergreen" topics, such as tips, never go stale.
+The presets themselves are plain data in newsroom/topics.json, grouped into
+categories for the topic picker. "news" topics only use recent articles
+(within freshness_hours). "evergreen" topics, such as tips, never go stale.
 
-Each preset lists its sources. Every source here needs no API key:
+Each preset lists its sources. Every source needs no API key:
 - "rss": a site's own RSS or Atom feed.
 - "hackernews": Hacker News stories found through its public search API.
-Each feed was checked by hand on 2026-11-17 (it answered and had items).
+Every feed was checked by hand on 2026-11-17 (it answered and had items).
 Google News RSS and VentureBeat were left out: both refused automated
-readers (HTTP 429) that day.
+readers (HTTP 429) that day; swift.org's feed was empty.
 
-A "broad" source covers all of tech, so only its items that mention one of
-the preset's keywords are kept. The Register and Computerworld were added
-for layoffs and hiring because their feeds publish full text, while
-TechCrunch's tag feeds publish one line and its pages are closed to AI
-readers.
+A "broad" source covers more than the topic, so only its items that mention
+one of the preset's keywords are kept.
 
-strict_review makes the review stricter (studio/verdicts.py): posts about
-layoffs and hiring name real companies and people, and Linux tips give
-commands people run on their own computers.
+strict_review makes the review stricter (studio/verdicts.py): for topics
+that name real companies, people or money (layoffs, security, funding) and
+for Linux tips, whose commands people run on their own computers.
 
 tier says how much a source is trusted when ranking articles:
 "primary" (the people involved), "reputable" (an established publication)
 or "aggregator" (links collected from elsewhere). keywords help rank
 articles that are really about the topic.
+
+A user's own topics are presets too: get_preset() builds one for any key
+that starts with CUSTOM_PREFIX (see planning/custom_topics.py).
 """
 
-TOPIC_PRESETS = {
-    "job_hiring": {
-        "label": "Job hiring",
-        "kind": "news",
-        "freshness_hours": 72,
-        "strict_review": True,
-        "keywords": ["hiring", "hire", "hires", "recruit", "openings"],
-        "sources": [
-            {
-                "type": "rss",
-                "name": "TechCrunch",
-                "url": "https://techcrunch.com/tag/hiring/feed/",
-                "tier": "reputable",
-            },
-            {
-                "type": "rss",
-                "name": "The Register",
-                "url": "https://www.theregister.com/headlines.atom",
-                "tier": "reputable",
-                "broad": True,
-            },
-            {
-                "type": "rss",
-                "name": "Computerworld",
-                "url": "https://www.computerworld.com/feed/",
-                "tier": "reputable",
-                "broad": True,
-            },
-            {
-                "type": "hackernews",
-                "name": "Hacker News",
-                "query": "hiring",
-                "tier": "aggregator",
-            },
-        ],
-    },
-    "layoffs": {
-        "label": "Layoffs",
-        "kind": "news",
-        "freshness_hours": 48,
-        "strict_review": True,
-        "keywords": ["layoff", "layoffs", "laid off", "job cuts", "redundan"],
-        "sources": [
-            {
-                "type": "rss",
-                "name": "TechCrunch",
-                "url": "https://techcrunch.com/tag/layoffs/feed/",
-                "tier": "reputable",
-            },
-            {
-                "type": "rss",
-                "name": "The Register",
-                "url": "https://www.theregister.com/headlines.atom",
-                "tier": "reputable",
-                "broad": True,
-            },
-            {
-                "type": "rss",
-                "name": "Computerworld",
-                "url": "https://www.computerworld.com/feed/",
-                "tier": "reputable",
-                "broad": True,
-            },
-            {
-                "type": "hackernews",
-                "name": "Hacker News",
-                "query": "layoffs",
-                "tier": "aggregator",
-            },
-        ],
-    },
-    "linux_tips": {
-        "label": "Linux tips",
-        "kind": "evergreen",
-        "freshness_hours": 0,
-        "strict_review": True,
-        "keywords": ["linux", "command", "terminal", "shell", "bash", "ubuntu"],
-        "sources": [
-            {
-                "type": "rss",
-                "name": "Linux Handbook",
-                "url": "https://linuxhandbook.com/rss/",
-                "tier": "reputable",
-            },
-            {
-                "type": "rss",
-                "name": "It's FOSS",
-                "url": "https://feed.itsfoss.com/",
-                "tier": "reputable",
-            },
-            {
-                "type": "rss",
-                "name": "nixCraft",
-                "url": "https://www.cyberciti.com/feed/",
-                "tier": "reputable",
-            },
-        ],
-    },
-    "ai_news": {
-        "label": "AI news",
-        "kind": "news",
-        "freshness_hours": 72,
-        "strict_review": False,
-        "keywords": ["ai", "model", "llm", "openai", "anthropic", "machine learning"],
-        "sources": [
-            {
-                "type": "rss",
-                "name": "MIT Technology Review",
-                "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed",
-                "tier": "reputable",
-            },
-            {
-                "type": "rss",
-                "name": "The Verge",
-                "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
-                "tier": "reputable",
-            },
-            {
-                "type": "rss",
-                "name": "TechCrunch",
-                "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
-                "tier": "reputable",
-            },
-            {
-                "type": "hackernews",
-                "name": "Hacker News",
-                "query": "AI",
-                "tier": "aggregator",
-            },
-        ],
-    },
-}
+import json
+from pathlib import Path
 
+CATALOGUE = json.loads(
+    (Path(__file__).parent / "topics.json").read_text(encoding="utf-8")
+)
+TOPIC_CATEGORIES = CATALOGUE["categories"]
+TOPIC_PRESETS = CATALOGUE["topics"]
 PRESET_CHOICES = [(key, preset["label"]) for key, preset in TOPIC_PRESETS.items()]
+CUSTOM_PREFIX = "custom-"
+
+
+def get_preset(key):
+    """Return the preset for key (built-in or a user's own topic), or None."""
+    if key in TOPIC_PRESETS:
+        return TOPIC_PRESETS[key]
+    if key.startswith(CUSTOM_PREFIX):
+        # Imported here: planning imports this file for its topic choices.
+        from planning.custom_topics import custom_preset
+
+        return custom_preset(key)
+    return None

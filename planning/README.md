@@ -9,6 +9,7 @@ A plan says **what** to post about (topics and free-text requirements),
 | `admin.py` | Shows plans, with their topics, on the admin site. |
 | `apps.py` | Tells Django this app exists. |
 | `dispatcher.py` | `run_dispatcher`: every minute, skips slots that are too late (one notification per plan), then claims due slots with `SKIP LOCKED` and a 5-minute lease, and starts their posts. |
+| `custom_topics.py` | A user's own topics: `custom_preset` (Hacker News search for the topic's words plus broad tech feeds filtered by them), `requirements_for` (the plan's instructions plus the topic's own) and `search_words_of`. |
 | `models.py` | `ContentPlan`, `Topic`, `ScheduleRule` (weekdays, local times, timezone) and `PostSlot` (one planned post: `publish_at`, `generate_at`, status and claim). |
 | `schedule.py` | `local_to_utc` (daylight-saving rules), `make_slots` (rules to slots up to the 14-day horizon, safe to repeat) and `remove_future_slots`. |
 | `serializers.py` | What goes in and out of the API, including schedule rules (checked: weekdays 0 to 6, `HH:MM` times, a real timezone) and slots. |
@@ -39,5 +40,5 @@ waiting --(generate_at arrives, dispatcher claims it)--> claimed --> started (it
 **Approval modes:** `manual` (the default) asks before every post. `auto`
 posts on its own only when the auto-post gate allows it
 (`publishing/gate.py`): a clean pass with no issues, a total review score of
-at least `auto_post_min_score` (default 22 of 25), and perfect scores on
+at least `auto_post_min_score` (default 26 of 30), and perfect scores on
 strict topics. Anything else still waits for approval, with the reason.

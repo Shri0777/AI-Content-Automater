@@ -27,6 +27,19 @@ FALLBACK_MODELS = [
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
+def readable_reason(error):
+    """Return Anthropic's own sentence from an error answer, if there is one.
+
+    The answer looks like {"type": "error", "error": {"message": "..."}}; for
+    an unknown model the sentence even suggests the right name.
+    """
+    body = error.body if isinstance(error.body, dict) else {}
+    details = body.get("error")
+    if isinstance(details, dict) and isinstance(details.get("message"), str):
+        return details["message"]
+    return error.message
+
+
 def translate_error(error):
     """Return our own error for one of the anthropic library's errors."""
     if isinstance(
@@ -40,7 +53,7 @@ def translate_error(error):
     if isinstance(error, anthropic.APIStatusError):
         return ProviderError(
             f"Anthropic refused the request (HTTP {error.status_code}): "
-            f"{error.message[:300]}"
+            f"{readable_reason(error)[:300]}"
         )
     return ProviderError("The request to Anthropic failed.")
 

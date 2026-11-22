@@ -10,6 +10,7 @@ from studio.views import (
     PostListView,
     PublicPosterView,
     RejectPostView,
+    SlideView,
 )
 
 urlpatterns = [
@@ -31,6 +32,11 @@ urlpatterns = [
         name="post-reject",
     ),
     path("posts/<uuid:post_id>/poster/", PosterView.as_view(), name="post-poster"),
+    path(
+        "posts/<uuid:post_id>/slides/<int:number>/",
+        SlideView.as_view(),
+        name="post-slide",
+    ),
     path(
         "public/posters/<str:token>.png",
         PublicPosterView.as_view(),

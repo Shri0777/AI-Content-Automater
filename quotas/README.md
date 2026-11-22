@@ -1,6 +1,6 @@
 # quotas: free-tier limits
 
-The product is free, so every user has limits (for example 6 posts a day).
+The product is free, so every user has limits (for example 10 posts a day).
 Limits are rows in the database, so the operator can change them on the
 admin site without a new release.
 

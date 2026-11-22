@@ -11,8 +11,6 @@ import uuid
 from django.conf import settings
 from django.db import models
 
-from newsroom.presets import PRESET_CHOICES
-
 # "auto" posts without asking only when the auto-post gate allows it
 # (publishing/gate.py): a clean review and a high enough score. Anything
 # else still waits for the user's approval.
@@ -21,11 +19,15 @@ APPROVAL_MODE_CHOICES = [
     ("auto", "Post automatically when the review is clean"),
 ]
 
-# The lowest total review score (5 scores of 1 to 5, so 5 to 25) a post may
+# The lowest total review score (6 scores of 1 to 5, so 6 to 30) a post may
 # have and still be posted automatically.
-DEFAULT_AUTO_POST_MIN_SCORE = 22
+DEFAULT_AUTO_POST_MIN_SCORE = 26
 
 DEFAULT_AI_LABEL = "Made with AI assistance."
+
+# The background colour of a plan's slides: deep blue. Text colours are
+# chosen from it so they always stay readable (studio/palette.py).
+DEFAULT_BRAND_COLOUR = "#0E1634"
 
 # What happens to a post still waiting for approval when its time has passed.
 ON_MISSED_APPROVAL_CHOICES = [
@@ -51,6 +53,12 @@ class ContentPlan(models.Model):
     accounts = models.ManyToManyField("social.SocialAccount", blank=True)
     ai_label_enabled = models.BooleanField(default=True)
     ai_label_text = models.CharField(max_length=100, default=DEFAULT_AI_LABEL)
+    # Off by default: readers trust posts less when they look AI-made, so a
+    # cover is plain type unless the owner asks for AI artwork. With it off,
+    # no image model is called and no image key is needed.
+    ai_artwork_enabled = models.BooleanField(default=False)
+    # "#RRGGBB": the slides' background colour, the same on every post.
+    brand_colour = models.CharField(max_length=7, default=DEFAULT_BRAND_COLOUR)
     paused = models.BooleanField(default=False)
     # How long before the posting time a post starts being made. It leaves
     # time to approve it, so it is longer than the making itself needs.
@@ -78,7 +86,13 @@ class Topic(models.Model):
         ContentPlan, on_delete=models.CASCADE, related_name="topics"
     )
     name = models.CharField(max_length=100)
-    preset = models.CharField(max_length=40, choices=PRESET_CHOICES)
+    # A built-in preset key ("ai_news"), or "custom-<id>" for the user's own
+    # topic (newsroom/presets.py get_preset, planning/custom_topics.py).
+    preset = models.CharField(max_length=40)
+    # A custom topic's words to find in the news, separated by commas.
+    search_words = models.CharField(max_length=300, blank=True)
+    # The user's own instructions for the AI when writing about this topic.
+    instructions = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

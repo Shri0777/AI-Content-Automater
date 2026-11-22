@@ -61,7 +61,7 @@ You authorised deleting the whole codebase. V4 is rebuilt around your requiremen
 | Active content plans | 3 |
 | Topics per plan | 6 |
 | Linked social accounts | 5 |
-| Posts generated per day (all plans) / per plan | 6 / 4 |
+| Posts generated per day (all plans) / per plan | 10 / 10 |
 | Schedule horizon | 14 days |
 | Manual "generate now" runs | 5 per day |
 | Regenerations per post | 3 |
@@ -212,6 +212,15 @@ Work is built as a **walking skeleton first** (Phase 2), then deepened. That giv
 **Phase 10 notes (built 2026-11-17).** The README was rewritten for first-time visitors, with true badges (live CI status and the measured 92% branch coverage). Also added: docs/ARCHITECTURE.md (four Mermaid diagrams; the post lifecycle is generated from the code and a test keeps them in step), docs/CASE-STUDY.md, docs/RESUME.md (measured bullets only), screenshots and a walkthrough transcript, LICENSE (MIT), .env.example (every variable the settings read) and CONTRIBUTING.md. CI now fails below 90% coverage. **Exit check:** a clean copy with empty databases ran the demo with exactly the three README commands (31 s with Docker's build cache). Findings:
 - **Demo mode could post about real articles** left in the store by a live run, and live mode could have used demo articles. Articles now carry `is_demo`, and selection only uses the current mode's articles (tests cover both directions).
 - **Open:** a screen recording (needs the owner's screen), and the commit names "phase-6" and "phase-8" (changing them is a history rewrite: the owner's call).
+
+**Slide posts (built 2026-11-22, after a research report on what gets posts seen and shared).** A post is now a set of 1080x1350 slides instead of one dense card: a cover, a figure slide (the article's key number, with before-and-after bars when the article gives both), one slide per key point (15 to 25 words), a quote slide (word for word from the article) and a closing takeaway. Decisions and findings:
+- **AI artwork is opt-in per plan, off by default** (`ai_artwork_enabled`). Research found suspected-AI content rated about half as trustworthy. With it off, no image prompt or image call is made and no image key is needed, so the default post costs two fewer model calls.
+- **Checks in plain code, at no model cost:** a quote not found word for word in the article is dropped; a figure whose numbers are not in the article is dropped; text is shortened at a word, never inside one. A slide with too many words is a new "major" issue (only our code raises it), which means "revise" and sends the post back for a rewrite.
+- **A sixth review score, shareability** ("would a busy professional send this to a colleague?"). Totals now run 6 to 30; the default `auto_post_min_score` is 26, and a migration scales existing plans' minimums (22 becomes 26). Verdicts are tested over all 15,625 score combinations.
+- **Publishing:** LinkedIn gets the slides as one PDF document post (Documents API, member-owned with `w_member_social`, checked 2026-11-22). X, Facebook and Buffer still get one square image: the figure slide, else the cover. Captions that do not fit (X's 280 characters) are rebuilt from the headline, takeaway, closing question and link instead of being cut mid-sentence.
+- **Per-plan brand colour**; text, muted and accent colours are chosen from it to pass WCAG AA on any background (tested over 216 colours).
+- **Font:** Pillow's built-in font has no accented letters, dashes or currency signs other than "$" (names like "José" drew as boxes). Inter 4.1 (SIL OFL) is now bundled in `studio/fonts/`.
+- **Not done:** Buffer carousels (several images per post) and Instagram (still needs a public image address); per-platform slide sizes beyond portrait and square; measuring real reach (needs live accounts). Unverified-live: the LinkedIn document upload has only run against the stub server.
 
 Each phase also ends with the definition of done in [design/test-strategy.md](design/test-strategy.md#7-definition-of-done-per-phase): green tests, the readability gate, the fresh-eyes review, and an updated code tour, plus a review of the final diff.
 

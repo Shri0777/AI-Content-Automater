@@ -153,6 +153,8 @@ class LoginView(PublicAuthView):
 class RefreshView(PublicAuthView):
     """Get a new access token using the refresh cookie."""
 
+    throttle_scope = "auth_refresh"
+
     @extend_schema(request=None, responses=LoginResultSerializer)
     def post(self, request):
         """Return a new access token and replace the refresh cookie."""

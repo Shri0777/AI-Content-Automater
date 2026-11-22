@@ -11,6 +11,7 @@ from demo.publisher import DemoPublisher
 from social.buffer_publisher import BufferPublisher
 from social.facebook_publisher import FacebookPublisher
 from social.linkedin_publisher import LinkedInPublisher
+from social.platform_apps import APP_PLATFORMS, app_keys_for
 from social.x_publisher import XPublisher
 
 PUBLISHER_CLASSES = {
@@ -46,19 +47,36 @@ def caption_limit_for(account):
     return CAPTION_LIMITS.get(network, SMALLEST_CAPTION_LIMIT)
 
 
-def get_publisher(platform):
-    """Return the publisher for a platform, for example "x"."""
+def get_publisher(platform, app=None):
+    """Return the publisher for a platform, for example "x".
+
+    app is the developer app to act as (see social/platform_apps.py); only
+    X, LinkedIn and Facebook need one, to link accounts and refresh tokens.
+    """
     publisher_class = PUBLISHER_CLASSES.get(platform)
     if publisher_class is None:
         raise ValueError(f"No publisher exists for the platform '{platform}'.")
-    return publisher_class()
+    return publisher_class(app)
 
 
-def is_ready_to_link(platform):
-    """Return True if users can link an account on this platform right now."""
+def publisher_for(user, platform):
+    """Return the platform's publisher, acting as the user's developer app."""
+    if platform in APP_PLATFORMS:
+        return get_publisher(platform, app_keys_for(user, platform))
+    return get_publisher(platform)
+
+
+def publisher_for_account(account):
+    """Return the publisher for a linked account, as its owner's app."""
+    return publisher_for(account.user, account.platform)
+
+
+def is_ready_to_link(platform, user):
+    """Return True if the user can link an account on this platform right now."""
     if platform == "demo":
         return settings.DEMO_MODE
     if platform == "buffer":
         return True
-    app = settings.SOCIAL_APPS.get(platform)
-    return app is not None and bool(app["client_id"])
+    if platform not in APP_PLATFORMS:
+        return False
+    return bool(app_keys_for(user, platform)["client_id"])

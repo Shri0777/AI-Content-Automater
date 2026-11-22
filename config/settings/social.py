@@ -34,4 +34,4 @@ LINKEDIN_API_VERSION = read_text("LINKEDIN_API_VERSION", "202610")
 # so for Buffer it must be reachable from the internet.
 PUBLIC_API_URL = read_text("PUBLIC_API_URL", "http://localhost:8000")
 # The frontend page users return to after linking an account.
-FRONTEND_URL = read_text("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = read_text("FRONTEND_URL", "http://localhost:3000")

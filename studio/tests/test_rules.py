@@ -9,8 +9,11 @@ from core.errors import ProviderError
 from demo.image_model import DemoImageModel
 from notifications.models import Notification
 from studio.models import STATUS_CHOICES, Post
-from studio.posters import draw_abstract_artwork, render_poster
+from studio.palette import palette_for
+from studio.posters import draw_abstract_artwork
 from studio.runner import run_stage
+from studio.slide_parts import Deck
+from studio.slides import render_share_image
 from studio.statuses import (
     ALLOWED_TRANSITIONS,
     StatusChangeNotAllowed,
@@ -20,7 +23,14 @@ from studio.statuses import (
 from studio.tasks import advance_post_task
 from studio.verdicts import decide_verdict
 
-GOOD_SCORES = {"grounding": 5, "relevance": 4, "clarity": 4, "tone": 5, "safety": 5}
+GOOD_SCORES = {
+    "grounding": 5,
+    "relevance": 4,
+    "clarity": 4,
+    "tone": 5,
+    "safety": 5,
+    "shareability": 4,
+}
 
 
 def test_every_status_has_an_entry_in_the_transition_table():
@@ -65,20 +75,25 @@ def test_only_one_of_two_racing_changes_wins(plan):
     assert Post.objects.get(id=post.id).status == "approved"
 
 
+def deck_with_artwork(artwork):
+    """Return a small deck whose cover uses artwork."""
+    deck = Deck("A long headline " * 10, palette_for("#0E1634"), "Demo")
+    deck.artwork = artwork
+    return deck
+
+
 def test_any_artwork_size_is_cropped_to_the_poster_size():
     wide_jpeg = BytesIO()
     Image.new("RGB", (1600, 900), "navy").save(wide_jpeg, format="JPEG")
 
-    poster = render_poster(
-        wide_jpeg.getvalue(), "A long headline " * 10, "Source: Demo", 1080, 1080
-    )
+    poster = render_share_image(deck_with_artwork(wide_jpeg.getvalue()), 1080, 1080)
 
     assert Image.open(BytesIO(poster)).size == (1080, 1080)
 
 
 def test_bytes_that_are_not_an_image_are_a_provider_error():
     with pytest.raises(ProviderError, match="not an image"):
-        render_poster(b"<html>error</html>", "Headline", "Source", 100, 100)
+        render_share_image(deck_with_artwork(b"<html>error</html>"), 100, 100)
 
 
 def test_the_same_prompt_always_draws_the_same_artwork():
@@ -93,6 +108,8 @@ def test_a_provider_failure_fails_the_post_and_tells_the_user(
         raise ProviderError("The image service is down.")
 
     monkeypatch.setattr(DemoImageModel, "draw", broken_artwork)
+    plan.ai_artwork_enabled = True
+    plan.save()
 
     post_id = client.post(f"/api/v1/plans/{plan.id}/generate-now/").json()["id"]
 
@@ -113,10 +130,10 @@ def test_running_a_waiting_post_again_does_nothing(plan):
 
 
 def test_a_bug_in_a_stage_fails_the_post_instead_of_leaving_it_stuck(plan, monkeypatch):
-    def crash(artwork_bytes, headline, source_line, width, height):
+    def crash(post, version, artwork):
         raise RuntimeError("A bug in the poster code.")
 
-    monkeypatch.setattr("studio.pipeline.render_poster", crash)
+    monkeypatch.setattr("studio.pipeline.save_visuals", crash)
     post = Post.objects.create(user=plan.user, plan=plan, topic=plan.topics.first())
 
     with pytest.raises(RuntimeError):

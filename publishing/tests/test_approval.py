@@ -70,7 +70,7 @@ def test_an_auto_plan_waits_for_the_slot_time_before_publishing(plan):
 
 
 def test_a_post_below_the_minimum_score_waits_and_says_why(plan):
-    plan.auto_post_min_score = 25
+    plan.auto_post_min_score = 30
     plan.save()
 
     post = make_post(plan)

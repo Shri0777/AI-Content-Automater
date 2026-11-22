@@ -47,10 +47,25 @@ def test_a_post_is_made_with_real_providers(client, plan, real_providers):
     assert post["status"] == "awaiting_approval"
     assert post["versions"][0]["headline"] == "Stub model headline"
     assert post["article"]["url"] in post["versions"][0]["caption"]
+    # AI artwork is off by default: no image is asked for, the slides are type.
+    assert real_providers.requests_to(f"/{FAL_MODEL}") == []
+    assert len(post["slide_urls"]) == 4
+    assert post["steps"][2]["providers"] == ""
+
+
+def test_with_ai_artwork_on_the_cover_gets_one_image(client, plan, real_providers):
+    plan.ai_artwork_enabled = True
+    plan.save()
+
+    post = generate(client, plan)
+
+    assert post["status"] == "awaiting_approval"
     assert len(real_providers.requests_to(f"/{FAL_MODEL}")) == 1
 
 
 def test_each_step_records_its_models_prompts_and_tokens(client, plan, real_providers):
+    plan.ai_artwork_enabled = True
+    plan.save()
     steps = generate(client, plan)["steps"]
 
     imaging = steps[2]

@@ -34,16 +34,15 @@ def api_url(path):
     return settings.SOCIAL_API_URLS["x"] + path
 
 
-def app_auth_header():
-    """Return the Basic Authorization header made from our app's id and secret."""
-    app = settings.SOCIAL_APPS["x"]
+def app_auth_header(app):
+    """Return the Basic Authorization header made from the app's id and secret."""
     pair = f"{app['client_id']}:{app['client_secret']}"
     return {"Authorization": "Basic " + base64.b64encode(pair.encode()).decode()}
 
 
-def ask_for_tokens(form):
-    """Send a token request and return the new tokens."""
-    answer = web.post_form(api_url("/2/oauth2/token"), app_auth_header(), form)
+def ask_for_tokens(app, form):
+    """Send a token request as the app and return the new tokens."""
+    answer = web.post_form(api_url("/2/oauth2/token"), app_auth_header(app), form)
     return {
         "access_token": read_answer(answer, ["access_token"], "X"),
         "refresh_token": answer.get("refresh_token"),
@@ -61,7 +60,7 @@ class XPublisher(Publisher):
         """Return X's approval page for this link attempt."""
         params = {
             "response_type": "code",
-            "client_id": settings.SOCIAL_APPS["x"]["client_id"],
+            "client_id": self.app["client_id"],
             "redirect_uri": redirect_uri,
             "scope": SCOPES,
             "state": state,
@@ -74,12 +73,13 @@ class XPublisher(Publisher):
     def finish_link(self, code, code_verifier, redirect_uri):
         """Swap the approval code for tokens and find the user's X account."""
         tokens = ask_for_tokens(
+            self.app,
             {
                 "grant_type": "authorization_code",
                 "code": code,
                 "redirect_uri": redirect_uri,
                 "code_verifier": code_verifier,
-            }
+            },
         )
         me_url = api_url("/2/users/me?user.fields=username")
         answer = web.get_json(me_url, bearer(tokens["access_token"]))
@@ -109,9 +109,11 @@ class XPublisher(Publisher):
         if not refresh_token:
             return None
         form = {"grant_type": "refresh_token", "refresh_token": refresh_token}
-        return ask_for_tokens(form)
+        return ask_for_tokens(self.app, form)
 
     def revoke(self, account):
         """Cancel the link at X. Revoking the refresh token ends the whole grant."""
         token = refresh_token_of(account) or access_token_of(account)
-        web.post_form(api_url("/2/oauth2/revoke"), app_auth_header(), {"token": token})
+        web.post_form(
+            api_url("/2/oauth2/revoke"), app_auth_header(self.app), {"token": token}
+        )

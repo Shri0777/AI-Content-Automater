@@ -12,11 +12,13 @@ ISSUE_CASES = {
     "no issues": [],
     "a minor issue": [{"severity": "minor", "problem": "p", "fix_instruction": ""}],
     "a blocker": [{"severity": "blocker", "problem": "p", "fix_instruction": ""}],
+    # Only our own checks raise major issues (a slide with too many words).
+    "a major issue": [{"severity": "major", "problem": "p", "fix_instruction": ""}],
 }
 
 
 def every_score_combination():
-    """Return all 3125 ways to give the five scores a value from 1 to 5."""
+    """Return all 15625 ways to give the six scores a value from 1 to 5."""
     combinations = [{}]
     for name in SCORE_NAMES:
         longer = []
@@ -33,6 +35,8 @@ def expected_verdict(scores, issue_case, strict):
     """Work out the promised verdict without calling decide_verdict()."""
     if issue_case == "a blocker":
         return "reject"
+    if issue_case == "a major issue":
+        return "revise"
     low_scores = [value for value in scores.values() if value < 4]
     if low_scores:
         return "revise"
@@ -45,7 +49,7 @@ def expected_verdict(scores, issue_case, strict):
 @pytest.mark.parametrize("strict", [False, True])
 def test_every_score_combination_gets_the_promised_verdict(issue_case, strict):
     combinations = every_score_combination()
-    assert len(combinations) == 3125
+    assert len(combinations) == 15625
 
     for scores in combinations:
         verdict = decide_verdict(scores, ISSUE_CASES[issue_case], strict=strict)
@@ -59,6 +63,14 @@ def test_a_review_missing_a_score_is_never_a_pass():
         assert decide_verdict(scores, []) == "revise"
 
 
-def test_the_total_score_adds_up_the_five_scores():
-    assert total_score({name: 3 for name in SCORE_NAMES}) == 15
+def test_the_total_score_adds_up_the_six_scores():
+    assert total_score({name: 3 for name in SCORE_NAMES}) == 18
+    assert total_score({name: 5 for name in SCORE_NAMES}) == 30
     assert total_score({}) == 0
+
+
+def test_shareability_is_one_of_the_scores_a_pass_needs():
+    scores = {name: 5 for name in SCORE_NAMES}
+    scores["shareability"] = 3
+
+    assert decide_verdict(scores, []) == "revise"

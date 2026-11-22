@@ -2,8 +2,9 @@
 
 from django.urls import path
 
-from newsroom.views import NewsPreviewView
+from newsroom.views import NewsPreviewView, TopicCatalogueView
 
 urlpatterns = [
     path("preview/", NewsPreviewView.as_view(), name="news-preview"),
+    path("topics/", TopicCatalogueView.as_view(), name="news-topics"),
 ]

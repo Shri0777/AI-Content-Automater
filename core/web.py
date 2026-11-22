@@ -23,11 +23,13 @@ from urllib.parse import parse_qsl, urlsplit
 import httpx
 from django.conf import settings
 
+from core.error_text import readable_detail
 from core.errors import (
     ProviderBusy,
     ProviderError,
     ProviderKeyRejected,
     ProviderNoAnswer,
+    ProviderNotFound,
 )
 from core.safe_network import UnsafeAddress, checked_transport, public_address_of
 
@@ -141,10 +143,13 @@ def check_status(status, content, url, secrets, location):
         raise Redirected(
             f"{host} tried to redirect us, which is not allowed.", location
         )
-    detail = content.decode(errors="replace")[:MAX_ERROR_TEXT]
-    raise ProviderError(
+    detail = readable_detail(content)[:MAX_ERROR_TEXT]
+    message = (
         f"{host} refused the request (HTTP {status}): {hide_secrets(detail, secrets)}"
     )
+    if status == 404:
+        raise ProviderNotFound(message)
+    raise ProviderError(message)
 
 
 def exchange(method, url, headers, payload):

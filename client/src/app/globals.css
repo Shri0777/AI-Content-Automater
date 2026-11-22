@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens (design/frontend-theme.md). One blue in three strengths on
+ * paper and mist, hairline rules, square corners. Contrast on white:
+ * ink 11.2:1, body 6.3:1, white on signal 6.3:1.
+ */
+@theme {
+  --color-ink: #1825aa;
+  --color-signal: #0047ff;
+  --color-body: #3856c7;
+  --color-mist: #e0e1e8;
+  --color-paper: #ffffff;
+  --color-danger: #c8102e;
+  --color-ok: #0a7a3e;
+  --color-caution: #8a5a00;
+
+  --font-sans: var(--font-inter-tight), "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  --text-display: 4.5rem;
+  --text-display--line-height: 0.9;
+  --text-display--letter-spacing: -0.05em;
+  --text-headline: 3rem;
+  --text-headline--line-height: 0.95;
+  --text-headline--letter-spacing: -0.045em;
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.03em;
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* A clear focus ring for keyboard users; square buttons have no other cue. */
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--color-signal);
+  color: var(--color-paper);
+}
+
+/*
+ * The one orchestrated moment: on first load, display lines rise into place
+ * one after another. Elements opt in with .rise and a --delay.
+ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: rise 0.9s var(--ease-out-quart) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* The pipeline track fills to show progress as a post moves through stages. */
+@keyframes fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.fill {
+  transform-origin: left center;
+  animation: fill 0.6s var(--ease-out-quart) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .fill {
+    animation: none;
+  }
+
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

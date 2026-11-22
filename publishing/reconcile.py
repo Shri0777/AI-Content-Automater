@@ -21,7 +21,7 @@ from core.errors import AppError, ProviderError
 from notifications.services import notify
 from publishing.models import Publication
 from publishing.services import finish_post
-from social.platforms import get_publisher
+from social.platforms import publisher_for_account
 
 # Give the platform a moment before asking it what happened.
 CHECK_AFTER = timedelta(minutes=2)
@@ -75,7 +75,7 @@ def ask_platform(publication):
     """Return the platform's outcome for an ambiguous publication."""
     if publication.account is None:
         return {"outcome": "unknown", "external_id": ""}
-    publisher = get_publisher(publication.account.platform)
+    publisher = publisher_for_account(publication.account)
     try:
         return publisher.check_status(publication.account, publication)
     except ProviderError:

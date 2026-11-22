@@ -102,3 +102,11 @@ class ProviderKeyRejected(ProviderError):
     """
 
     credential = None
+
+
+class ProviderNotFound(ProviderError):
+    """The service has nothing at that address (HTTP 404).
+
+    For AI providers this usually means a wrong model name, so the provider
+    class can catch it and tell the user which name to check.
+    """

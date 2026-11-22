@@ -50,7 +50,7 @@ def test_daily_usage_shows_what_is_used_and_when_it_resets(api_client, user):
     posts = find_limit(api_client.get(USAGE_URL), "posts_per_day")
 
     assert posts["used"] == 2
-    assert posts["limit"] == 6
+    assert posts["limit"] == 10
     assert posts["resets_at"] == "2026-11-13T00:00:00+00:00"
 
 

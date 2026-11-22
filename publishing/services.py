@@ -10,13 +10,15 @@ from django.utils import timezone
 
 from core.errors import ProviderError, ProviderKeyRejected, ProviderNoAnswer
 from notifications.services import notify
+from publishing.captions import fitted_caption
 from publishing.models import Publication
-from social.platforms import caption_limit_for, get_publisher
+from social.platforms import caption_limit_for, publisher_for_account
 from social.publishers import PostContent
 from social.tokens import REFRESH_BEFORE_POSTING, mark_needs_reauth, refresh_account
-from studio.files import read_poster
+from studio.files import read_poster, read_slides
 from studio.models import Post
 from studio.public_links import make_public_poster_url
+from studio.slides import slides_to_pdf
 from studio.statuses import StatusChangeNotAllowed, change_status
 
 ELLIPSIS = "…"
@@ -43,29 +45,56 @@ def make_idempotency_key(post, version, account):
 
 
 def caption_for(post, version, account):
-    """Return the caption to send, with the plan's AI label if it is on."""
+    """Return the caption to send, fitted to the platform, with the AI label."""
     label = ""
     if post.plan.ai_label_enabled:
         label = post.plan.ai_label_text
-    return add_ai_label(version.caption, label, caption_limit_for(account))
+    limit = caption_limit_for(account)
+    room = limit - len(label) - 2 if label else limit
+    link = post.article.url if post.article is not None else ""
+    return add_ai_label(fitted_caption(version, link, room), label, limit)
 
 
-def send_to_platform(post, version, account, poster):
+class PostImages:
+    """The images of one post, read once and sent to every account.
+
+    poster is the square share image. document is a PDF of the slides, for
+    platforms that take one (LinkedIn), or b"" for posts made before slides.
+    """
+
+    def __init__(self, poster, document):
+        self.poster = poster
+        self.document = document
+
+
+def images_of(version):
+    """Return the PostImages of a version (the PDF only if it has slides)."""
+    document = b""
+    if len(version.slide_paths) > 1:
+        document = slides_to_pdf(read_slides(version))
+    return PostImages(read_poster(version), document)
+
+
+def send_to_platform(post, version, account, images):
     """Refresh the account's token if needed, then post; return the post id."""
     account = refresh_account(account.id, REFRESH_BEFORE_POSTING)
     if account.status != "active":
         raise ProviderError(f"{account.display_name} must be connected again.")
     content = PostContent(
-        caption_for(post, version, account), poster, make_public_poster_url(version)
+        caption_for(post, version, account),
+        images.poster,
+        make_public_poster_url(version),
     )
+    content.document_bytes = images.document
+    content.document_title = version.headline
     try:
-        return get_publisher(account.platform).publish(account, content)
+        return publisher_for_account(account).publish(account, content)
     except ProviderKeyRejected:
         mark_needs_reauth(account, "The platform refused this account's token.")
         raise
 
 
-def publish_to_account(post, version, account, poster):
+def publish_to_account(post, version, account, images):
     """Publish to one account and return the Publication.
 
     Only the first attempt for a key contacts the platform. If a record
@@ -83,14 +112,14 @@ def publish_to_account(post, version, account, poster):
     )
     if not created:
         return publication
-    send_and_record(publication, post, version, account, poster)
+    send_and_record(publication, post, version, account, images)
     return publication
 
 
-def send_and_record(publication, post, version, account, poster):
+def send_and_record(publication, post, version, account, images):
     """Send the post to the platform and save how it went on publication."""
     try:
-        publication.external_id = send_to_platform(post, version, account, poster)
+        publication.external_id = send_to_platform(post, version, account, images)
     except ProviderNoAnswer as error:
         # It may have gone out: never send it again on our own.
         publication.status = "ambiguous"
@@ -196,10 +225,10 @@ def publish_post(post_id):
     if version.image_expired or not version.poster_path:
         fail_for_missing_poster(post)
         return post.status
-    poster = read_poster(version)
+    images = images_of(version)
     publications = []
     for account in post.plan.accounts.filter(status="active"):
-        publications.append(publish_to_account(post, version, account, poster))
+        publications.append(publish_to_account(post, version, account, images))
     if not publications:
         reason = "The plan has no active social accounts to publish to."
         change_status(post, "failed", reason)

@@ -39,7 +39,7 @@ and social providers (`demo/`), so no API keys are needed.
 10. `newsroom/`: keyless news sources (RSS, Hacker News), polite fetching,
     the shared article store and the quality gates that choose an article.
 11. `studio/`: the post pipeline (with up to 2 correction rounds), the status
-    table, the poster renderer and the prompt-injection guards.
+    table, the slide renderer and the prompt-injection guards.
 12. `publishing/`: sending approved posts, never twice; the auto-post gate;
     and settling posts a platform never confirmed.
 13. `demo/`: the fake providers used in demo mode and by the tests.
@@ -72,7 +72,7 @@ Tasks call services too. Business rules never live in views or serializers.
 | **Task wrapper:** a Celery task that calls one service | `notifications/tasks.py` |
 | **Quota check:** `check_total_limit()` or `use_daily_quota()` before the work | `quotas/services.py` |
 | **Notification helper:** `notify(user, kind, message)` | `notifications/services.py` |
-| **Library wrapper:** a library used in one file behind a simple function | `core/crypto.py` (`encrypt_text`), `core/web.py` (httpx), `studio/anthropic_text.py` (anthropic), `studio/posters.py` (Pillow) |
+| **Library wrapper:** a library used in one file behind a simple function | `core/crypto.py` (`encrypt_text`), `core/web.py` (httpx), `studio/anthropic_text.py` (anthropic), `studio/posters.py` and `studio/slides.py` (Pillow) |
 | **Adapter:** one base class, one subclass per provider | `studio/text_models.py` with `studio/openai_compatible.py`, `studio/anthropic_text.py` and `demo/text_model.py`; also image models, `social/publishers.py`, `newsroom/sources.py` |
 | **Status table:** a dict of allowed status changes | `studio/statuses.py`, `ALLOWED_TRANSITIONS` and `change_status()` |
 
@@ -112,9 +112,13 @@ Tasks call services too. Business rules never live in views or serializers.
    status in `STAGES` (`studio/pipeline.py`) and runs it:
    - `research`: `newsroom.services.pick_article()` finds a fresh, unused
      article, or the post is **skipped** (never filler).
-   - `draft`: the text model writes the headline and caption.
-   - `make_poster`: the text model writes an image prompt, the image model
-     makes artwork, and `render_poster()` adds the headline.
+   - `draft`: the text model writes the headline, key points, figure,
+     quote, takeaway and caption; `studio/post_content.py` drops a quote or
+     figure the article does not contain.
+   - `make_poster`: `save_visuals()` (`studio/visuals.py`) draws the slides
+     and the square share image with `studio/slides.py`. Only when the plan
+     turned on AI artwork does the text model write an image prompt and the
+     image model make cover artwork first.
    - `review`: the text model scores the post, `decide_verdict()` applies
      fixed rules, and `notify()` tells the user it is waiting.
    Every stage run saves a `GenerationStep` (models used, prompt versions,
@@ -151,7 +155,7 @@ article, versions, review, steps and publications.
 | **Migration** | A file that creates or changes database tables. |
 | **Serializer** | Code that checks incoming data and shapes outgoing data. |
 | **Throttling** | Refusing requests when someone sends too many too fast. |
-| **Quota** | A free-tier limit, such as 6 posts per day. |
+| **Quota** | A free-tier limit, such as 10 posts per day. |
 | **Adapter** | One base class with one subclass per outside service, so the rest of the code never knows which service it uses. |
 | **Demo mode** | `DEMO_MODE=true`: fake providers stand in for every outside service, so no API keys are needed. |
 | **Pipeline stage** | One step of making a post (research, draft, poster, review), run as one background job. |

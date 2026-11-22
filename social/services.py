@@ -13,7 +13,7 @@ from core.errors import AppError, ProviderError, ProviderKeyRejected
 from quotas.services import check_total_limit, count_total_items
 from social.buffer_publisher import BufferPublisher
 from social.models import SocialAccount
-from social.platforms import get_publisher
+from social.platforms import publisher_for_account
 from social.tokens import store_tokens
 
 
@@ -84,14 +84,36 @@ def save_found_accounts(user, platform, found_accounts):
     return saved
 
 
-def link_buffer_accounts(user, api_key, channel_ids):
-    """Link the Buffer channels the API key can see (or only channel_ids)."""
+def find_buffer_channels(api_key):
+    """Return the channels a Buffer API key can see, or raise PlatformRefused."""
     try:
-        channels = BufferPublisher().find_channels(api_key)
+        return BufferPublisher().find_channels(api_key)
     except ProviderKeyRejected:
         raise PlatformRefused("Buffer did not accept this API key.") from None
     except ProviderError as error:
         raise PlatformRefused(str(error)) from None
+
+
+def list_buffer_channels(api_key):
+    """Return the key's channels (id, name, network) without linking any.
+
+    The settings screen shows these so the user can choose which to link.
+    """
+    channels = []
+    for found in find_buffer_channels(api_key):
+        channels.append(
+            {
+                "id": found["external_id"],
+                "name": found["channel_name"],
+                "network": found["network"],
+            }
+        )
+    return channels
+
+
+def link_buffer_accounts(user, api_key, channel_ids):
+    """Link the Buffer channels the API key can see (or only channel_ids)."""
+    channels = find_buffer_channels(api_key)
     if channel_ids:
         channels = [found for found in channels if found["external_id"] in channel_ids]
     if not channels:
@@ -132,7 +154,7 @@ def unlink_account(user, account_id):
 def try_to_revoke(account):
     """Ask the platform to cancel the account's tokens; return True if it did."""
     try:
-        get_publisher(account.platform).revoke(account)
+        publisher_for_account(account).revoke(account)
     except ProviderError:
         return False
     return True

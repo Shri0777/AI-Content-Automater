@@ -104,3 +104,35 @@ def test_buffer_cannot_be_given_a_poster_on_a_private_address(
 
     with pytest.raises(ProviderError, match="PUBLIC_API_URL"):
         get_publisher("buffer").publish(account, PostContent("C", b"", local_poster))
+
+
+CHANNELS_URL = "/api/v1/social/buffer/channels/"
+
+
+def test_a_users_buffer_channels_are_listed_without_linking_them(client, platforms):
+    add_buffer_routes(platforms)
+
+    response = client.post(CHANNELS_URL, {"api_key": "buffer-key-1"}, format="json")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"id": "channel-org-1", "name": "Ada org-1", "network": "linkedin"},
+        {"id": "channel-org-2", "name": "Ada org-2", "network": "linkedin"},
+    ]
+    assert not SocialAccount.objects.exists()
+    assert "buffer-key-1" not in response.content.decode()
+
+
+def test_listing_channels_with_a_refused_key_is_a_clear_error(client, platforms):
+    platforms.set_route("POST", BUFFER_PATH, {"status": 401, "json": {}})
+
+    response = client.post(CHANNELS_URL, {"api_key": "wrong"}, format="json")
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "platform_refused"
+
+
+def test_listing_channels_needs_a_login(api_client, platforms):
+    response = api_client.post(CHANNELS_URL, {"api_key": "x"}, format="json")
+
+    assert response.status_code == 401

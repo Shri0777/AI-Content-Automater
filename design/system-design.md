@@ -273,10 +273,10 @@ Defaults applied unless the owner objects: the optional paid news key stays off 
 | Active content plans | 3 | Bounds scheduling and ingest breadth |
 | Topics per plan | 6 | Bounds news selection per run |
 | Linked social accounts | 5 | Bounds publishing fan-out |
-| Posts generated per day (all plans) | 6 | Main compute and storage driver. A post counts once it reaches `drafting`. |
-| Posts generated per plan per day | 4 | Stops one plan consuming the whole allowance |
+| Posts generated per day (all plans) | 10 | Main compute and storage driver. A post counts once it reaches `drafting`. |
+| Posts generated per plan per day | 10 | Stops one plan consuming the whole allowance |
 | Schedule horizon | 14 days ahead | Bounds materialised slots |
-| Manual "generate now" runs | 5 per day | |
+| Manual "generate now" runs | 10 per day | |
 | Regenerations per post | 3 | Stops costly regeneration loops |
 | Automatic correction rounds | 2 (system rule) | Already designed (§8.4) |
 | Credentials | 1 active per kind (text, image, news) | |

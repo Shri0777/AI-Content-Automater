@@ -13,6 +13,7 @@ from newsroom.ingest import ensure_recent_ingest
 from newsroom.models import ArticleUse
 from newsroom.presets import TOPIC_PRESETS
 from newsroom.ranking import best_rated, make_shortlist
+from planning.custom_topics import requirements_for
 from quotas.services import use_daily_quota
 
 
@@ -33,7 +34,7 @@ def pick_article(plan, topic, text_model):
     shortlist = make_shortlist(plan, topic.preset, topic.name, timezone.now())
     if not shortlist:
         return None
-    ratings = text_model.score_articles(shortlist, plan.requirements)
+    ratings = text_model.score_articles(shortlist, requirements_for(plan, topic))
     return best_rated(shortlist, ratings)
 
 

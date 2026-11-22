@@ -48,13 +48,17 @@ class PostContent:
     """What gets published: the caption and the poster image.
 
     Some platforms take the image bytes; others (Buffer) download it from
-    image_url themselves.
+    image_url themselves. document_bytes is a PDF of the slides, which
+    LinkedIn shows as a document people swipe through; it is b"" for posts
+    made before slides, which are posted with the image instead.
     """
 
     def __init__(self, caption, image_bytes, image_url):
         self.caption = caption
         self.image_bytes = image_bytes
         self.image_url = image_url
+        self.document_bytes = b""
+        self.document_title = ""
 
 
 def access_token_of(account):
@@ -75,6 +79,14 @@ class Publisher:
     # True for platforms linked by sending the user to the platform's own
     # approval page (OAuth). Buffer and the demo network work differently.
     uses_oauth = False
+
+    def __init__(self, app=None):
+        """Keep the developer app ({"client_id", "client_secret"}) to act as.
+
+        OAuth platforms need it to link accounts and refresh tokens; see
+        social/platform_apps.py for where it comes from.
+        """
+        self.app = app or {"client_id": "", "client_secret": ""}
 
     def authorization_url(self, state, code_challenge, redirect_uri):
         """Return the platform page where the user approves the link."""

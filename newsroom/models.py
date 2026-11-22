@@ -12,8 +12,6 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
-from newsroom.presets import PRESET_CHOICES
-
 
 class Article(models.Model):
     """One news article (or evergreen tip) read from a news source."""
@@ -32,7 +30,8 @@ class Article(models.Model):
     source_tier = models.CharField(max_length=20, default="reputable")
     # Votes or similar from the source (Hacker News points); 0 if none.
     popularity = models.PositiveIntegerField(default=0)
-    preset = models.CharField(max_length=40, choices=PRESET_CHOICES)
+    # A built-in preset key, or "custom-<topic id>" for a user's own topic.
+    preset = models.CharField(max_length=40)
     published_at = models.DateTimeField()
     text = models.TextField(blank=True)
     # Where the text came from: "feed", "page" (fetched and cleaned) or "".

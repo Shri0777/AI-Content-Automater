@@ -3,7 +3,7 @@
 Columns: approval mode | review verdict | review issues | total score |
 topic | every score 5? | gate opens?
 
-The plan's minimum score is 22 (the default). "strict" topics are layoffs,
+The plan's minimum score is 26 of 30 (the default). "strict" topics are layoffs,
 hiring and Linux tips; "normal" is AI news.
 """
 
@@ -14,18 +14,18 @@ from studio.verdicts import SCORE_NAMES
 
 GATE_TABLE = [
     # mode,    verdict,   issues,  total, topic,    all 5s, opens
-    ("manual", "pass", "none", 25, "normal", True, False),
-    ("manual", "pass", "none", 25, "strict", True, False),
-    ("auto", "revise", "none", 25, "normal", True, False),
-    ("auto", "reject", "none", 25, "normal", True, False),
-    ("auto", "pass", "minor", 25, "normal", True, False),
-    ("auto", "pass", "none", 21, "normal", False, False),
-    ("auto", "pass", "none", 22, "normal", False, True),
-    ("auto", "pass", "none", 25, "normal", True, True),
-    ("auto", "pass", "none", 24, "strict", False, False),
-    ("auto", "pass", "none", 25, "strict", True, True),
-    ("auto", "pass", "minor", 25, "strict", True, False),
-    ("auto", "revise", "none", 25, "strict", True, False),
+    ("manual", "pass", "none", 30, "normal", True, False),
+    ("manual", "pass", "none", 30, "strict", True, False),
+    ("auto", "revise", "none", 30, "normal", True, False),
+    ("auto", "reject", "none", 30, "normal", True, False),
+    ("auto", "pass", "minor", 30, "normal", True, False),
+    ("auto", "pass", "none", 25, "normal", False, False),
+    ("auto", "pass", "none", 26, "normal", False, True),
+    ("auto", "pass", "none", 30, "normal", True, True),
+    ("auto", "pass", "none", 29, "strict", False, False),
+    ("auto", "pass", "none", 30, "strict", True, True),
+    ("auto", "pass", "minor", 30, "strict", True, False),
+    ("auto", "revise", "none", 30, "strict", True, False),
 ]
 
 TOPICS = {"normal": "ai_news", "strict": "layoffs"}
@@ -36,7 +36,7 @@ class Plan:
 
     def __init__(self, mode):
         self.approval_mode = mode
-        self.auto_post_min_score = 22
+        self.auto_post_min_score = 26
 
 
 class Topic:
@@ -61,15 +61,15 @@ class Review:
 
 
 def scores_adding_up_to(total, all_fives):
-    """Return five scores (each 1 to 5) that add up to total."""
+    """Return six scores (each 1 to 5) that add up to total."""
     if all_fives:
-        assert total == 25
+        assert total == 30
         return {name: 5 for name in SCORE_NAMES}
     scores = {name: 4 for name in SCORE_NAMES}
-    extra = total - 20
+    extra = max(0, total - 24)
     for name in SCORE_NAMES[:extra]:
         scores[name] = 5
-    scores["safety"] = scores["safety"] - max(0, 20 - total)
+    scores["safety"] = scores["safety"] - max(0, 24 - total)
     return scores
 
 
@@ -99,17 +99,18 @@ def test_the_gate_is_closed_for_every_combination_but_a_clean_pass(topic):
         for verdict in ["pass", "revise", "reject"]:
             for issues in ["none", "minor"]:
                 for total, all_fives in [
-                    (18, False),
-                    (21, False),
                     (22, False),
-                    (25, True),
+                    (25, False),
+                    (26, False),
+                    (30, True),
                 ]:
                     review = Review(verdict, issues, total, all_fives)
+                    assert review.total() == total
                     allowed, _ = check_auto_post(Plan(mode), Topic(topic), review)
                     if allowed:
                         opened.append((mode, verdict, issues, total))
 
-    expected = [("auto", "pass", "none", 25)]
+    expected = [("auto", "pass", "none", 30)]
     if topic == "normal":
-        expected = [("auto", "pass", "none", 22), ("auto", "pass", "none", 25)]
+        expected = [("auto", "pass", "none", 26), ("auto", "pass", "none", 30)]
     assert opened == expected

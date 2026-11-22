@@ -7,21 +7,26 @@
 ![License MIT](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **A backend that runs a social media account on a schedule.** It finds
-real news on the topics you pick, writes a caption and a poster with the AI
-models *you* choose, has an AI reviewer check it (with the final verdict
+real news on the topics you pick (34 built in, or your own with your own
+instructions), writes a post worth saving (a specific headline, 3 to 5 key
+points and a fuller caption, following [post_creation.md](post_creation.md))
+and a set of slides (one idea each, in your brand colour) with the AI models *you* choose, has an AI reviewer check it (with the final verdict
 decided by code), corrects it, and publishes through Buffer, X, LinkedIn or
 Facebook at the times you set: automatically, or after your approval.
 
-<img src="docs/images/demo-poster.png" alt="A poster made in demo mode: a headline about a fictional company on generated artwork, with the source credited" width="360">
+<img src="docs/images/demo-slides.png" alt="The first four slides of a demo post: a cover with the headline, the key number 120 shown big, then one key point per slide" width="720">
 
-*A poster made by the demo (fictional article, generated artwork, headline
-drawn by the app so it is always spelled right).*
+*The first slides of a demo post (fictional article): a cover, the key
+number, then one point per slide. All text is drawn by the app, so it is
+always spelled right. There is no AI image unless a plan turns it on:
+readers trust posts less when they look AI-made. LinkedIn gets the slides
+as one document post; X, Facebook and Buffer get one square image.*
 
 ```mermaid
 flowchart LR
     news["News feeds"] --> pick["Pick a good,<br/>fresh article"]
-    pick --> write["AI writes caption<br/>and image prompt"]
-    write --> poster["AI artwork +<br/>headline drawn on it"]
+    pick --> write["AI writes headline,<br/>key points, caption"]
+    write --> poster["Slides: cover, figure,<br/>one point each"]
     poster --> review["AI review,<br/>verdict by code"]
     review -->|fix, up to 2x| write
     review --> gate{"Auto-post gate<br/>(closed by default)"}
@@ -92,15 +97,13 @@ interactive API. A full run of the walkthrough is in
   adapter follows that provider's documentation and is tested against stub
   servers; only Buffer's refusal of a wrong key has been seen live. Real
   accounts need developer apps (see "Linking real social accounts").
-- **No frontend yet**: the API (and Swagger UI) is the interface for now.
 - **Not deployed**: it runs locally with Docker Compose.
 - Instagram is not linked yet (it needs a public JPEG address).
 
 ## What's next
 
 1. Run every adapter once with real keys and accounts, and record the result.
-2. The frontend (theme analysed in [design/frontend-theme.md](design/frontend-theme.md)).
-3. Deployment, with the production settings that already refuse unsafe values.
+2. Deployment, with the production settings that already refuse unsafe values.
 
 ## Quickstart (development)
 
@@ -138,22 +141,34 @@ docker compose up --build
 
 ## Linking real social accounts
 
-Demo mode needs nothing. To link real accounts, set these environment
-variables (`GET /api/v1/social/platforms/` shows which platforms are ready):
+Demo mode needs nothing. Each user links real accounts in the app, on the
+Social accounts page:
+
+- **Buffer**: paste your Buffer API key (Buffer, Settings, API), then choose
+  your channels.
+- **X, LinkedIn, Facebook Page**: these platforms only let a registered app
+  post for you, so you create your own developer app once, register the
+  callback address the page shows you, and save the app's id and secret
+  (stored encrypted). Then choose Connect. For local testing, X asks for
+  `127.0.0.1` rather than `localhost` in callback addresses
+  ([X developer apps](https://docs.x.com/fundamentals/developer-apps)); if X
+  refuses, set `PUBLIC_API_URL=http://127.0.0.1:8000`.
+
+The server's environment variables (`GET /api/v1/social/platforms/` shows
+which platforms are ready for you):
 
 | Variable | Needed for |
 |---|---|
 | `PUBLIC_API_URL` | The address the internet uses to reach this API (default `http://localhost:8000`). Platforms send users back here, and Buffer downloads posters from here, so Buffer needs a public address. |
-| `FRONTEND_URL` | Where users land after linking (default `http://localhost:5173`). |
-| `X_CLIENT_ID`, `X_CLIENT_SECRET` | X: an app from the X developer console with OAuth 2.0 turned on. |
-| `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | LinkedIn: an app with the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products. |
-| `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | Facebook Pages: a Meta app with Facebook Login. Some permissions need Meta's app review. |
+| `FRONTEND_URL` | Where users land after linking: the frontend (default `http://localhost:3000`). |
+| `X_CLIENT_ID`, `X_CLIENT_SECRET` | Optional fallback for users without their own app. X: an app with OAuth 2.0 turned on. |
+| `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | Optional fallback. LinkedIn: an app with the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products. |
+| `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | Optional fallback. Facebook Pages: a Meta app with Facebook Login. Some permissions need Meta's app review. |
 | `LINKEDIN_API_VERSION` | Optional; LinkedIn's API version, `YYYYMM` (default `202610`). |
 
-Register each app's redirect address as
-`<PUBLIC_API_URL>/api/v1/social/link/<x|linkedin|facebook>/callback/`.
-Buffer needs no app: each user pastes their own API key from Buffer's
-Settings > API page. The adapters are tested against stub servers that
+Every app (yours or the server's) must have its redirect address registered
+as `<PUBLIC_API_URL>/api/v1/social/link/<x|linkedin|facebook>/callback/`,
+matching exactly. The adapters are tested against stub servers that
 answer in each platform's documented format; they have not yet been run
 against the live platforms.
 

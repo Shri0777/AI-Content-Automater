@@ -5,7 +5,7 @@ Two kinds of limits exist:
   3 active plans. count_total_items() counts them, and the feature that
   owns them calls check_total_limit() before creating a new one.
 - "day" limits are counters that start again at midnight in the user's own
-  timezone, for example 6 posts per day. Call use_daily_quota() when the
+  timezone, for example 10 posts per day. Call use_daily_quota() when the
   thing being limited actually happens.
 """
 

@@ -48,10 +48,14 @@ def api_routes_with_ids():
 
 
 def fill_in(route, ids):
-    """Replace each <uuid:name> in route with the matching id."""
+    """Replace each <uuid:name> in route with the matching id.
+
+    A slide number (<int:number>) is 1: the cover, which every post has.
+    """
     address = "/" + route
     for name, value in ids.items():
         address = address.replace(f"<uuid:{name}>", str(value))
+    address = address.replace("<int:number>", "1")
     assert "<" not in address, f"Add an owned object for this id: {route}"
     return address
 

@@ -6,9 +6,10 @@
 | `apps.py` | Tells Django this app exists. |
 | `models.py` | `Publication`: one post version sent to one account, with a unique `idempotency_key`. |
 | `serializers.py` | What a publication looks like inside a post. |
+| `captions.py` | `fitted_caption`: the whole caption where it fits; for a short limit (X's 280 characters) a caption rebuilt from the headline, takeaway, closing question and link instead of one cut mid-sentence. |
 | `gate.py` | The auto-post gate: `check_auto_post(plan, topic, review)`, five small rules, closed by default. Tested as a table, one row per case. |
 | `reconcile.py` | Settles "ambiguous" publications (sent, never answered): asks the platform, otherwise asks the owner once; `resolve_publication` records the owner's answer. Sends stuck in "publishing" (a crashed worker) become ambiguous after 10 minutes. |
-| `services.py` | `publish_post` (publish to every active account of the plan), `publish_to_account`, `finish_post` (settles the post's status; a second worker stops quietly), `add_ai_label`. |
+| `services.py` | `publish_post` (publish to every active account of the plan), `publish_to_account`, `finish_post` (settles the post's status; a second worker stops quietly), `add_ai_label`, and `images_of` (the share image plus, for LinkedIn, a PDF of the slides). |
 | `scheduled.py` | `publish_due_posts` (approved scheduled posts, at their time) and `expire_late_approvals` (posts nobody approved in time, for plans set to `expire`). Both run every minute with the dispatcher. |
 | `tasks.py` | `publish_post_task` (publishes one post) and `reconcile_publications_task` (every 10 minutes). |
 | `urls.py` | `/api/v1/publications/<id>/resolve/` |

@@ -22,7 +22,7 @@ from core.errors import ProviderError
 from newsroom.extract import html_to_text
 from newsroom.fetching import OverBudget, fetch_page_html
 from newsroom.models import Article, IngestRecord
-from newsroom.presets import TOPIC_PRESETS
+from newsroom.presets import get_preset
 from newsroom.sources import get_sources
 from planning.models import Topic
 
@@ -131,7 +131,7 @@ def read_missing_texts(preset):
 def mentions_topic(preset, item):
     """Return True if the item's title or text mentions a preset keyword."""
     searched = f"{item['title']} {item['text'][:3000]}".lower()
-    for keyword in TOPIC_PRESETS[preset]["keywords"]:
+    for keyword in get_preset(preset)["keywords"]:
         if keyword in searched:
             return True
     return False

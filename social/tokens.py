@@ -16,7 +16,7 @@ from core.crypto import encrypt_text
 from core.errors import ProviderBusy, ProviderKeyRejected
 from notifications.services import notify
 from social.models import SocialAccount
-from social.platforms import get_publisher
+from social.platforms import publisher_for_account
 
 # Before a post: refresh if the token ends within this time.
 REFRESH_BEFORE_POSTING = timedelta(minutes=10)
@@ -67,7 +67,7 @@ def mark_needs_reauth(account, reason):
 def refresh_locked_account(account):
     """Refresh an account whose row the caller has locked."""
     try:
-        tokens = get_publisher(account.platform).refresh_tokens(account)
+        tokens = publisher_for_account(account).refresh_tokens(account)
     except ProviderKeyRejected:
         mark_needs_reauth(account, "The platform no longer accepts this link.")
         return
